@@ -38,14 +38,6 @@
 
 Write HQL queries faster with syntax highlighting, schema-aware autocomplete, and real-time error checking. The editor understands your graph structure and suggests valid traversals as you type.
 
-### 🕸️ Graph Visualization
-
-Interact with your data using high-performance node-link diagrams. Explore clusters, trace paths, and inspect properties visually.
-
-<div align="center">
-  <img src="docs/assets/graph.png" alt="Graph Visualization" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
-</div>
-
 ### 🛠️ Production Workbench
 
 Manage multiple connections (Local, Staging, Prod) and maintain a library of common queries. Seamlessly switch between **Table View** and **JSON View** for deep data inspection.
@@ -60,6 +52,14 @@ Visualize and understand your graph structure at a glance. Inspect node types, e
 
 <div align="center">
   <img src="docs/assets/schema.png" alt="Schema Manager" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
+</div>
+
+### 🕸️ Graph Visualization
+
+Interact with your data using high-performance node-link diagrams. Explore clusters, trace paths, and inspect properties visually.
+
+<div align="center">
+  <img src="docs/assets/graph.png" alt="Graph Visualization" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
 </div>
 
 ## 🛠️ Tech Stack

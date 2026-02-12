@@ -31,6 +31,9 @@ jobs:
       - name: install dependencies
         run: npm install -g pnpm && pnpm install
 
+      - name: build frontend
+        run: pnpm --filter @helixdb/app build
+
       - name: build and release
         uses: tauri-apps/tauri-action@v0
         env:

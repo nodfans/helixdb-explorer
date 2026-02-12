@@ -6,7 +6,6 @@
   "build": {
     "beforeDevCommand": "pnpm --filter @helixdb/app dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm --filter @helixdb/app build",
     "frontendDist": "../../app/dist"
   },
   "app": {
