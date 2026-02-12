@@ -32,6 +32,19 @@
 
 <br/>
 
+## 📦 Installation
+
+### Download Binary
+
+[**📥 Download latest HelixDB Explorer for macOS**](https://github.com/nodfans/helixdb-explorer/releases/latest/download/HelixDB-Explorer-macOS.dmg)
+
+> [!IMPORTANT]
+> **Gatekeeper Warning**: Since this app is not signed by a registered Apple Developer, you may see a "damaged" error. To fix this, run this command in your terminal:
+>
+> ```bash
+> xattr -cr "/Applications/HelixDB Explorer.app"
+> ```
+
 ## ✨ Features
 
 ### 🧠 Intelligent Editor
@@ -61,19 +74,6 @@ Interact with your data using high-performance node-link diagrams. Explore clust
 <div align="center">
   <img src="docs/assets/graph.png" alt="Graph Visualization" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
 </div>
-
-## 📦 Installation
-
-### Download Binary
-
-[**📥 Download latest HelixDB Explorer for macOS**](https://github.com/nodfans/helixdb-explorer/releases/latest/download/HelixDB-Explorer-macOS.dmg)
-
-> [!IMPORTANT]
-> **Gatekeeper Warning**: Since this app is not signed by a registered Apple Developer, you may see a "damaged" error. To fix this, run:
->
-> ```bash
-> xattr -cr "/Applications/HelixDB Explorer.app"
-> ```
 
 ### Build from Source
 

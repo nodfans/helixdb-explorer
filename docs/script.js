@@ -38,3 +38,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 300);
   }
 });
+
+function copyToClipboard() {
+  const codeElement = document.getElementById("gatekeeper-cmd");
+  const text = codeElement.innerText;
+  const button = document.querySelector(".btn-copy");
+  const originalText = button.innerHTML;
+
+  navigator.clipboard.writeText(text).then(() => {
+    button.innerHTML = "<span>Copied!</span>";
+    button.style.background = "#059669"; // Green success color
+    setTimeout(() => {
+      button.innerHTML = originalText;
+      button.style.background = "";
+    }, 2000);
+  });
+}

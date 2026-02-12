@@ -49,7 +49,14 @@
 
         <div class="gatekeeper-tip">
           <span class="tip-badge">Gatekeeper Fix</span>
-          <p>Seeing a "damaged" error? Run: <code>xattr -cr "/Applications/HelixDB Explorer.app"</code></p>
+          <p>Seeing a "damaged" error? Run this in Terminal:</p>
+          <div class="copy-box">
+            <code id="gatekeeper-cmd">xattr -cr "/Applications/HelixDB Explorer.app"</code>
+            <button onclick="copyToClipboard()" class="btn-copy">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span>Copy</span>
+            </button>
+          </div>
         </div>
 
         <div class="hero-visual">
