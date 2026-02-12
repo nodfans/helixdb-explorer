@@ -26,12 +26,6 @@
 
 <br/>
 
-<div align="center">
-  <img src="docs/assets/hql.png" alt="HelixDB Explorer Screenshot" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
-</div>
-
-<br/>
-
 ## 📦 Installation
 
 ### Download Binary
@@ -75,6 +69,10 @@ Interact with your data using high-performance node-link diagrams. Explore clust
   <img src="docs/assets/graph.png" alt="Graph Visualization" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
 </div>
 
+<div align="center">
+  <img src="docs/assets/hql.png" alt="HelixDB Explorer Screenshot" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
+</div>
+
 ### Build from Source
 
 Requirements:
@@ -107,4 +105,4 @@ pnpm tauri build
 
 ## 📄 License
 
-MIT © [HelixDB Team](https://github.com/nodfans)
+MIT © [HelixDB Explorer Team](https://github.com/nodfans)
