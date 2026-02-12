@@ -24,8 +24,6 @@
   </p>
 </div>
 
-<br/>
-
 ## 📦 Installation
 
 ### Download Binary
@@ -44,6 +42,10 @@
 ### 🧠 Intelligent Editor
 
 Write HQL queries faster with syntax highlighting, schema-aware autocomplete, and real-time error checking. The editor understands your graph structure and suggests valid traversals as you type.
+
+<div align="center">
+  <img src="docs/assets/hql.png" alt="HelixDB Explorer Screenshot" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
+</div>
 
 ### 🛠️ Production Workbench
 
@@ -67,10 +69,6 @@ Interact with your data using high-performance node-link diagrams. Explore clust
 
 <div align="center">
   <img src="docs/assets/graph.png" alt="Graph Visualization" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
-</div>
-
-<div align="center">
-  <img src="docs/assets/hql.png" alt="HelixDB Explorer Screenshot" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
 </div>
 
 ### Build from Source
