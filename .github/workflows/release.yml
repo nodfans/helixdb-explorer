@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - dev
     tags:
       - "v*"
 
@@ -48,5 +49,5 @@ jobs:
         with:
           draft: true
           files: |
-            packages/desktop/src-tauri/target/release/bundle/dmg/*.dmg
-            packages/desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz
+            packages/desktop/src-tauri/target/**/bundle/dmg/*.dmg
+            packages/desktop/src-tauri/target/**/bundle/macos/*.app.tar.gz
