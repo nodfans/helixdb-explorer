@@ -35,7 +35,10 @@ jobs:
         run: pnpm --filter @helixdb/app build
 
       - name: build tauri
-        run: pnpm --filter @helixdb/desktop build
+        run: |
+          cd packages/desktop
+          pnpm exec tauri build --verbose
+          ls -R src-tauri/target/release/bundle || echo "Bundle directory not found"
 
       - name: upload release
         uses: softprops/action-gh-release@v1

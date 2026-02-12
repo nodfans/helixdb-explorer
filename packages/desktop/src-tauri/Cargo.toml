@@ -29,7 +29,7 @@ window-vibrancy = "0.7.1"
 tempfile = "3"
 regex = "1"
 dirs = "5"
-helix-db = { path = "../../../../helix-db/helix-db", features = ["compiler", "server"] }
+helix-db = { git = "https://github.com/HelixDB/helix-db", features = ["compiler", "server"] }
 sonic-rs = "0.5"
 chrono = "0.4"
 tokio = { version = "1", features = ["full"] }
