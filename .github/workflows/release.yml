@@ -38,8 +38,9 @@ jobs:
       - name: build tauri
         run: |
           cd packages/desktop
-          pnpm exec tauri build --verbose
-          ls -R src-tauri/target/release/bundle || echo "Bundle directory not found"
+          pnpm exec tauri build --verbose --bundles dmg,app
+          find src-tauri/target -name "*.dmg"
+          ls -R src-tauri/target/**/bundle || echo "Bundle directory not found"
 
       - name: upload release
         uses: softprops/action-gh-release@v1
