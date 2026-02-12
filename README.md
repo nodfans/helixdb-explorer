@@ -9,7 +9,7 @@
   <p>
     <a href="https://nodfans.github.io/helixdb-explorer"><strong>🌐 Visit Official Website</strong></a>
     ·
-    <a href="https://github.com/nodfans/helixdb-explorer/releases"><strong>📥 Download for macOS</strong></a>
+    <a href="https://github.com/nodfans/helixdb-explorer/releases/latest/download/HelixDB-Explorer-macOS.dmg"><strong>📥 Download for macOS</strong></a>
     ·
     <a href="https://github.com/nodfans/helixdb-explorer/issues">🐞 Report Bug</a>
   </p>
@@ -26,7 +26,7 @@
 
 ## 📦 Installation
 
-### Download Binary
+### Download App
 
 [**📥 Download latest HelixDB Explorer for macOS**](https://github.com/nodfans/helixdb-explorer/releases/latest/download/HelixDB-Explorer-macOS.dmg)
 
