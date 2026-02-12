@@ -22,7 +22,6 @@ packages/desktop/src-tauri/gen/schemas
 .DS_Store
 .AppleDouble
 .LSOverride
-Icon?
 ._*
 
 # IDEs

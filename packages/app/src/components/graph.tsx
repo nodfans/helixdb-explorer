@@ -706,13 +706,6 @@ export const Graph = (props: GraphProps) => {
         {/* Detail Panel */}
         <Show when={showDetailPanel()}>
           <div class="w-[280px] flex-none border-l border-native overflow-hidden flex flex-col bg-native-sidebar-vibrant">
-            <div class="h-9 px-3 border-b border-native flex items-center justify-between flex-none">
-              <span class="text-[11px] font-semibold text-native-secondary">Details</span>
-              <button onClick={() => setShowDetailPanel(false)} class="p-1 rounded hover:bg-native-content/50 text-native-quaternary hover:text-native-primary transition-colors">
-                <X size={12} />
-              </button>
-            </div>
-
             <Show
               when={selectedNode()}
               fallback={
@@ -726,33 +719,23 @@ export const Graph = (props: GraphProps) => {
             >
               {(node) => (
                 <div class="flex-1 overflow-y-auto scrollbar-thin">
-                  <div class="p-3 border-b border-native space-y-2.5">
-                    <Show when={node().type}>
-                      <div>
-                        <div class="text-[9px] font-medium text-native-quaternary uppercase tracking-wide mb-1">Type</div>
-                        <div class="flex items-center gap-2 px-2 py-1.5">
-                          <div class="w-1.5 h-1.5 rounded-full" style={{ "background-color": getNodeColor(node()) }} />
-                          <span class="text-[11px] text-native-secondary uppercase tracking-wide">{node().type}</span>
-                        </div>
-                      </div>
-                    </Show>
-                  </div>
-
                   <div class="p-3">
                     <div class="text-[9px] font-medium text-native-quaternary uppercase tracking-wide mb-2">Properties</div>
 
-                    <div class="space-y-2">
+                    <div class="space-y-1">
                       <For each={Object.entries(node()).filter(([k]) => !["x", "y", "vx", "vy", "index", "__indexColor", "fx", "fy", "val", "color"].includes(k))}>
                         {([key, value]) => (
-                          <div class="rounded-md bg-native-content/10 hover:bg-native-content/20 transition-colors p-2">
-                            <div class="text-[9px] font-medium text-native-quaternary tracking-wide mb-1">{key}</div>
-                            <div class="text-[10px] font-mono text-native-primary break-all select-all">
+                          <div class="group rounded-md bg-native-content/5 hover:bg-native-content/10 transition-all p-2 border border-transparent hover:border-native-subtle">
+                            <div class="text-[10px] font-normal text-native-tertiary uppercase tracking-wider mb-1 opacity-70 group-hover:opacity-100 transition-opacity">{key}</div>
+                            <div class="text-[11px] font-sans text-native-primary break-all select-all leading-relaxed">
                               {value === null || value === undefined ? (
                                 <span class="text-native-quaternary italic">null</span>
                               ) : typeof value === "object" ? (
-                                <pre class="text-[9px] text-native-tertiary overflow-x-auto">{JSON.stringify(value, null, 2)}</pre>
+                                <pre class="text-[10px] font-mono text-native-tertiary bg-native-content/5 p-1.5 rounded border border-native-subtle mt-1 overflow-x-auto">
+                                  {JSON.stringify(value, null, 2)}
+                                </pre>
                               ) : (
-                                String(value)
+                                <span class={typeof value === "number" ? "tabular-nums" : ""}>{String(value)}</span>
                               )}
                             </div>
                           </div>
@@ -811,7 +794,7 @@ export const Graph = (props: GraphProps) => {
           <Show when={selectedNode()}>
             <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20">
               <span class="text-[11px] font-semibold text-blue-400 tracking-wide">Selected:</span>
-              <span class="text-[11px] font-mono font-semibold text-blue-500">{(selectedNode() as any).id}</span>
+              <span class="text-[11px] font-semibold text-blue-500">{(selectedNode() as any).id}</span>
             </div>
 
             <div class="w-px h-4" style={{ "background-color": "var(--macos-border-light)" }} />

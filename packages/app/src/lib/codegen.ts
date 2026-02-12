@@ -285,38 +285,38 @@ export class HqlCodeGen {
         .filter((s) => s.trim() !== "")
         .join("\n\n")
         .trim();
-      if (cleanCrud) blocks.push(cleanCrud);
+      if (cleanCrud) blocks.push(`// --- DATA OPERATIONS (CRUD) ---\n${cleanCrud}`);
 
       const cleanDiscovery = discoverySegments
         .filter((s) => s.trim() !== "")
         .join("\n\n")
         .trim();
-      if (cleanDiscovery) blocks.push(cleanDiscovery);
+      if (cleanDiscovery) blocks.push(`// --- SEARCH & DISCOVERY ---\n${cleanDiscovery}`);
 
       const cleanPath = pathfindingSegments
         .filter((s) => s.trim() !== "")
         .join("\n\n")
         .trim();
-      if (cleanPath) blocks.push(cleanPath);
+      if (cleanPath) blocks.push(`// --- PATHFINDING & TRAVERSAL ---\n${cleanPath}`);
 
       const cleanIntelligence = intelligenceSegments
         .filter((s) => s.trim() !== "")
         .join("\n\n")
         .trim();
-      if (cleanIntelligence) blocks.push(cleanIntelligence);
+      if (cleanIntelligence) blocks.push(`// --- SMART VIEWS & INSIGHTS ---\n${cleanIntelligence}`);
 
       const cleanAnalytics = analyticsSegments
         .filter((s) => s.trim() !== "")
         .join("\n\n")
         .trim();
-      if (cleanAnalytics) blocks.push(cleanAnalytics);
+      if (cleanAnalytics) blocks.push(`// --- CONTEXTUAL ANALYTICS ---\n${cleanAnalytics}`);
 
-      // Join categories with DOUBLE blank lines (\n\n\n)
-      const entityBlock = blocks.join("\n\n\n");
+      // Join categories with SINGLE blank lines (\n\n)
+      const entityBlock = blocks.join("\n\n");
       if (entityBlock) allEntitiesSegments.push(entityBlock);
     }
 
-    return allEntitiesSegments.join("\n\n// " + "=".repeat(40) + "\n\n");
+    return allEntitiesSegments.join("\n\n");
   }
 
   // Helper for strict PascalCase (removes underscores)
