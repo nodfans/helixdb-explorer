@@ -27,6 +27,7 @@ Icon?
 
 # IDEs
 .vscode/
+.agent/
 !.vscode/extensions.json
 .idea/
 *.swp
