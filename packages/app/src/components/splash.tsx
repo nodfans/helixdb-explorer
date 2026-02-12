@@ -5,554 +5,429 @@ interface SplashScreenProps {
   minDuration?: number;
 }
 
-interface CodeLine {
-  keyword?: string;
-  text: string;
-  indent?: number;
-}
-
-interface CodeExample {
-  title: string;
-  code: CodeLine[];
-  schema?: string;
-}
-
-// Dynamic code examples showcasing different HelixQL features
-const CODE_EXAMPLES: CodeExample[] = [
-  // CRUD Operations
-  {
-    title: "Creating Nodes",
-    code: [
-      { keyword: "QUERY", text: "CreateUser(name: String, email: String, active: Boolean) =>" },
-      { text: "user <- Create<User> ({", indent: 1 },
-      { text: "name: name,", indent: 3 },
-      { text: "email: email,", indent: 3 },
-      { text: "active: active,", indent: 3 },
-      { text: "})" },
-      { keyword: "RETURN", text: "user", indent: 1 },
-    ],
-    schema: "N::User { name: String, email: String, active: Boolean }",
-  },
-];
-
 export const SplashScreen = (props: SplashScreenProps) => {
   const [loadingProgress, setLoadingProgress] = createSignal(0);
-  const [showContent] = createSignal(true);
   const [active, setActive] = createSignal(true);
+  const [phase, setPhase] = createSignal<"loading" | "ready">("loading");
+  const [visibleLines, setVisibleLines] = createSignal(0);
+  const [currentLoadingTask, setCurrentLoadingTask] = createSignal("Initializing");
 
-  // Select a random code example
-  const selectedExample = CODE_EXAMPLES[Math.floor(Math.random() * CODE_EXAMPLES.length)];
-
-  // Preloading status
-  const [currentLoadingTask, setCurrentLoadingTask] = createSignal("Initializing...");
+  // Code lines for typewriter effect
+  const codeLines = [
+    {
+      tokens: [
+        { text: "QUERY", type: "keyword" },
+        { text: " CreateUser (", type: "default" },
+        { text: "name: String", type: "type" },
+        { text: ", ", type: "default" },
+        { text: "age: U8", type: "type" },
+        { text: ", ", type: "default" },
+        { text: "email: String", type: "type" },
+        { text: ") ", type: "default" },
+        { text: "=>", type: "operator" },
+      ],
+    },
+    {
+      tokens: [
+        { text: "    user ", type: "default" },
+        { text: "<-", type: "operator" },
+        { text: " AddN", type: "fn" },
+        { text: "<", type: "default" },
+        { text: "User", type: "type" },
+        { text: ">({", type: "default" },
+      ],
+    },
+    {
+      tokens: [
+        { text: "        name: ", type: "default" },
+        { text: "name", type: "param" },
+        { text: ",", type: "default" },
+      ],
+    },
+    {
+      tokens: [
+        { text: "        age: ", type: "default" },
+        { text: "age", type: "param" },
+        { text: ",", type: "default" },
+      ],
+    },
+    {
+      tokens: [
+        { text: "        email: ", type: "default" },
+        { text: "email", type: "param" },
+      ],
+    },
+    { tokens: [{ text: "    })", type: "default" }] },
+    { tokens: [] },
+    {
+      tokens: [
+        { text: "    ", type: "default" },
+        { text: "RETURN", type: "keyword" },
+        { text: " user", type: "default" },
+      ],
+    },
+  ];
 
   onMount(async () => {
-    // Show window after content is ready (prevents black flash)
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      const appWindow = getCurrentWindow();
-      await appWindow.show();
-    } catch {
-      // Not in Tauri environment (e.g., web dev mode)
-    }
+      await getCurrentWindow().show();
+    } catch {}
 
-    // Define preloading tasks
-    interface PreloadTask {
-      name: string;
-      description: string;
-      weight: number;
-      loader: () => Promise<void>;
-    }
+    // Typewriter: reveal lines progressively
+    const lineInterval = setInterval(() => {
+      setVisibleLines((v) => {
+        if (v >= codeLines.length) {
+          clearInterval(lineInterval);
+          return v;
+        }
+        return v + 1;
+      });
+    }, 280);
 
-    const preloadTasks: PreloadTask[] = [
+    // Preload tasks
+    const tasks = [
+      { desc: "Loading modules", weight: 40, fn: () => Promise.all([import("./modeler"), import("./schema"), import("./queries"), import("./graph"), import("./hql")].map((p) => p.catch(() => {}))) },
       {
-        name: "theme",
-        description: "Initializing theme system...",
-        weight: 10,
-        loader: async () => {
-          // Theme is already imported in App.tsx, simulate delay
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        },
+        desc: "Preparing stores",
+        weight: 30,
+        fn: () => Promise.all([import("../stores/modeler"), import("../stores/hql"), import("../stores/workbench"), import("../stores/connection")].map((p) => p.catch(() => {}))),
       },
-      {
-        name: "components",
-        description: "Loading core components...",
-        weight: 40,
-        loader: async () => {
-          // Preload main components
-          await Promise.all([
-            import("./modeler").catch(() => {}),
-            import("./schema").catch(() => {}),
-            import("./queries").catch(() => {}),
-            import("./graph").catch(() => {}),
-            import("./hql").catch(() => {}),
-          ]);
-        },
-      },
-      {
-        name: "stores",
-        description: "Preparing data stores...",
-        weight: 20,
-        loader: async () => {
-          await Promise.all([
-            import("../stores/modeler").catch(() => {}),
-            import("../stores/hql").catch(() => {}),
-            import("../stores/workbench").catch(() => {}),
-            import("../stores/connection").catch(() => {}),
-          ]);
-        },
-      },
-      {
-        name: "utilities",
-        description: "Loading utilities...",
-        weight: 15,
-        loader: async () => {
-          await Promise.all([import("../lib/api").catch(() => {}), import("../lib/hql-formatter").catch(() => {}), import("../lib/hql-syntax").catch(() => {})]);
-        },
-      },
-      {
-        name: "finalize",
-        description: "Finalizing setup...",
-        weight: 15,
-        loader: async () => {
-          await new Promise((resolve) => setTimeout(resolve, 200));
-        },
-      },
+      { desc: "Finalizing", weight: 30, fn: () => new Promise<void>((r) => setTimeout(r, 400)) },
     ];
 
-    // Calculate total weight
-    const totalWeight = preloadTasks.reduce((sum, task) => sum + task.weight, 0);
-    let completedWeight = 0;
+    const total = tasks.reduce((s, t) => s + t.weight, 0);
+    let done = 0;
 
-    // Execute preloading tasks sequentially for better UX
-    for (const task of preloadTasks) {
-      setCurrentLoadingTask(task.description);
-
-      const endProgress = ((completedWeight + task.weight) / totalWeight) * 100;
-
-      // Animate progress smoothly during task execution
-      const progressInterval = setInterval(() => {
-        setLoadingProgress((prev) => {
-          const next = prev + 1;
-          return next > endProgress ? endProgress : next;
-        });
-      }, 30);
-
+    for (const task of tasks) {
+      setCurrentLoadingTask(task.desc);
+      const end = ((done + task.weight) / total) * 100;
+      const iv = setInterval(() => setLoadingProgress((p) => Math.min(p + 0.8, end)), 16);
       try {
-        await task.loader();
-      } catch (error) {
-        console.warn(`Failed to preload ${task.name}:`, error);
-      }
-
-      clearInterval(progressInterval);
-      completedWeight += task.weight;
-      setLoadingProgress(endProgress);
+        await task.fn();
+      } catch {}
+      clearInterval(iv);
+      done += task.weight;
+      setLoadingProgress(end);
     }
 
-    // Ensure we reach 100%
     setLoadingProgress(100);
-    setCurrentLoadingTask("Ready to explore");
+    setPhase("ready");
 
-    // Keyboard listener for Enter
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && loadingProgress() === 100) {
-        handleEnter();
-      }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && phase() === "ready") exit();
     };
-    window.addEventListener("keydown", handleKeyDown);
-
-    onCleanup(() => {
-      window.removeEventListener("keydown", handleKeyDown);
-    });
+    window.addEventListener("keydown", onKey);
+    onCleanup(() => window.removeEventListener("keydown", onKey));
   });
 
-  const handleEnter = () => {
+  const exit = () => {
     setActive(false);
-    setTimeout(() => {
-      if (props.onComplete) {
-        props.onComplete();
-      }
-    }, 500);
+    setTimeout(() => props.onComplete?.(), 700);
   };
 
-  // Helper for random positions
-  const getRandomPos = () => ({
-    x: Math.random() * window.innerWidth,
-    y: Math.random() * window.innerHeight,
-    duration: 8 + Math.random() * 10,
-  });
-
-  const particles = Array.from({ length: 5 }, (_) => getRandomPos());
-
   return (
-    <div class="splash-screen fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden transition-opacity duration-500" style={{ opacity: active() ? 1 : 0 }}>
-      {/* Background Grid */}
-      <div class="absolute inset-0 splash-grid-overlay">
-        <div class="absolute inset-0 splash-grid" />
-      </div>
+    <div class="splash-root" classList={{ "splash-exit": !active() }}>
+      {/* Deep Obsidian ambient glow */}
+      <div class="splash-orb splash-eclipse" />
 
-      {/* Dynamic Background Particles */}
-      <Show when={showContent()}>
-        <For each={particles}>
-          {(p, i) => (
-            <div
-              class="absolute w-1 h-1 bg-orange-500 rounded-full opacity-30 animate-float-particle"
-              style={{
-                left: `${p.x}px`,
-                top: `${p.y}px`,
-                "animation-duration": `${p.duration}s`,
-                "animation-delay": `${i() * 0.5}s`,
-              }}
-            />
-          )}
-        </For>
-      </Show>
+      {/* Noise texture overlay */}
+      <div class="splash-noise" />
 
-      {/* Main Content Container */}
-      <div class="relative z-10 flex flex-col items-center gap-6">
-        {/* Logo and Brand Region */}
-        <div class="flex flex-col items-center gap-6  mb-4">
-          {/* Brand Name */}
-          <div
-            class="flex flex-col items-center gap-1.5 transition-all duration-700 ease-out"
-            style={{
-              opacity: showContent() ? 1 : 0,
-              transform: showContent() ? "translateY(0)" : "translateY(20px)",
-              "transition-delay": "0.3s",
-            }}
+      {/* Content */}
+      <div class="splash-content">
+        {/* Brand */}
+        <div class="splash-brand splash-fade-in" style={{ "--delay": "0.1s" } as any}>
+          <div class="splash-helix-icon">
+            <svg viewBox="0 0 40 40" fill="none">
+              <path d="M12 6c0 0 4 6 8 14s8 14 8 14" stroke="url(#g1)" stroke-width="2" stroke-linecap="round" />
+              <path d="M28 6c0 0-4 6-8 14s-8 14-8 14" stroke="url(#g2)" stroke-width="2" stroke-linecap="round" />
+              {/* Refined Bronze rungs */}
+              <line x1="14" y1="13" x2="26" y2="13" stroke="rgba(255,160,10,0.15)" stroke-width="1" />
+              <line x1="13" y1="20" x2="27" y2="20" stroke="rgba(255,160,10,0.15)" stroke-width="1" />
+              <line x1="14" y1="27" x2="26" y2="27" stroke="rgba(255,160,10,0.15)" stroke-width="1" />
+              <defs>
+                <linearGradient id="g1" x1="12" y1="6" x2="28" y2="34" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#ff9f0a" />
+                  <stop offset="1" stop-color="#644822" />
+                </linearGradient>
+                <linearGradient id="g2" x1="28" y1="6" x2="12" y2="34" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#ffcc00" />
+                  <stop offset="1" stop-color="#332211" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div class="splash-brand-text">
+            <span class="splash-brand-helix">Helix</span>
+            <span class="splash-brand-db">DB</span>
+          </div>
+          <span class="splash-brand-sub">Intelligent Explorer</span>
+        </div>
+
+        {/* Code block with Obsidian theme */}
+        <div class="splash-code splash-fade-in" style={{ "--delay": "0.4s" } as any}>
+          <For each={codeLines}>
+            {(line, i) => (
+              <div class="splash-code-line" classList={{ "splash-code-line-visible": i() < visibleLines() }} style={{ "--line-delay": `${i() * 0.08}s` } as any}>
+                <For each={line.tokens}>{(token) => <span class={`splash-token-${token.type}`}>{token.text}</span>}</For>
+              </div>
+            )}
+          </For>
+          <div class="splash-cursor" classList={{ "splash-cursor-hidden": visibleLines() >= codeLines.length }} />
+        </div>
+
+        {/* Progress region */}
+        <div class="splash-progress-region splash-fade-in" style={{ "--delay": "0.6s" } as any}>
+          <div class="splash-progress-track">
+            <div class="splash-progress-fill" style={{ width: `${loadingProgress()}%` }} />
+          </div>
+
+          <Show
+            when={phase() === "ready"}
+            fallback={
+              <div class="splash-status">
+                <div class="splash-status-dot" />
+                <span>{currentLoadingTask()}</span>
+              </div>
+            }
           >
-            <h2 class="text-5xl font-light splash-title tracking-wider">HelixQL</h2>
-            <p class="text-xs splash-subtitle tracking-widest uppercase opacity-70">Database Modeling & Query Tool</p>
-          </div>
-        </div>
-
-        {/* Premium Code Snippet Card */}
-        <div
-          class="relative w-[640px] p-1 rounded-2xl transition-all duration-1000 ease-out"
-          style={{
-            opacity: showContent() ? 1 : 0,
-            transform: showContent() ? "translateY(0)" : "translateY(40px)",
-            "transition-delay": "0.5s",
-          }}
-        >
-          {/* Card Glow Background */}
-          <div class="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-blue-500/20 blur-2xl opacity-50 animate-pulse-slow" />
-
-          {/* Actual Card */}
-          <div class="relative splash-code-card backdrop-blur-xl rounded-xl overflow-hidden shadow-2xl">
-            {/* Window Header */}
-            <div class="flex items-center justify-between px-4 py-3 splash-code-header">
-              <div class="flex gap-1.5">
-                <div class="w-2.5 h-2.5 rounded-full bg-red-500/60 transition-opacity hover:opacity-100" />
-                <div class="w-2.5 h-2.5 rounded-full bg-amber-500/60 transition-opacity hover:opacity-100" />
-                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500/60 transition-opacity hover:opacity-100" />
-              </div>
-              <span class="text-[10px] font-medium splash-code-label uppercase tracking-widest">{selectedExample.title}</span>
-            </div>
-
-            {/* Code Content */}
-            <div class="p-6 font-mono text-[13px] leading-relaxed select-none">
-              <div class="space-y-1.5">
-                <For each={selectedExample.code}>
-                  {(line) => {
-                    const paddingLeft = `${(line.indent || 0) * 4}ch`;
-
-                    return (
-                      <div class="flex" style={{ "padding-left": paddingLeft }}>
-                        <Show when={line.keyword}>
-                          <span
-                            class="text-orange-500 flex-shrink-0 font-semibold"
-                            classList={{
-                              "w-[7.5ch]": line.keyword === "QUERY",
-                              "w-[8.5ch]": line.keyword === "RETURN",
-                            }}
-                          >
-                            {line.keyword}
-                          </span>
-                        </Show>
-                        <span class="splash-code-text" classList={{ "pl-[8ch]": !line.keyword && (line.indent || 0) === 0 }}>
-                          {/* Render text with syntax highlighting */}
-                          <span
-                            innerHTML={line.text
-                              .replace(/\[F32\]|\[I32\]|String|Boolean|DateTime|Id|I32/g, '<span class="text-blue-400">$&</span>')
-                              .replace(/=>/g, '<span class="text-orange-500">=&gt;</span>')
-                              .replace(/<-/g, '<span class="text-orange-500">&lt;-</span>')
-                              .replace(/(SearchV|Read|Traverse|Match|Count|Avg|Filter|Now)/g, '<span class="text-orange-500 font-semibold">$&</span>')
-                              .replace(/<([A-Z][a-zA-Z]*)>/g, '&lt;<span class="text-blue-400">$1</span>&gt;')}
-                          />
-                        </span>
-                      </div>
-                    );
-                  }}
-                </For>
-              </div>
-
-              <Show when={selectedExample.schema}>
-                <div class="mt-6 pt-5 splash-code-divider">
-                  <div class="flex">
-                    <span class="text-blue-400 flex-shrink-0 font-semibold w-[8ch] mr-[2ch]">{selectedExample.schema!.split(" ")[0]}</span>
-                    <span class="splash-code-text">{selectedExample.schema!.substring(selectedExample.schema!.indexOf(" "))}</span>
-                  </div>
-                </div>
-              </Show>
-            </div>
-
-            {/* Reflection Effect */}
-            <div class="absolute inset-0 splash-reflection pointer-events-none" />
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div
-          class="w-96 space-y-3 transition-all duration-500 mt-4"
-          style={{
-            opacity: showContent() ? 1 : 0,
-            transform: showContent() ? "scale(1)" : "scale(0.9)",
-            "transition-delay": "0.6s",
-          }}
-        >
-          <div class="h-1.5 splash-progress-bg rounded-full overflow-hidden shadow-inner">
-            <div
-              class="h-full bg-gradient-to-r from-orange-600 to-orange-500 rounded-full transition-all duration-300 ease-out shadow-[0_0_12px_rgba(234,88,12,0.5)]"
-              style={{ width: `${loadingProgress()}%` }}
-            />
-          </div>
-
-          <div class="flex items-center justify-between text-[11px] splash-subtitle font-medium tracking-tight px-1">
-            <span class="transition-opacity duration-300">{currentLoadingTask()}</span>
-            <span class="tabular-nums font-semibold splash-progress-number">{loadingProgress()}%</span>
-          </div>
-        </div>
-
-        {/* Explore Button */}
-        <div
-          class="transition-all duration-1000 ease-out"
-          style={{
-            opacity: showContent() ? 1 : 0,
-            transform: showContent() ? "translateY(0)" : "translateY(20px)",
-            "transition-delay": "0.7s",
-          }}
-        >
-          <button
-            onClick={() => loadingProgress() === 100 && handleEnter()}
-            class="group relative px-10 py-3 font-bold rounded-xl transition-all duration-300 shadow-xl overflow-hidden splash-explore-btn"
-            classList={{
-              "splash-explore-btn-active cursor-pointer hover:scale-105 active:scale-95": loadingProgress() === 100,
-              "splash-explore-btn-disabled cursor-not-allowed opacity-60": loadingProgress() < 100,
-            }}
-          >
-            {/* Shimmer Effect - Only visible at 100% */}
-            <Show when={loadingProgress() === 100}>
-              <div class="absolute inset-0 pointer-events-none">
-                <div class="shimmer-line absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12" />
-              </div>
-            </Show>
-
-            {/* Hover Glow Background */}
-            <div
-              class="absolute inset-0 transition-opacity duration-300 rounded-xl bg-orange-600/10 opacity-0 group-hover:opacity-100"
-              style={{ display: loadingProgress() === 100 ? "block" : "none" }}
-            />
-
-            <span class="relative flex items-center gap-3 tracking-[0.08em] text-xs uppercase">
-              <span
-                class="transition-colors font-bold splash-explore-text"
-                classList={{
-                  "splash-explore-text-active": loadingProgress() === 100,
-                  "splash-explore-text-disabled": loadingProgress() < 100,
-                }}
-              >
-                Explore
-              </span>
-
-              <div class="relative w-5 h-5 flex items-center justify-center bg-orange-600 rounded-full transition-transform duration-300 group-hover:translate-x-1">
-                {/* Pulse Glow for Icon */}
-                <Show when={loadingProgress() === 100}>
-                  <div class="absolute inset-0 bg-orange-500/30 rounded-full scale-100 group-hover:scale-150 transition-all duration-500 opacity-0 group-hover:opacity-100 pointer-events-none" />
-                </Show>
-
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="11"
-                  height="11"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="transition-all duration-300 text-white"
-                  classList={{
-                    "opacity-100": loadingProgress() === 100,
-                    "opacity-40": loadingProgress() < 100,
-                  }}
-                >
-                  <path d="M5 12h14M12 5l7 7-7 7" />
+            <button class="splash-enter-btn" onClick={exit}>
+              <span class="splash-enter-text">Press Enter</span>
+              <div class="splash-enter-ring">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M5 12h14m-6-6 6 6-6 6" />
                 </svg>
               </div>
-            </span>
-
-            {/* Border Accent Hover */}
-            <div
-              class="absolute inset-0 border-2 border-orange-500/0 group-hover:border-orange-500/50 transition-all duration-300 rounded-xl pointer-events-none"
-              style={{ display: loadingProgress() === 100 ? "block" : "none" }}
-            />
-          </button>
-        </div>
-
-        {/* Footer - Fixed at bottom */}
-        <div
-          class="flex items-center gap-2.5 text-xs transition-all duration-1000 -mt-4"
-          style={{
-            opacity: showContent() ? 0.5 : 0,
-            "transition-delay": "0.9s",
-          }}
-        >
-          <div class="w-3 h-3 border-2 rounded-full animate-spin splash-spinner" />
-          <span class="splash-subtitle font-medium">Powered by HelixDB</span>
+            </button>
+          </Show>
         </div>
       </div>
 
       <style>{`
-        /* ========================================
-           Splash Screen Theme-Aware Styles
-           ======================================== */
-        
-        /* Background */
-        .splash-screen {
-          background-color: var(--bg-content);
+        /* ===== Root - Obsidian Core ===== */
+        .splash-root {
+          position: fixed; inset: 0; z-index: 9999;
+          display: flex; align-items: center; justify-content: center;
+          background: #111111; /* Aligned with --graph-bg and --bg-content */
+          overflow: hidden;
+          transition: opacity 0.7s cubic-bezier(0.4, 0, 0, 1),
+                      transform 0.7s cubic-bezier(0.4, 0, 0, 1),
+                      filter 0.7s cubic-bezier(0.4, 0, 0, 1);
+        }
+        .splash-exit {
+          opacity: 0;
+          transform: translateY(-20px);
+          filter: blur(20px) contrast(1.2);
         }
 
-        /* Grid */
-        .splash-grid-overlay {
-          opacity: 0.08;
+        /* ===== Ambient Glow ===== */
+        .splash-orb {
+          position: absolute; pointer-events: none;
+          will-change: transform, opacity;
         }
-        .splash-grid {
-          background-image:
-            linear-gradient(to right, var(--border-color) 1px, transparent 1px),
-            linear-gradient(to bottom, var(--border-color) 1px, transparent 1px);
-          background-size: 50px 50px;
+        .splash-eclipse {
+          width: 800px; height: 600px;
+          background: radial-gradient(ellipse at center, rgba(255, 159, 10, 0.04) 0%, transparent 60%);
+          bottom: -100px; left: 50%;
+          transform: translateX(-50%);
+          filter: blur(120px);
+          animation: eclipse-pulse 10s ease-in-out infinite;
         }
-
-        /* Typography */
-        .splash-title {
-          color: var(--text-primary);
-          text-shadow: 0 2px 10px rgba(234, 88, 12, 0.1);
-        }
-        .splash-subtitle {
-          color: var(--text-secondary);
-        }
-        .splash-progress-number {
-          color: var(--text-primary);
+        @keyframes eclipse-pulse {
+          0%, 100% { opacity: 0.4; transform: translateX(-50%) translateY(0) scale(1.1); }
+          50% { opacity: 0.8; transform: translateX(-50%) translateY(-30px) scale(0.9); }
         }
 
-        /* Code Card - Theme-aware with premium feel */
-        .splash-code-card {
-          background: rgba(13, 13, 13, 0.95);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: 
-            0 25px 50px -12px rgba(0, 0, 0, 0.5),
-            0 0 0 1px rgba(255, 255, 255, 0.05),
-            inset 0 1px 0 rgba(255, 255, 255, 0.03);
+        /* ===== Noise ===== */
+        .splash-noise {
+          position: absolute; inset: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+          opacity: 0.04;
+          mix-blend-mode: soft-light;
+          pointer-events: none;
         }
-        .splash-code-header {
-          background: rgba(255, 255, 255, 0.03);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+        /* ===== Content ===== */
+        .splash-content {
+          position: relative; z-index: 10;
+          display: flex; flex-direction: column; align-items: center;
+          gap: 54px;
+          max-width: 580px; width: 100%;
         }
-        .splash-code-label {
-          color: #9ca3af;
+
+        /* ===== Fade-in utility ===== */
+        .splash-fade-in {
+          opacity: 0;
+          transform: translateY(12px);
+          animation: splash-reveal 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation-delay: var(--delay, 0s);
+        }
+        @keyframes splash-reveal {
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===== Brand ===== */
+        .splash-brand {
+          display: flex; flex-direction: column; align-items: center; gap: 8px;
+        }
+        .splash-helix-icon {
+          width: 52px; height: 52px;
+          margin-bottom: 12px;
+          animation: helix-float 8s ease-in-out infinite;
+        }
+        @keyframes helix-float {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-8px) rotate(5deg); }
+        }
+        .splash-brand-text {
+          display: flex; align-items: baseline; gap: 2px;
+          font-size: 48px; font-weight: 200;
+          letter-spacing: 0.18em;
+          color: #ffffff;
+        }
+        .splash-brand-db {
+          font-weight: 700;
+          color: #ff9f0a; /* --color-orange */
+          text-shadow: 0 0 30px rgba(255, 159, 10, 0.3);
+        }
+        .splash-brand-sub {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.6em;
+          color: rgba(255, 255, 255, 0.25);
           font-weight: 600;
         }
-        .splash-code-text {
-          color: #e5e7eb;
+
+        /* ===== Code Block - Obsidian Glass ===== */
+        .splash-code {
+          width: 100%;
+          padding: 32px 40px;
+          border-radius: 20px;
+          background: rgba(255, 255, 255, 0.015);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(60px);
+          font-family: var(--font-mono);
+          font-size: 13px;
+          line-height: 2;
+          position: relative;
         }
-        .splash-code-divider {
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+        .splash-code::after {
+          content: '';
+          position: absolute; inset: 0;
+          border-radius: 20px;
+          box-shadow: inset 0 0 100px rgba(0,0,0,0.4);
+          pointer-events: none;
         }
-        .splash-reflection {
-          background: linear-gradient(135deg, transparent 40%, rgba(255, 255, 255, 0.04) 50%, transparent 60%);
+        .splash-code-line {
+          opacity: 0;
+          transform: translateX(-8px);
+          transition: opacity 0.5s ease, transform 0.5s ease;
+          transition-delay: var(--line-delay, 0s);
+          white-space: pre;
+        }
+        .splash-code-line-visible {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        .splash-cursor {
+          display: inline-block;
+          width: 1.5px; height: 1.4em;
+          background: #ff9f0a;
+          margin-left: 2px;
+          animation: cursor-blink 1s step-end infinite;
+          vertical-align: middle;
+          box-shadow: 0 0 8px #ff9f0a;
+        }
+        .splash-cursor-hidden { opacity: 0; }
+        @keyframes cursor-blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
         }
 
-        /* Light theme adjustments for code card container */
-        @media (prefers-color-scheme: light) {
-          .splash-code-card {
-            box-shadow: 
-              0 25px 50px -12px rgba(0, 0, 0, 0.25),
-              0 0 0 1px rgba(0, 0, 0, 0.08),
-              inset 0 1px 0 rgba(255, 255, 255, 0.1);
-          }
+        /* Token colors - Monokai-ish but Obsidian flavored */
+        .splash-token-keyword { color: #ff9f0a; font-weight: 700; }
+        .splash-token-type { color: #60a5fa; }
+        .splash-token-operator { color: #f59e0b; opacity: 0.9; }
+        .splash-token-fn { color: #ffffff; font-weight: 600; }
+        .splash-token-param { color: rgba(255, 255, 255, 0.5); }
+        .splash-token-default { color: rgba(255, 255, 255, 0.4); }
+
+        /* ===== Progress ===== */
+        .splash-progress-region {
+          display: flex; flex-direction: column; align-items: center;
+          gap: 24px; width: 280px;
+        }
+        .splash-progress-track {
+          width: 100%; height: 1px;
+          background: rgba(255, 255, 255, 0.05);
+          overflow: hidden;
+          position: relative;
+        }
+        .splash-progress-fill {
+          position: absolute; top: 0; left: 0; height: 100%;
+          background: #ff9f0a;
+          box-shadow: 0 0 20px rgba(255, 159, 10, 0.4);
+          transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .splash-status {
+          display: flex; align-items: center; gap: 10px;
+          opacity: 0.4;
+        }
+        .splash-status-dot {
+          width: 4px; height: 4px;
+          border-radius: 50%;
+          background: #ff9f0a;
+          box-shadow: 0 0 8px #ff9f0a;
+          animation: status-pulse 2s ease-in-out infinite;
+        }
+        @keyframes status-pulse {
+          0%, 100% { opacity: 0.3; transform: scale(0.8); }
+          50% { opacity: 1; transform: scale(1.2); }
+        }
+        .splash-status span {
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.35em;
+          color: rgba(255, 255, 255, 0.6);
+          font-weight: 600;
         }
 
-        /* Progress Bar */
-        .splash-progress-bg {
-          background-color: var(--border-subtle);
+        /* ===== Enter Button ===== */
+        .splash-enter-btn {
+          display: flex; align-items: center; gap: 14px;
+          background: none; border: none;
+          cursor: pointer;
+          transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          animation: splash-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
-
-        /* Explore Button */
-        .splash-explore-btn {
-          background-color: var(--bg-elevated);
-          border: 1px solid var(--border-color);
-          box-shadow: var(--shadow-md);
+        .splash-enter-btn:hover { transform: scale(1.08); }
+        .splash-enter-text {
+          font-size: 10px; text-transform: uppercase;
+          letter-spacing: 0.5em; color: rgba(255, 255, 255, 0.3);
+          font-weight: 700; transition: color 0.3s;
         }
-        .splash-explore-btn-active:hover {
-          box-shadow: 
-            0 20px 25px -5px rgba(234, 88, 12, 0.1),
-            0 10px 10px -5px rgba(234, 88, 12, 0.04),
-            var(--shadow-md);
+        .splash-enter-btn:hover .splash-enter-text { color: #ffffff; }
+        .splash-enter-ring {
+          width: 36px; height: 36px;
+          border-radius: 50%;
+          border: 1px solid rgba(255, 159, 10, 0.1);
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .splash-explore-btn-disabled {
-          border: 1px solid var(--border-subtle);
+        .splash-enter-btn:hover .splash-enter-ring {
+          border-color: #ff9f0a;
+          background: rgba(255, 159, 10, 0.05);
+          box-shadow: 0 0 20px rgba(255, 159, 10, 0.15);
         }
-        .splash-explore-text-active {
-          color: #ea580c; /* orange-600 */
+        .splash-enter-ring svg {
+          width: 14px; height: 14px;
+          color: rgba(255, 255, 255, 0.4);
+          transition: all 0.3s;
         }
-        .splash-explore-text-disabled {
-          color: var(--text-quaternary);
-        }
-
-        /* Spinner */
-        .splash-spinner {
-          border-color: var(--text-tertiary);
-          border-top-color: transparent;
-        }
-
-        /* ========================================
-           Animations
-           ======================================== */
-        
-        @keyframes float-particle {
-          0%, 100% { transform: translate(0, 0); opacity: 0.1; }
-          33% { transform: translate(100px, -50px); opacity: 0.3; }
-          66% { transform: translate(-50px, 100px); opacity: 0.1; }
-        }
-        
-        @keyframes pulse-glow {
-          0%, 100% { transform: scale(1); opacity: 0.4; }
-          50% { transform: scale(1.15); opacity: 0.6; }
-        }
-
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 0.3; }
-        }
-        
-        .animate-float-particle {
-          animation: float-particle linear infinite;
-        }
-
-        .animate-pulse-slow {
-          animation: pulse-slow 3s ease-in-out infinite;
-        }
-
-        .shimmer-line {
-          animation: shimmer 3.5s ease-in-out infinite;
-          left: -100%;
-        }
-
-        @keyframes shimmer {
-          0% { left: -100%; }
-          25% { left: 100%; }
-          100% { left: 100%; }
+        .splash-enter-btn:hover .splash-enter-ring svg {
+          color: #ff9f0a;
+          transform: translateX(2px);
         }
       `}</style>
     </div>

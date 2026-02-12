@@ -190,12 +190,20 @@ export function Grid(props: GridProps) {
     }
   };
 
-  const handleContextMenu = (e: MouseEvent, row: any) => {
+  const handleContextMenu = (e: MouseEvent, row: any, rowIndex: number) => {
     if (e.button === 2 || (e.button === 0 && e.ctrlKey)) {
       e.preventDefault();
       e.stopPropagation();
+
+      // If the right-clicked row is part of the selection, copy all selected rows
+      // Otherwise, just copy the single row that was right-clicked
+      let rowsToCopy = [row];
+      if (props.selectedRowIndices?.includes(rowIndex)) {
+        rowsToCopy = props.selectedRowIndices.sort((a, b) => a - b).map((idx) => props.data[idx]);
+      }
+
       import("@tauri-apps/api/core").then(({ invoke }) => {
-        invoke("show_grid_context_menu", { row, columns: props.columns });
+        invoke("show_grid_context_menu", { rows: rowsToCopy, columns: props.columns });
       });
     }
   };
@@ -338,14 +346,14 @@ export function Grid(props: GridProps) {
                         e.currentTarget.style.backgroundColor = "var(--grid-row-bg)";
                       }
                     }}
-                    onContextMenu={(e) => handleContextMenu(e, row)}
+                    onContextMenu={(e) => handleContextMenu(e, row, rowIndex())}
                     onMouseDown={(e) => {
                       if (e.shiftKey) {
                         e.preventDefault();
                         props.onRowSelect?.(rowIndex(), e);
                       }
                       if (e.ctrlKey && e.button === 0) {
-                        handleContextMenu(e, row);
+                        handleContextMenu(e, row, rowIndex());
                       }
                     }}
                   >
