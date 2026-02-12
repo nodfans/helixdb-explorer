@@ -62,13 +62,6 @@ Interact with your data using high-performance node-link diagrams. Explore clust
   <img src="docs/assets/graph.png" alt="Graph Visualization" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
 </div>
 
-## 🛠️ Tech Stack
-
-- **Core**: [Rust](https://www.rust-lang.org/) (Tauri 2 Backend)
-- **Frontend**: [SolidJS](https://www.solidjs.com/) + TypeScript
-- **Protocol**: [MCP](https://modelcontextprotocol.io/) (Model Context Protocol)
-- **Styling**: Vanilla CSS (Custom Design System)
-
 ## 📦 Installation
 
 ### Download Binary
@@ -104,6 +97,13 @@ pnpm tauri dev
 # Build production binary
 pnpm tauri build
 ```
+
+## 🛠️ Tech Stack
+
+- **Core**: [Rust](https://www.rust-lang.org/) (Tauri 2 Backend)
+- **Frontend**: [SolidJS](https://www.solidjs.com/) + TypeScript
+- **Protocol**: [MCP](https://modelcontextprotocol.io/) (Model Context Protocol)
+- **Styling**: Vanilla CSS (Custom Design System)
 
 ## 📄 License
 
