@@ -1,33 +1,103 @@
-# 🌌 HelixDB Explorer
+<div align="center">
+  <img src="docs/assets/logo.png" width="120" height="120" alt="HelixDB Explorer Logo" />
+  <h1>HelixDB Explorer</h1>
+  <p>
+    The native GUI for <strong>HelixDB</strong>.<br/>
+    Intelligent HQL editor, graph visualization, and schema management for macOS.
+  </p>
 
-**HelixDB Explorer** is a high-performance, modern GUI designed specifically for **HelixDB**. Built with **Tauri 2** and **SolidJS**, it provides a seamless, native-feeling experience for managing your graph data, writing complex HQL (Helix Query Language), and synchronizing your workshop queries.
+  <p>
+    <a href="https://nodfans.github.io/helixdb-explorer"><strong>🌐 Visit Official Website</strong></a>
+    ·
+    <a href="https://github.com/nodfans/helixdb-explorer/releases"><strong>📥 Download for macOS</strong></a>
+    ·
+    <a href="https://github.com/nodfans/helixdb-explorer/issues">🐞 Report Bug</a>
+  </p>
 
-![HelixDB Explorer Hero](https://github.com/helixdb/helix-explorer/raw/main/assets/hero-placeholder.png)
+  <p>
+    <a href="https://github.com/nodfans/helixdb-explorer/blob/main/LICENSE">
+      <img src="https://img.shields.io/github/license/nodfans/helixdb-explorer?style=flat-square&color=000000" alt="License" />
+    </a>
+    <a href="https://github.com/nodfans/helixdb-explorer/releases">
+      <img src="https://img.shields.io/github/v/release/nodfans/helixdb-explorer?style=flat-square&color=000000" alt="Release" />
+    </a>
+  </p>
+</div>
+
+<br/>
+
+<div align="center">
+  <img src="docs/assets/hql.png" alt="HelixDB Explorer Screenshot" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
+</div>
+
+<br/>
 
 ## ✨ Features
 
-- **🎨 Premium Interface**: A sleek, dark-themed UI with glassmorphism effects and micro-animations, optimized for long coding sessions.
-- **🛡️ Intelligent HQL Editor**:
-  - Real-time syntax highlighting and diagnostics.
-  - Interactive auto-completion based on your live schema.
-  - One-click query beautification/formatting.
-- **🚀 Dynamic Execution (MCP)**: Leverages the **Model Context Protocol** to parse and execute HQL traversals on the fly without complex backend boilerplate.
-- **📊 Adaptive Results Visualization**: Switch instantly between high-density **Table Views** for nodes/edges and interactive **JSON Trees** for raw query responses.
-- **🔄 Local Project Sync**: Automatically sync your HQL queries from the Explorer directly into your local development workspace, supporting instant codegen and validation.
-- **🔍 Full-Text Search**: Built-in support for BM25 search across your graph nodes.
-- **🛠️ Multi-Connection Management**: Easily switch between local, staging, and production HelixDB instances.
+### 🧠 Intelligent Editor
 
-## 🛠️ Stack
+Write HQL queries faster with syntax highlighting, schema-aware autocomplete, and real-time error checking. The editor understands your graph structure and suggests valid traversals as you type.
 
-- **Framework**: [Tauri 2](https://v2.tauri.app/) (Rust Backend)
-- **Frontend**: [SolidJS](https://www.solidjs.com/) + Vite
+### 🕸️ Graph Visualization
+
+Interact with your data using high-performance node-link diagrams. Explore clusters, trace paths, and inspect properties visually.
+
+<div align="center">
+  <img src="docs/assets/graph.png" alt="Graph Visualization" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
+</div>
+
+### 🛠️ Production Workbench
+
+Manage multiple connections (Local, Staging, Prod) and maintain a library of common queries. Seamlessly switch between **Table View** and **JSON View** for deep data inspection.
+
+<div align="center">
+  <img src="docs/assets/queries.png" alt="Query Workbench" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
+</div>
+
+### 📐 Schema Manager
+
+Visualize and understand your graph structure at a glance. Inspect node types, edge definitions, and property constraints in a clean, card-based interface.
+
+<div align="center">
+  <img src="docs/assets/schema.png" alt="Schema Manager" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
+</div>
+
+## 🛠️ Tech Stack
+
+- **Core**: [Rust](https://www.rust-lang.org/) (Tauri 2 Backend)
+- **Frontend**: [SolidJS](https://www.solidjs.com/) + TypeScript
+- **Protocol**: [MCP](https://modelcontextprotocol.io/) (Model Context Protocol)
 - **Styling**: Vanilla CSS (Custom Design System)
-- **Protocol**: [MCP](https://modelcontextprotocol.io/)
 
-## 📖 License
+## 📦 Installation
 
-HelixDB Explorer is released under the **MIT License**.
+### Download Binary
 
----
+Grab the latest `.dmg` from the [Releases Page](https://github.com/nodfans/helixdb-explorer/releases).
 
-<p align="center">Made with ❤️ by the HelixDB Team</p>
+### Build from Source
+
+Requirements:
+
+- Node.js (v18+)
+- Rust (stable)
+- pnpm
+
+```bash
+# Clone the repository
+git clone https://github.com/nodfans/helixdb-explorer.git
+cd helixdb-explorer
+
+# Install dependencies
+pnpm install
+
+# Run in development mode
+pnpm tauri dev
+
+# Build production binary
+pnpm tauri build
+```
+
+## 📄 License
+
+MIT © [HelixDB Team](https://github.com/nodfans)
