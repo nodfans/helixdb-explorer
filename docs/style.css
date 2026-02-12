@@ -317,6 +317,49 @@ body {
   color: var(--text-primary);
 }
 
+/* Gatekeeper Tip */
+.gatekeeper-tip {
+  margin: -2rem auto 4rem;
+  max-width: 500px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  padding: 1rem;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tip-badge {
+  background: #334155;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.gatekeeper-tip p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.gatekeeper-tip code {
+  background: #e2e8f0;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.shadow-glow {
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+}
+
 /* Responsive */
 @media (max-width: 640px) {
   .nav-links {
@@ -327,6 +370,10 @@ body {
   }
   .hero-actions {
     flex-direction: column;
+    margin-bottom: 2rem;
+  }
+  .gatekeeper-tip {
+    margin-top: 0;
   }
   .btn {
     width: 100%;

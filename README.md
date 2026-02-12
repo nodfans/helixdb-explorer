@@ -73,7 +73,14 @@ Interact with your data using high-performance node-link diagrams. Explore clust
 
 ### Download Binary
 
-Grab the latest `.dmg` from the [Releases Page](https://github.com/nodfans/helixdb-explorer/releases).
+[**📥 Download latest HelixDB Explorer for macOS**](https://github.com/nodfans/helixdb-explorer/releases/latest/download/HelixDB-Explorer-macOS.dmg)
+
+> [!IMPORTANT]
+> **Gatekeeper Warning**: Since this app is not signed by a registered Apple Developer, you may see a "damaged" error. To fix this, run:
+>
+> ```bash
+> xattr -cr "/Applications/HelixDB Explorer.app"
+> ```
 
 ### Build from Source
 

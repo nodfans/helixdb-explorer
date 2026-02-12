@@ -46,9 +46,9 @@ jobs:
           APP_PATH="target/release/bundle/macos/HelixDB Explorer.app"
           codesign --force --deep --sign - "$APP_PATH"
 
-          # Rename DMG to remove spaces (GitHub replaces spaces with dots)
+          # Rename DMG to a stable name (latest download link)
           DMG_SRC=$(ls target/release/bundle/dmg/*.dmg)
-          DMG_DEST="target/release/bundle/dmg/HelixDB-Explorer_0.1.0_aarch64.dmg"
+          DMG_DEST="target/release/bundle/dmg/HelixDB-Explorer-macOS.dmg"
           mv "$DMG_SRC" "$DMG_DEST"
 
       - name: upload release
