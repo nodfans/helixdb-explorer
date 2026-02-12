@@ -38,17 +38,17 @@ jobs:
       - name: build tauri
         run: |
           cd packages/desktop
-          # Build only the .app bundle (and sign it via Tauri)
           pnpm exec tauri build --bundles app
 
       - name: build custom dmg
         run: |
-          cd packages/desktop
-          mkdir -p target/release/bundle/dmg
           # Use appdmg to create a professional DMG with background and positioned icons
-          # We point HelixDB Explorer.app in the config to the actual build location
-          sed -i '' 's|"path": "HelixDB Explorer.app"|"path": "target/release/bundle/macos/HelixDB Explorer.app"|' dmg-config.json
-          npx appdmg dmg-config.json target/release/bundle/dmg/HelixDB-Explorer-macOS.dmg
+          # We run from root to keep paths simple, but dmg-config.json is in packages/desktop
+          # Update the path in config to point to the built .app relative to the config file
+          sed -i '' 's|"path": "HelixDB Explorer.app"|"path": "../../target/release/bundle/macos/HelixDB Explorer.app"|' packages/desktop/dmg-config.json
+
+          mkdir -p target/release/bundle/dmg
+          npx appdmg packages/desktop/dmg-config.json target/release/bundle/dmg/HelixDB-Explorer-macOS.dmg
 
       - name: upload release
         uses: softprops/action-gh-release@v1
@@ -58,4 +58,4 @@ jobs:
         with:
           draft: false
           files: |
-            packages/desktop/target/release/bundle/dmg/*.dmg
+            target/release/bundle/dmg/HelixDB-Explorer-macOS.dmg
