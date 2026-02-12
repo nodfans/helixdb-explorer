@@ -38,18 +38,17 @@ jobs:
       - name: build tauri
         run: |
           cd packages/desktop
-          pnpm exec tauri build --bundles dmg,app
+          # Build only the .app bundle (and sign it via Tauri)
+          pnpm exec tauri build --bundles app
 
-      - name: sign and repackage
+      - name: build custom dmg
         run: |
-          # Ad-hoc sign the .app to prevent "damaged" Gatekeeper error
-          APP_PATH="target/release/bundle/macos/HelixDB Explorer.app"
-          codesign --force --deep --sign - "$APP_PATH"
-
-          # Rename DMG to a stable name (latest download link)
-          DMG_SRC=$(ls target/release/bundle/dmg/*.dmg)
-          DMG_DEST="target/release/bundle/dmg/HelixDB-Explorer-macOS.dmg"
-          mv "$DMG_SRC" "$DMG_DEST"
+          cd packages/desktop
+          mkdir -p target/release/bundle/dmg
+          # Use appdmg to create a professional DMG with background and positioned icons
+          # We point HelixDB Explorer.app in the config to the actual build location
+          sed -i '' 's|"path": "HelixDB Explorer.app"|"path": "target/release/bundle/macos/HelixDB Explorer.app"|' dmg-config.json
+          npx appdmg dmg-config.json target/release/bundle/dmg/HelixDB-Explorer-macOS.dmg
 
       - name: upload release
         uses: softprops/action-gh-release@v1
@@ -59,4 +58,4 @@ jobs:
         with:
           draft: false
           files: |
-            target/release/bundle/dmg/*.dmg
+            packages/desktop/target/release/bundle/dmg/*.dmg

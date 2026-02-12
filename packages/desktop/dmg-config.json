@@ -1,0 +1,15 @@
+{
+  "title": "HelixDB Explorer",
+  "icon": "src-tauri/icons/icon.icns",
+  "background": "src-tauri/icons/dmg-background.png",
+  "contents": [
+    { "x": 495, "y": 200, "type": "link", "path": "/Applications" },
+    { "x": 165, "y": 200, "type": "file", "path": "HelixDB Explorer.app" }
+  ],
+  "window": {
+    "size": {
+      "width": 660,
+      "height": 400
+    }
+  }
+}
