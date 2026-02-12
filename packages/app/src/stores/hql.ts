@@ -13,6 +13,8 @@ export interface HqlTab {
   diagnostics?: any[];
   viewMode?: "table" | "json" | "log";
   logs?: string;
+  tableData?: any[];
+  selectedRows?: any[];
 }
 
 export interface HqlState {
@@ -33,6 +35,8 @@ const defaultTab: HqlTab = {
   diagnostics: [],
   viewMode: "table",
   logs: "",
+  tableData: [],
+  selectedRows: [],
 };
 
 const [hqlStore, setHqlStore] = createStore<HqlState>({

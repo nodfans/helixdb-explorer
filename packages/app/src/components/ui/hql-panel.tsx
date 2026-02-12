@@ -80,8 +80,8 @@ export const HqlPanel = (props: HqlPanelProps) => {
                     <Show when={props.activeTab.rawOutput}>
                       <div class="w-[3.5px] h-[3.5px] rounded-full bg-[var(--text-tertiary)] mx-1.5 shrink-0 opacity-60" />
                       <span class="text-[10px] text-native-quaternary font-mono">
-                        {Array.isArray(props.activeTab.rawOutput) ? props.activeTab.rawOutput.length : 1}{" "}
-                        {(Array.isArray(props.activeTab.rawOutput) ? props.activeTab.rawOutput.length : 1) === 1 ? "result" : "results"}
+                        {props.activeTab.tableData ? props.activeTab.tableData.length : Array.isArray(props.activeTab.rawOutput) ? props.activeTab.rawOutput.length : 1}{" "}
+                        {(props.activeTab.tableData ? props.activeTab.tableData.length : Array.isArray(props.activeTab.rawOutput) ? props.activeTab.rawOutput.length : 1) === 1 ? "result" : "results"}
                       </span>
                     </Show>
                     <Show when={props.activeTab.executionTime}>
@@ -172,9 +172,13 @@ export const HqlPanel = (props: HqlPanelProps) => {
                           </div>
                         </div>
                       </Match>
-                      <Match when={props.activeTab.rawOutput}>
+                      <Match when={props.activeTab.tableData || (Array.isArray(props.activeTab.rawOutput) ? props.activeTab.rawOutput : null)}>
                         <div class="flex-1 min-h-0 flex flex-col">
-                          <ResultTable data={props.activeTab.rawOutput} />
+                          <ResultTable
+                            data={props.activeTab.tableData || props.activeTab.rawOutput}
+                            selectedRows={props.activeTab.selectedRows}
+                            onSelect={(rows) => props.updateActiveTab({ selectedRows: rows })}
+                          />
                         </div>
                       </Match>
                       <Match when={true}>

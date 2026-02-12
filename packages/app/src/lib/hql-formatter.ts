@@ -17,7 +17,7 @@ export function formatHQL(code: string): string {
 
     if (!trimmed && !inQuery) continue;
 
-    if (/\b(QUERY|MIGRATION)\b/i.test(trimmed)) {
+    if (/^(QUERY|MIGRATION)\b/i.test(trimmed)) {
       if (inQuery) {
         formattedLines.push(...formatBlock(queryBuffer));
         queryBuffer = [];
@@ -35,7 +35,7 @@ export function formatHQL(code: string): string {
         for (let j = i + 1; j < lines.length; j++) {
           const nextTrim = lines[j].trim();
           if (!nextTrim) continue;
-          if (/\b(QUERY|MIGRATION)\b/i.test(nextTrim)) {
+          if (/^(QUERY|MIGRATION)\b/i.test(nextTrim)) {
             queryEnds = true;
             break;
           }
@@ -44,7 +44,7 @@ export function formatHQL(code: string): string {
             for (let k = j + 1; k < lines.length; k++) {
               const kTrim = lines[k].trim();
               if (kTrim) {
-                if (/\b(QUERY|MIGRATION)\b/i.test(kTrim)) queryEnds = true;
+                if (/^(QUERY|MIGRATION)\b/i.test(kTrim)) queryEnds = true;
                 foundNext = true;
                 break;
               }
