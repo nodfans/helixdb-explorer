@@ -40,6 +40,17 @@ jobs:
           cd packages/desktop
           pnpm exec tauri build --bundles dmg,app
 
+      - name: sign and repackage
+        run: |
+          # Ad-hoc sign the .app to prevent "damaged" Gatekeeper error
+          APP_PATH="target/release/bundle/macos/HelixDB Explorer.app"
+          codesign --force --deep --sign - "$APP_PATH"
+
+          # Rename DMG to remove spaces (GitHub replaces spaces with dots)
+          DMG_SRC=$(ls target/release/bundle/dmg/*.dmg)
+          DMG_DEST="target/release/bundle/dmg/HelixDB-Explorer_0.1.0_aarch64.dmg"
+          mv "$DMG_SRC" "$DMG_DEST"
+
       - name: upload release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -49,4 +60,3 @@ jobs:
           draft: true
           files: |
             target/release/bundle/dmg/*.dmg
-            target/release/bundle/macos/*.app
