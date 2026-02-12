@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HelixDB Explorer</title>
+    <meta name="description" content="The native GUI for HelixDB. Intelligent HQL editor, graph visualization, and schema management for macOS." />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav class="navbar">
+      <div class="container container-nav">
+        <a href="#" class="logo">
+          <img src="assets/logo.png" alt="HelixDB Explorer" class="logo-img" />
+          <span class="logo-text">HelixDB Explorer</span>
+        </a>
+        <div class="nav-links">
+          <a href="#features">Features</a>
+          <a href="#screenshots">Screenshots</a>
+          <a href="https://github.com/nodfans/helixdb-explorer" target="_blank">GitHub</a>
+          <a href="https://github.com/nodfans/helixdb-explorer/releases" target="_blank" class="btn-nav">Download</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero">
+      <div class="container">
+        <img src="assets/logo.png" alt="HelixDB Explorer Logo" class="hero-logo-large" />
+        <div class="powered-by">
+          <img src="assets/full_logo.png" alt="HelixDB" class="powered-logo" />
+          <span
+            >Powered by <a href="https://github.com/HelixDB/helix-db" target="_blank">HelixDB</a> · Inspired by
+          &nbsp;<a href="https://github.com/HelixDB/helix-dashboard" target="_blank">Helix-dashboard</a>
+        </div>
+        <h1>The native GUI for HelixDB</h1>
+        <p class="hero-subtitle">Explore your graph data with an intelligent HQL editor, real-time visualization, and schema management. Built for macOS.</p>
+        <div class="hero-actions">
+          <a href="https://github.com/nodfans/helixdb-explorer/releases" class="btn btn-primary"> Download for macOS </a>
+          <a href="https://github.com/nodfans/helixdb-explorer" target="_blank" class="btn btn-secondary"> View on GitHub </a>
+        </div>
+
+        <div class="hero-visual">
+          <div class="img-frame">
+            <img src="assets/hql.png" alt="HelixDB Explorer Main Interface" />
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+      <div class="container">
+        <div class="feature-grid">
+          <div class="feature-item">
+            <h3>Intelligent Editor</h3>
+            <p>Write HQL queries faster with syntax highlighting, schema-aware autocomplete, and real-time error checking.</p>
+          </div>
+          <div class="feature-item">
+            <h3>Graph Visualization</h3>
+            <p>Interact with your data using high-performance node-link diagrams. Explore clusters and traversals visually.</p>
+          </div>
+          <div class="feature-item">
+            <h3>Workspace Sync</h3>
+            <p>Synchronize queries directly with your local project files for a seamless development workflow.</p>
+          </div>
+          <div class="feature-item">
+            <h3>Schema Manager</h3>
+            <p>Visualize and understand your graph structure. Inspect node types, edge definitions, and property constraints.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Screenshots Gallery -->
+    <section id="screenshots" class="screenshots">
+      <div class="container">
+        <div class="section-label">Interface Gallery</div>
+
+        <div class="screenshot-gallery">
+          <div class="screenshot-card">
+            <h4>Production Query Workbench</h4>
+            <div class="img-frame">
+              <img src="assets/queries.png" alt="Query Workbench" loading="lazy" />
+            </div>
+          </div>
+
+          <div class="screenshot-card">
+            <h4>Schema & Data Modeling</h4>
+            <div class="img-frame">
+              <img src="assets/schema.png" alt="Schema Modeling" loading="lazy" />
+            </div>
+          </div>
+
+          <div class="screenshot-card">
+            <h4>Interactive Graph Exploration</h4>
+            <div class="img-frame">
+              <img src="assets/graph.png" alt="Graph Visualization" loading="lazy" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <p class="footer-text">© 2026 HelixDB Explorer Team. Open source under MIT License.</p>
+        <div class="footer-links">
+          <a href="https://github.com/nodfans/helixdb-explorer" target="_blank">GitHub</a>
+          <a href="https://github.com/nodfans/helixdb-explorer/issues" target="_blank">Issues</a>
+          <a href="https://github.com/nodfans/helixdb-explorer/releases" target="_blank">Releases</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>

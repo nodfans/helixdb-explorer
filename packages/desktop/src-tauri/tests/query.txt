@@ -1,0 +1,244 @@
+QUERY GetAllUsers () =>
+  user <- N<User>
+  RETURN user
+
+QUERY GetAllPosts () =>
+  post <- N<Post>
+  RETURN post
+
+QUERY GetAllComments () =>
+  comment <- N<Comment>
+  RETURN comment
+
+QUERY GetUserById(user_id: ID) =>
+    user <- N<User>(user_id)
+    RETURN user
+
+// ==================== Filtering ====================
+
+// Query users with age > 50
+QUERY filter_age_gt_50() =>
+    users <- N<User>::WHERE(_::{age}::GT(50))
+    RETURN users
+
+// Query users with score > 90
+QUERY filter_high_score() =>
+    users <- N<User>::WHERE(_::{score}::GT(90.0))
+    RETURN users
+
+// Query users with age < 25
+QUERY filter_young_users() =>
+    users <- N<User>::WHERE(_::{age}::LT(25))
+    RETURN users
+
+// Query users with score >= 70 && score < 80
+QUERY filter_score_range_70_80() =>
+    users <- N<User>::WHERE(AND(_::{score}::GTE(70.0), _::{score}::LT(80.0)))
+    RETURN users
+
+// Query users with active = true AND score > 85
+QUERY filter_active_high_performers() =>
+    users <- N<User>::WHERE(AND(_::{active}::EQ(true), _::{score}::GT(85.0)))
+    RETURN users
+
+// Query users with active = false OR age > 55
+QUERY filter_inactive_or_senior() =>
+    users <- N<User>::WHERE(OR(_::{active}::EQ(false), _::{age}::GT(55)))
+    RETURN users
+
+// Query users with age = 20 OR age = 21
+QUERY filter_age_20_or_21() =>
+    users <- N<User>::WHERE(OR(_::{age}::EQ(20), _::{age}::EQ(21)))
+    RETURN users
+
+// Query users with age >= 30 AND age <= 40
+QUERY filter_age_30_to_40() =>
+    users <- N<User>::WHERE(AND(_::{age}::GTE(30), _::{age}::LTE(40)))
+    RETURN users
+
+// ==================== Sorting ====================
+
+// Sort by age ASC
+QUERY get_users_by_age_asc() =>
+    users <- N<User>::ORDER<Asc>(_::{age})
+    RETURN users
+
+// Sort by score DESC
+QUERY get_users_by_score_desc() =>
+    users <- N<User>::ORDER<Desc>(_::{score})
+    RETURN users
+
+// Sort by name ASC
+QUERY get_users_by_name_asc() =>
+    users <- N<User>::ORDER<Asc>(_::{name})
+    RETURN users
+
+// ==================== Pagination ====================
+
+// Get first 5 users
+QUERY get_first_5_users() =>
+    users <- N<User>::RANGE(0, 5)
+    RETURN users
+
+// Get users 6-10
+QUERY get_users_page_2() =>
+    users <- N<User>::RANGE(5, 10)
+    RETURN users
+
+// Get first user
+QUERY get_first_user() =>
+    user <- N<User>::FIRST
+    RETURN user
+
+// ==================== Aggregation ====================
+
+// Count all users
+QUERY count_all_users() =>
+    count <- N<User>::COUNT
+    RETURN count
+
+// Aggregate by age and score
+QUERY aggregate_user_stats() =>
+    stats <- N<User>::AGGREGATE_BY(age, score)
+    RETURN stats
+
+// Aggregate by score
+QUERY aggregate_by_score() =>
+    stats <- N<User>::AGGREGATE_BY(score)
+    RETURN stats
+
+// ==================== Grouping ====================
+
+// Group by active
+QUERY group_by_active() =>
+    result <- N<User>::GROUP_BY(active)
+    RETURN result
+
+// Group by age
+QUERY group_by_age() =>
+    result <- N<User>::GROUP_BY(age)
+    RETURN result
+
+// Group by active and age
+QUERY group_by_active_and_age() =>
+    result <- N<User>::GROUP_BY(active, age)
+    RETURN result
+
+// ==================== Complex Combinations ====================
+
+// Query active=true, score>70, sort by score DESC, top 5
+QUERY get_top_5_active_users() =>
+    users <- N<User>
+        ::WHERE(AND(_::{active}::EQ(true), _::{score}::GT(70.0)))
+        ::ORDER<Desc>(_::{score})
+        ::RANGE(0, 5)
+    RETURN users
+
+// Query age 25-45, active=true, sort by age ASC
+QUERY get_middle_aged_active_users() =>
+    users <- N<User>
+        ::WHERE(AND(_::{age}::GTE(25), AND(_::{age}::LTE(45), _::{active}::EQ(true))))
+        ::ORDER<Asc>(_::{age})
+    RETURN users
+
+// Query score<60 OR age>55, sort by score DESC
+QUERY get_low_score_or_senior() =>
+    users <- N<User>
+        ::WHERE(OR(_::{score}::LT(60.0), _::{age}::GT(55)))
+        ::ORDER<Desc>(_::{score})
+    RETURN users
+
+// Query active=false, sort by score DESC, top 2
+QUERY get_top_2_inactive_users() =>
+    users <- N<User>
+        ::WHERE(_::{active}::EQ(false))
+        ::ORDER<Desc>(_::{score})
+        ::RANGE(0, 2)
+    RETURN users
+
+// Query age=21, sort by score DESC
+QUERY get_age_21_by_score() =>
+    users <- N<User>
+        ::WHERE(_::{age}::EQ(21))
+        ::ORDER<Desc>(_::{score})
+    RETURN users
+
+// Query all users, sort by score ASC, take 11-15
+QUERY get_middle_users_by_score() =>
+    users <- N<User>
+        ::ORDER<Asc>(_::{score})
+        ::RANGE(10, 15)
+    RETURN users
+
+// Count active=true users
+QUERY count_active_users() =>
+    count <- N<User>::WHERE(_::{active}::EQ(true))::COUNT
+    RETURN count
+
+// Count score>80 users
+QUERY count_high_scorers() =>
+    count <- N<User>::WHERE(_::{score}::GT(80.0))::COUNT
+    RETURN count
+
+// Query age 30-40 AND active=true, sort by age DESC
+QUERY get_thirties_active_desc() =>
+    users <- N<User>
+        ::WHERE(AND(_::{age}::GTE(30), AND(_::{age}::LTE(40), _::{active}::EQ(true))))
+        ::ORDER<Desc>(_::{age})
+    RETURN users
+
+// Query score 60-80, sort by score ASC, top 3
+QUERY get_mid_range_scores() =>
+    users <- N<User>
+        ::WHERE(AND(_::{score}::GTE(60.0), _::{score}::LT(80.0)))
+        ::ORDER<Asc>(_::{score})
+        ::RANGE(0, 3)
+    RETURN users
+
+// Triple AND: active=true AND age>30 AND score>75
+QUERY get_active_mature_high_performers() =>
+    users <- N<User>
+        ::WHERE(AND(_::{active}::EQ(true), AND(_::{age}::GT(30), _::{score}::GT(75.0))))
+        ::ORDER<Desc>(_::{score})
+    RETURN users
+
+
+// ==================== Traversals ====================
+
+// Query posts liked by user
+QUERY get_user_liked_posts(user_id: ID) =>
+    posts <- N<User>(user_id)::Out<LIKED>
+    RETURN posts
+
+// Query comments on post
+QUERY get_post_comments(post_id: ID) =>
+    comments <- N<Post>(post_id)::In<ON>
+    RETURN comments
+
+// Query author of first post
+QUERY get_first_post_author(post_id: ID) =>
+    author <- N<Post>(post_id)::In<POSTED>
+    RETURN author
+
+// Query mutual friends
+QUERY get_user_friends(user_id: ID) =>
+    friends <- N<User>(user_id)::Out<FRIEND>
+    RETURN friends
+
+// Query author from comment
+QUERY get_comment_author(comment_id: ID) =>
+    author <- N<Comment>(comment_id)::In<COMMENTED>
+    RETURN author
+
+
+// ==================== Full Text Search (BM25) ====================
+
+// Search posts containing "Graph"
+QUERY search_graph_posts(limit: I64) =>
+    results <- SearchBM25<Post>("Graph", limit)
+    RETURN results
+
+// Search posts containing "HQL"
+QUERY search_hql_posts(limit: I64) =>
+    results <- SearchBM25<Post>("HQL", limit)
+    RETURN results

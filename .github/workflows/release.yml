@@ -1,0 +1,46 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest]
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: install rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: install dependencies
+        run: npm install -g pnpm && pnpm install
+
+      - name: build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__ # tauri-action replaces this with the version in tauri.conf.json
+          releaseName: "HelixDB Explorer v__VERSION__"
+          releaseBody: "See the assets below to download the latest macOS DMG."
+          releaseDraft: true
+          prerelease: false
+          # We only want to create a release if a tag was pushed
+          includeRelease: ${{ startsWith(github.ref, 'refs/tags/') }}
+          projectPath: packages/desktop

@@ -1,0 +1,16 @@
+{
+  "name": "tauri-app",
+  "version": "0.1.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @helixdb/desktop dev",
+    "ui": "pnpm --filter @helixdb/app dev",
+    "build": "pnpm --filter @helixdb/app build && pnpm --filter @helixdb/desktop build",
+    "tauri": "pnpm --filter @helixdb/desktop tauri"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

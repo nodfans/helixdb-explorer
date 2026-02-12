@@ -1,0 +1,507 @@
+import { createEffect, createMemo, createSignal, For, onMount, Show, onCleanup } from "solid-js";
+import { Play, Plus, X, FileCode, Database, Sparkles, Check, Upload } from "lucide-solid";
+import { invoke } from "@tauri-apps/api/core";
+import { hqlStore, setHqlStore, type HqlTab } from "../stores/hql";
+import { HQLEditor } from "./ui/hql-editor";
+import { formatHQL } from "../lib/hql-formatter";
+import { HelixApi } from "../lib/api";
+import { activeConnection, getConnectionUrl, setConnectionStore, saveConnections } from "../stores/connection";
+import { HqlPanel, SyncConfirmationOverlay } from "./ui/hql-panel";
+
+export interface HQLProps {
+  isConnected: boolean;
+  onConnect: () => void;
+}
+
+export const HQL = (props: HQLProps) => {
+  const [executing, setExecuting] = createSignal(false);
+  const [syncing, setSyncing] = createSignal(false);
+  const [resultsHeight, setResultsHeight] = createSignal(300);
+  const [showResults, setShowResults] = createSignal(true);
+  const [isResizing, setIsResizing] = createSignal(false);
+  const [copied, setCopied] = createSignal(false);
+  const [formatted, setFormatted] = createSignal(false);
+  const [gutterWidth, setGutterWidth] = createSignal(40);
+  const [selectedText, setSelectedText] = createSignal("");
+  const [pendingSync, setPendingSync] = createSignal<{
+    items: Array<{
+      query_name: string;
+      old_code: string;
+      new_code: string;
+      sync_type: string;
+    }>;
+    workshopPath: string;
+    fullCode: string;
+  } | null>(null);
+
+  const logEntry = (msg: string) => {
+    const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+    updateActiveTab({ logs: (activeTab().logs || "") + `\n[${timestamp}] ${msg}` });
+  };
+
+  const minDelay = <T,>(promise: Promise<T>, ms: number = 800): Promise<T> => {
+    return Promise.all([promise, new Promise((resolve) => setTimeout(resolve, ms))]).then(([val]) => val);
+  };
+
+  const activeTab = createMemo(() => hqlStore.tabs.find((t) => t.id === hqlStore.activeTabId) || hqlStore.tabs[0]);
+
+  onMount(async () => {
+    // Initialize Schema for Auto-completion (only if we have a connection)
+    const active = activeConnection();
+    if (active && active.host) {
+      const api = new HelixApi(getConnectionUrl(active), null);
+      try {
+        const schema = await api.fetchSchema();
+        setHqlStore("schema", schema);
+      } catch (err) {
+        console.warn("Failed to pre-fetch schema for auto-completion", err);
+      }
+    }
+  });
+
+  // Clear results when switching from disconnected to connected
+  createEffect((prevConnected) => {
+    if (props.isConnected && prevConnected === false) {
+      clearResults();
+    }
+    return props.isConnected;
+  }, props.isConnected);
+
+  const startResizing = (e: MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    const startY = e.clientY;
+    const startHeight = resultsHeight();
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      moveEvent.preventDefault();
+      const deltaY = startY - moveEvent.clientY;
+      const newHeight = Math.max(100, Math.min(startHeight + deltaY, window.innerHeight * 0.8));
+      setResultsHeight(newHeight);
+    };
+
+    const stopResizing = () => {
+      setIsResizing(false);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", stopResizing);
+
+    onCleanup(stopResizing);
+  };
+
+  const addTab = () => {
+    const id = crypto.randomUUID();
+    const newTab: HqlTab = {
+      id,
+      name: `Query ${hqlStore.tabs.length + 1}`,
+      code: "",
+      output: "",
+      rawOutput: null,
+      status: "idle",
+      queryStatus: "idle",
+      syncStatus: "idle",
+    };
+    setHqlStore("tabs", [...hqlStore.tabs, newTab]);
+    setHqlStore("activeTabId", id);
+  };
+
+  const closeTab = (e: MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (hqlStore.tabs.length === 1) return;
+
+    const newTabs = hqlStore.tabs.filter((t) => t.id !== id);
+    setHqlStore("tabs", newTabs);
+
+    if (activeTab().id === id) {
+      setHqlStore("activeTabId", newTabs[newTabs.length - 1].id);
+    }
+  };
+
+  const updateActiveTab = (updates: Partial<HqlTab>) => {
+    setHqlStore("tabs", (t) => t.id === activeTab().id, updates);
+  };
+
+  const clearResults = () => {
+    setHqlStore("tabs", () => true, {
+      status: "idle",
+      queryStatus: "idle",
+      syncStatus: "idle",
+      output: "",
+      rawOutput: null,
+      executionTime: undefined,
+      logs: "",
+      diagnostics: [],
+    });
+  };
+
+  const handleConnect = () => {
+    props.onConnect();
+  };
+
+  const executeHql = async (codeOverride?: string) => {
+    const targetTabId = hqlStore.activeTabId; // Capture the tab ID at start
+    const currentTab = hqlStore.tabs.find((t) => t.id === targetTabId) || activeTab();
+
+    // Determine execution scope: Selection > Override > Tab Code
+    const codeToProcess = selectedText().trim() || codeOverride || currentTab.code;
+
+    // Define helper within scope to ensure targetTabId is captured correctly
+    const updateTargetTab = (updates: Partial<HqlTab>) => {
+      setHqlStore("tabs", (t) => t.id === targetTabId, updates);
+    };
+
+    if (!codeToProcess.trim()) {
+      updateTargetTab({
+        status: "error",
+        output: "⚠️ Please enter HQL code before executing",
+      });
+      setShowResults(true);
+      return;
+    }
+
+    const conn = activeConnection();
+    if (!conn.host || !props.isConnected) {
+      updateTargetTab({
+        status: "error",
+        output: !conn.host ? "❌ No active connection. Please add one in 'Connections' tab." : "❌ Disconnected. Please connect to the database first.",
+      });
+      setShowResults(true);
+      if (!props.isConnected) handleConnect();
+      return;
+    }
+
+    setExecuting(true);
+    updateTargetTab({
+      status: "loading",
+      queryStatus: "loading",
+      output: "⏳ Compiling and executing HQL...\nThis may take a moment.",
+      rawOutput: null,
+      diagnostics: [],
+      viewMode: "table",
+    });
+    setShowResults(true);
+
+    const startTime = performance.now();
+    try {
+      // "What you select is what you get" - Send exactly what's requested to the backend
+      const result: any = await invoke("execute_dynamic_hql", {
+        url: getConnectionUrl(activeConnection()),
+        code: codeToProcess,
+      });
+
+      const endTime = performance.now();
+      const duration = Math.round(endTime - startTime);
+
+      updateTargetTab({
+        status: "success",
+        queryStatus: "success",
+        rawOutput: result,
+        output: JSON.stringify(result, null, 2),
+        executionTime: duration,
+        viewMode: Array.isArray(result) ? "table" : "json",
+        logs: `[${new Date().toLocaleTimeString()}] Query executed in ${duration}ms\nSize: ${result ? JSON.stringify(result).length : 0} bytes`,
+      });
+    } catch (err: any) {
+      let errorMsg = err.toString();
+
+      if (errorMsg.includes("connection")) {
+        errorMsg = `Connection Error: Couldn't connect to ${getConnectionUrl(activeConnection())}. Make sure your Helix instance is running. (Original: ${err})`;
+      } else {
+        errorMsg = `Execution Failed: ${err}`;
+      }
+
+      // Parse error for line number
+      let diagnostics: any[] = [];
+      const lineMatch = errorMsg.match(/line\s+(\d+)/i) || errorMsg.match(/At: \((\d+)/i) || errorMsg.match(/-->\s+(\d+):/);
+
+      if (lineMatch) {
+        try {
+          const lineOneBased = parseInt(lineMatch[1]);
+          if (!isNaN(lineOneBased) && lineOneBased > 0) {
+            const lines = currentTab.code.split(/\r?\n/);
+            if (lineOneBased <= lines.length) {
+              let from = 0;
+              for (let i = 0; i < lineOneBased - 1; i++) {
+                from += lines[i].length + 1;
+              }
+              const lineContent = lines[lineOneBased - 1];
+              diagnostics.push({
+                from: from,
+                to: from + lineContent.length,
+                severity: "error",
+                message: errorMsg,
+              });
+            }
+          }
+        } catch (e) {}
+      }
+
+      updateTargetTab({
+        status: "error",
+        queryStatus: "error",
+        output: `❌ ${errorMsg}`,
+        diagnostics,
+        viewMode: "table",
+      });
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  const copyOutput = () => {
+    const text = activeTab().viewMode === "log" ? activeTab().logs : activeTab().output;
+    navigator.clipboard.writeText(text || "");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const beautifyCode = () => {
+    try {
+      const formattedCode = formatHQL(activeTab().code);
+      updateActiveTab({ code: formattedCode });
+      setFormatted(true);
+      setTimeout(() => setFormatted(false), 800);
+    } catch (err) {
+      console.error("Format error:", err);
+      // Show error in output
+      updateActiveTab({
+        status: "error",
+        output: `❌ Format Error: ${err}`,
+      });
+      setShowResults(true);
+    }
+  };
+
+  return (
+    <div class="flex-1 flex flex-col bg-native-content min-h-0 min-w-0 overflow-hidden" classList={{ "cursor-row-resize": isResizing() }}>
+      {/* Tab Bar */}
+      <div class="flex items-center h-9 bg-native-sidebar-vibrant/40 border-b border-native px-5 gap-1.5 overflow-x-auto scrollbar-hide shrink-0">
+        <For each={hqlStore.tabs}>
+          {(tab) => (
+            <div
+              onClick={() => setHqlStore("activeTabId", tab.id)}
+              class={`
+            group relative flex items-center gap-1.5 px-2.5 h-[26px] text-[11px] font-medium rounded-md cursor-pointer transition-all select-none min-w-[100px] max-w-[180px] border
+            ${
+              tab.id === activeTab().id
+                ? "bg-[var(--bg-elevated)] text-[var(--text-primary)] border-[var(--border-subtle)] shadow-sm"
+                : "bg-transparent text-[var(--text-tertiary)] border-transparent hover:bg-[var(--bg-hover)] hover:text-[var(--text-secondary)]"
+            }
+          `}
+            >
+              <div class="flex-shrink-0">
+                <FileCode size={13} strokeWidth={2.5} class={tab.id === activeTab().id ? "text-accent" : "text-native-quaternary"} />
+              </div>
+              <span class="truncate pr-4 text-[12px]">{tab.name}</span>
+
+              <Show when={hqlStore.tabs.length > 1}>
+                <button
+                  onClick={(e) => closeTab(e, tab.id)}
+                  class="absolute right-1 text-native-quaternary hover:text-red-500 opacity-0 group-hover:opacity-100 p-0.5 rounded-sm hover:bg-red-500/10 transition-all"
+                >
+                  <X size={10} />
+                </button>
+              </Show>
+            </div>
+          )}
+        </For>
+
+        <button onClick={addTab} class="p-1 px-1.5 text-native-tertiary hover:text-accent hover:bg-native-content transition-all rounded-md" title="New Query Tab">
+          <Plus size={14} />
+        </button>
+      </div>
+
+      {/* Toolbar */}
+      <div class="h-9 border-b border-native bg-native-sidebar-vibrant/40 flex items-center px-5 gap-2 shrink-0">
+        <div
+          onClick={handleConnect}
+          class="flex items-center h-[26px] bg-[var(--bg-input)] border border-native rounded-md px-2 gap-2 hover:border-native-active transition-colors min-w-[160px] max-w-[240px] group cursor-default select-none"
+          title="Switch Connection"
+        >
+          <div class="flex items-center justify-center w-4 h-4 bg-accent/10 rounded p-0.5">
+            <Database size={11} strokeWidth={2.5} class="text-accent" />
+          </div>
+          <span class="flex-1 text-[11px] text-native-primary font-medium truncate">
+            {activeConnection().host}:{activeConnection().port}
+          </span>
+        </div>
+
+        <div class="w-px h-3.5 bg-[var(--border-subtle)]" />
+
+        {/* Format Button - Icon Only */}
+        <button onClick={beautifyCode} class="h-7 w-7 p-0 flex items-center justify-center rounded-md transition-colors" title="Format Query">
+          <Show when={formatted()} fallback={<Sparkles size={16} class="text-purple-500" strokeWidth={2} />}>
+            <Check size={16} class="text-emerald-500 animate-in fade-in zoom-in duration-200" strokeWidth={2} />
+          </Show>
+        </button>
+
+        {/* Run Button - Icon Only */}
+        <button
+          onClick={() => executeHql()}
+          disabled={executing() || !activeTab().code.trim()}
+          class="h-7 w-7 p-0 flex items-center justify-center rounded-md transition-colors disabled:opacity-40"
+          title={executing() ? "Running..." : selectedText().trim() ? "Run Selection" : "Run Query"}
+        >
+          <Show when={executing()} fallback={<Play size={16} class={selectedText().trim() ? "text-accent" : "text-emerald-500"} strokeWidth={2} fill="currentColor" />}>
+            <div class="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+          </Show>
+        </button>
+
+        {/* Sync Button - Icon Only */}
+        <button
+          onClick={async () => {
+            const conn = activeConnection();
+
+            if (!conn.host || !props.isConnected) {
+              updateActiveTab({
+                status: "error",
+                syncStatus: "error",
+                output: !conn.host ? "❌ No active connection. Please add one in 'Connections' tab." : "❌ Disconnected. Please connect to the database first.",
+                viewMode: "log",
+              });
+              setShowResults(true);
+              if (!props.isConnected) handleConnect();
+              return;
+            }
+
+            const codeToSync = selectedText() || activeTab().code;
+            setPendingSync(null);
+            setSyncing(true);
+            try {
+              let workshopPath = conn.localPath;
+
+              if (!workshopPath) {
+                updateActiveTab({ status: "loading", output: "⏳ No workspace path configured. Attempting auto-detection via Docker..." });
+                setShowResults(true);
+
+                try {
+                  workshopPath = await invoke<string>("detect_workspace_path");
+
+                  setConnectionStore("connections", (c) => c.id === conn.id, { localPath: workshopPath });
+                  saveConnections();
+
+                  updateActiveTab({
+                    output: `✅ Auto-detected workspace: ${workshopPath}\nProceeding with sync...`,
+                  });
+                } catch (detectErr) {
+                  const errorMsg = `❌ No Local Workspace Path configured.\n\nAuto-detection failed: ${detectErr}\n\nPlease set it manually in 'Connections' settings.`;
+                  logEntry(errorMsg);
+                  updateActiveTab({
+                    status: "error",
+                    syncStatus: "error",
+                    viewMode: "log",
+                  });
+                  return;
+                }
+              }
+
+              updateActiveTab({ status: "loading", syncStatus: "loading", logs: "⏳ Syncing to project...", viewMode: "log" });
+              setShowResults(true);
+
+              try {
+                const response = await minDelay(
+                  invoke<any>("sync_hql_to_project", {
+                    code: codeToSync,
+                    localPath: workshopPath,
+                    force: false,
+                  })
+                );
+
+                if (response.type === "Success") {
+                  updateActiveTab({
+                    status: "success",
+                    syncStatus: "success",
+                    logs: response.data,
+                    viewMode: "log",
+                  });
+                } else {
+                  // Pending
+                  const items = response.data;
+                  logEntry(`[Sync] Detected ${items.length} queries that need confirmation.`);
+                  setPendingSync({
+                    items, // List of {query_name, old_code, new_code, sync_type}
+                    workshopPath,
+                    fullCode: codeToSync,
+                  });
+                  updateActiveTab({ status: "idle", viewMode: "log" });
+                }
+              } catch (err: any) {
+                const errorMsg = `❌ Sync Failed: ${err}`;
+                logEntry(errorMsg);
+                updateActiveTab({ status: "idle", syncStatus: "error", viewMode: "log" });
+              }
+            } catch (err: any) {
+              const errorMsg = `❌ Unexpected Error: ${err}`;
+              logEntry(errorMsg);
+              updateActiveTab({ status: "idle", syncStatus: "error", viewMode: "log" });
+            } finally {
+              setSyncing(false);
+            }
+          }}
+          disabled={!activeTab().code.trim() || syncing()}
+          class="h-7 w-7 p-0 flex items-center justify-center rounded-md transition-colors disabled:opacity-40"
+          title={activeConnection().localPath ? `Sync to ${activeConnection().localPath}` : "Auto-detect Workspace & Sync"}
+        >
+          <Show when={syncing()} fallback={<Upload size={16} class={activeConnection().localPath ? "text-[#007AFF] dark:text-[#0A84FF]" : "text-native-quaternary"} strokeWidth={2} />}>
+            <div class="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+          </Show>
+        </button>
+
+        <div class="flex-1" />
+      </div>
+
+      <div class="flex-1 flex flex-col min-h-0 relative">
+        {/* Editor Container */}
+        <div class="flex-1 min-h-0 bg-[var(--bg-content)]" style={{ "padding-bottom": showResults() ? `${resultsHeight()}px` : "0" }}>
+          <HQLEditor
+            code={activeTab().code}
+            onCodeChange={(code) => updateActiveTab({ code })}
+            onExecute={executeHql}
+            onSelectionChange={setSelectedText}
+            onGutterWidthChange={setGutterWidth}
+            diagnostics={activeTab().diagnostics || []}
+          />
+        </div>
+
+        {/* Results Resizer - macOS style */}
+        <Show when={showResults()}>
+          <div class="absolute left-0 right-0 h-px bg-[var(--border-subtle)] group z-50" style={{ bottom: `${resultsHeight()}px` }}>
+            <div
+              class="absolute inset-x-0 h-[3px] -top-[1px] cursor-row-resize hover:bg-[#007AFF]/10 dark:hover:bg-[#0A84FF]/10 transition-colors"
+              classList={{ "bg-[#007AFF]/20 dark:bg-[#0A84FF]/20": isResizing() }}
+              onMouseDown={startResizing}
+            />
+          </div>
+        </Show>
+
+        {/* Results Panel */}
+        <HqlPanel
+          activeTab={activeTab()}
+          isConnected={props.isConnected}
+          onConnect={handleConnect}
+          updateActiveTab={updateActiveTab}
+          copyOutput={copyOutput}
+          copied={copied}
+          showResults={showResults}
+          setShowResults={setShowResults}
+          resultsHeight={resultsHeight}
+          isResizing={isResizing}
+          startResizing={startResizing}
+          gutterWidth={gutterWidth}
+          pendingSync={pendingSync}
+          setPendingSync={setPendingSync}
+          setSyncing={setSyncing}
+          logEntry={logEntry}
+        />
+      </div>
+
+      {/* Sync Confirmation Overlay - Global Mount */}
+      <Show when={pendingSync()}>
+        <SyncConfirmationOverlay pendingSync={pendingSync} setPendingSync={setPendingSync} setSyncing={setSyncing} logEntry={logEntry} updateActiveTab={updateActiveTab} />
+      </Show>
+    </div>
+  );
+};
