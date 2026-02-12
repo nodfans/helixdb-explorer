@@ -33,19 +33,21 @@
     "active": true,
     "targets": "all",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/256x256.png", "icons/1024x1024.png", "icons/icon.icns", "icons/icon.ico"],
-    "dmg": {
-      "background": "icons/dmg-background.png",
-      "windowSize": {
-        "width": 660,
-        "height": 400
-      },
-      "appPosition": {
-        "x": 170,
-        "y": 170
-      },
-      "applicationFolderPosition": {
-        "x": 480,
-        "y": 170
+    "macOS": {
+      "dmg": {
+        "background": "icons/dmg-background.png",
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        },
+        "appPosition": {
+          "x": 170,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 170
+        }
       }
     }
   }
