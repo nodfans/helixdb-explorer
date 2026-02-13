@@ -69,7 +69,6 @@ export const SplashScreen = (props: SplashScreenProps) => {
       ],
     },
     { tokens: [{ text: "    })", type: "punc" }] },
-    { tokens: [] },
     {
       tokens: [
         { text: "    ", type: "default" },
