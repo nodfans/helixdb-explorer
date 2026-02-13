@@ -427,14 +427,15 @@ export const SplashScreen = (props: SplashScreenProps) => {
           51%, 100% { opacity: 0; }
         }
 
-        /* Token colors */
-        .splash-token-keyword { color: var(--accent); font-weight: 600; }
-        .splash-token-type { color: #64b5f6; }
-        .splash-token-operator { color: var(--accent); opacity: 0.7; }
-        .splash-token-fn { color: var(--text-primary); font-weight: 500; }
-        .splash-token-param { color: var(--color-orange, #ff9500); }
-        .splash-token-punc { color: var(--text-quaternary); }
-        .splash-token-default { color: var(--text-secondary); }
+        /* Token colors - Sync with reference image (Tokyo Night) */
+        .splash-token-keyword { color: #ff9e64; font-weight: 600; } /* Orange */
+        .splash-token-type { color: #bb9af7; } /* Purple */
+        .splash-token-operator { color: #ff9e64; } /* Orange (<-) */
+        .splash-token-fn { color: #7aa2f7; font-weight: 500; } /* Blue (CreateUser, AddN) */
+        .splash-token-param { color: #c0caf5; } /* Foreground blue-white */
+        .splash-token-punc { color: #89ddff; } /* Light cyan (brackets, commas) */
+        .splash-token-default { color: #c0caf5; }
+        .splash-token-builtin { color: #7dcfff; } /* Cyan (String, I32) */
 
         /* ===== Progress ===== */
         .splash-progress-region {

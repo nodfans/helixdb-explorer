@@ -1,7 +1,7 @@
 import { createSignal, createEffect, createMemo, onCleanup, onMount, Show, For } from "solid-js";
 import { HelixApi } from "../lib/api";
 import ForceGraphFactory from "force-graph";
-import { Database, Network, RefreshCw, ChevronRight, X, Sparkles, Maximize } from "lucide-solid";
+import { Database, Network, RefreshCw, ChevronRight, X, Sparkles, Maximize, Layers, Check } from "lucide-solid";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ToolbarLayout } from "./ui/toolbar-layout";
@@ -37,15 +37,11 @@ interface GraphEdge {
 
 // 🎨 Color palette - Professional blue inspired by Navicat
 const TYPE_COLORS: Record<string, string> = {
-  User: "#3b82f6", // primary blue
-  Post: "#60a5fa", // light blue
-  Comment: "#67e8f9", // sky cyan
-  Product: "#fcd34d", // warm yellow
-  Order: "#fb7185", // coral
-  Category: "#4ade80", // emerald
-  Tag: "#fdba74", // peach
-  Entity: "#93c5fd", // soft blue
-  default: "#d4d4d8", // warm gray
+  User: "#10b981", // emerald
+  Post: "#3b82f6", // blue
+  Comment: "#818cf8", // indigo (lavender-blue)
+  Entity: "#10b981", // emerald
+  default: "#94a3b8", // gray
 };
 
 // Generate color from hash for unknown types - aurora palette
@@ -119,6 +115,8 @@ export const Graph = (props: GraphProps) => {
   const [searchQuery, setSearchQuery] = createSignal("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = createSignal("");
   const [rankingMode, setRankingMode] = createSignal(false);
+  const [hiddenTypes, setHiddenTypes] = createSignal<Set<string>>(new Set());
+  const [showLegend, setShowLegend] = createSignal(false);
 
   // Debounce search query
   createEffect(() => {
@@ -146,6 +144,17 @@ export const Graph = (props: GraphProps) => {
     const sortedHubIds = nodes.map((n) => n.id).sort((a, b) => (degreeMap.get(b) || 0) - (degreeMap.get(a) || 0));
 
     return { degreeMap, sortedHubIds };
+  });
+
+  const nodeTypes = createMemo(() => {
+    const types = new Map<string, number>();
+    allNodes().forEach((n) => {
+      const type = n.type || n.label || "default";
+      types.set(type, (types.get(type) || 0) + 1);
+    });
+    return Array.from(types.entries())
+      .map(([type, count]) => ({ type, count, color: getNodeColor({ type } as any) }))
+      .sort((a, b) => b.count - a.count);
   });
 
   const graphData = createMemo(() => {
@@ -226,14 +235,20 @@ export const Graph = (props: GraphProps) => {
       }));
     }
 
-    // 2. Global Search Filter
+    // 2. Filter by hidden types
+    const hidden = hiddenTypes();
+    nodesToDisplay = nodesToDisplay.filter((n) => !hidden.has(n.type || n.label || "default"));
+
+    // 4. Global Search Filter
     const search = debouncedSearchQuery().trim();
     if (search) {
       const query = search.toLowerCase();
       nodesToDisplay = nodesToDisplay.filter((n) => n.name?.toLowerCase().includes(query) || n.id.toLowerCase().includes(query) || n.type?.toLowerCase().includes(query));
-      const activeIds = new Set(nodesToDisplay.map((n) => n.id));
-      linksToDisplay = linksToDisplay.filter((l) => activeIds.has(l.source) && activeIds.has(l.target));
     }
+
+    // 5. Final Link Filtering (Ensures no dangling links)
+    const activeIds = new Set(nodesToDisplay.map((n) => n.id));
+    linksToDisplay = linksToDisplay.filter((l) => activeIds.has(l.source) && activeIds.has(l.target));
 
     return { nodes: nodesToDisplay, links: linksToDisplay };
   });
@@ -495,7 +510,7 @@ export const Graph = (props: GraphProps) => {
       });
       graphInstance.linkDirectionalParticleWidth(5);
       graphInstance.linkDirectionalParticleSpeed(0.006); // Slower, smoother flow
-      graphInstance.linkDirectionalParticleColor(() => "#60a5fa"); // blue
+      graphInstance.linkDirectionalParticleColor(() => "#3b82f6"); // matched blue
 
       // 🧲 Physics - Loose deck feeling that fans out
       graphInstance.d3AlphaDecay(0.02);
@@ -552,8 +567,8 @@ export const Graph = (props: GraphProps) => {
     // Standard data update (non-destructive if references match)
     graphInstance.graphData(data);
 
-    if (countChanged) {
-      // Only reheat on structural changes
+    if (countChanged || (data.nodes.length > 0 && currentData.nodes.length === 0)) {
+      // Reheat on structural changes OR when recovering from empty state
       graphInstance.d3ReheatSimulation();
     }
   });
@@ -628,6 +643,16 @@ export const Graph = (props: GraphProps) => {
     }
   });
 
+  const toggleHiddenType = (type: string) => {
+    const hidden = new Set(hiddenTypes());
+    if (hidden.has(type)) {
+      hidden.delete(type);
+    } else {
+      hidden.add(type);
+    }
+    setHiddenTypes(hidden);
+  };
+
   const refresh = () => {
     setHoveredNodeId(null);
     setSelectedNode(null);
@@ -673,6 +698,13 @@ export const Graph = (props: GraphProps) => {
                 />
               </div>
             </div>
+
+            <div class="w-px h-5" style={{ "background-color": "var(--macos-border-light)" }} />
+
+            <Button variant="toolbar" active={showLegend()} onClick={() => setShowLegend(!showLegend())} class="flex items-center gap-1.5 h-7 transition-all">
+              <Layers size={13} class={showLegend() ? "text-accent" : "text-native-tertiary"} />
+              <span class="font-medium text-[11px]">Legend</span>
+            </Button>
           </div>
 
           {/* Center: Stats (Desktop Only) */}
@@ -731,7 +763,57 @@ export const Graph = (props: GraphProps) => {
       {/* Main Content */}
       <div class="flex-1 flex overflow-hidden relative">
         {/* Graph Canvas */}
-        <div ref={containerRef} class="flex-1 min-w-0" style={{ transition: "width 0.2s ease" }} />
+        <div ref={containerRef} class="flex-1 relative overflow-hidden" style={{ transition: "width 0.2s ease" }} />
+
+        {/* Schema Legend Panel */}
+        <Show when={showLegend()}>
+          <div class="absolute top-4 left-4 z-40 w-56 bg-native-elevated/95 backdrop-blur-xl rounded-xl border border-native shadow-macos-lg flex flex-col max-h-[calc(100%-2rem)] overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-left-4">
+            <div class="flex-none p-3 border-b border-native flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <Layers size={14} class="text-accent" />
+                <span class="text-[12px] font-bold text-native-primary">Legend</span>
+              </div>
+              <button onClick={() => setShowLegend(false)} class="p-1 hover:bg-native-content/10 rounded-md transition-colors text-native-tertiary hover:text-native-primary">
+                <X size={14} />
+              </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-2 space-y-0.5 scrollbar-thin">
+              <For each={nodeTypes()}>
+                {(item) => (
+                  <div
+                    class={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
+                      hiddenTypes().has(item.type) ? "opacity-50 grayscale bg-transparent" : "hover:bg-native-content/5"
+                    }`}
+                    onClick={() => toggleHiddenType(item.type)}
+                  >
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <div class="w-3 h-3 rounded-full flex-none shadow-sm" style={{ "background-color": item.color }} />
+                      <div class="flex flex-col min-w-0">
+                        <span class="text-[11px] font-semibold text-native-primary truncate leading-tight">{item.type}</span>
+                        <span class="text-[9px] text-native-tertiary tabular-nums font-medium">{item.count} nodes</span>
+                      </div>
+                    </div>
+
+                    <div
+                      class={`w-4 h-4 rounded border transition-all flex items-center justify-center ${
+                        hiddenTypes().has(item.type) ? "border-native bg-transparent" : "border-accent bg-accent shadow-[0_0_8px_rgba(var(--macos-accent-rgb),0.3)]"
+                      }`}
+                    >
+                      <Show when={!hiddenTypes().has(item.type)}>
+                        <Check size={11} class="text-white" />
+                      </Show>
+                    </div>
+                  </div>
+                )}
+              </For>
+            </div>
+
+            <div class="flex-none p-2 border-t border-native bg-native-content/5">
+              <div class="text-[9px] text-center text-native-quaternary font-medium uppercase tracking-wider">Toggle types to filter view</div>
+            </div>
+          </div>
+        </Show>
 
         {/* Detail Panel */}
         <Show when={showDetailPanel()}>
@@ -824,7 +906,6 @@ export const Graph = (props: GraphProps) => {
           </Show>
         </div>
 
-        {/* Right side - Selection Info */}
         <div class="flex items-center gap-2">
           <Show when={selectedNode()}>
             <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20">
@@ -832,7 +913,7 @@ export const Graph = (props: GraphProps) => {
               <span class="text-[11px] font-semibold text-blue-500">{(selectedNode() as any).id}</span>
             </div>
 
-            <div class="w-px h-4" style={{ "background-color": "var(--macos-border-light)" }} />
+            <div class="w-px h-5" style={{ "background-color": "var(--macos-border-light)" }} />
 
             <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
               <Network size={11} class="text-emerald-500" />

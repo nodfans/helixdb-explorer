@@ -360,7 +360,10 @@ export class HelixApi {
 
   async fetchNodesAndEdges(limit?: number): Promise<NodesEdgesResponse> {
     try {
-      const url = limit ? `/nodes-edges?limit=${limit}` : `/nodes-edges`;
+      // Use a dummy node_label to force decoding without overwriting the actual label
+      let url = `/nodes-edges?node_label=__label__`;
+      if (limit) url += `&limit=${limit}`;
+
       const response = (await this.request(url)) as any;
 
       // Normalize all IDs in the response
