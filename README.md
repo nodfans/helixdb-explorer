@@ -31,7 +31,11 @@
 [**📥 Download latest HelixDB Explorer for macOS**](https://github.com/nodfans/helixdb-explorer/releases/latest/download/HelixDB-Explorer-macOS.dmg)
 
 > [!IMPORTANT]
-> **Gatekeeper Warning**: Since this app is not signed by a registered Apple Developer, you may see a "damaged" error. To fix this, run this command in your terminal:
+> **"App is damaged" or "Cannot be opened" Error**: Since this app is not signed by a registered Apple Developer yet (Ad-hoc signed),  macOS may block it on first launch.
+>
+> <img src="docs/assets/gatekeeper-warning.png" alt="Gatekeeper Warning" width="400" />
+>
+> To fix this, run this command in your terminal:
 >
 > ```bash
 > xattr -cr "/Applications/HelixDB Explorer.app"
