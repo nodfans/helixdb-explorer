@@ -45,6 +45,14 @@
 
 ## ✨ Features
 
+### 🧩 Visual Query Modeler
+
+Build complex HQL queries without writing code. Use a block-based interface to define traversals, filters, and projections visually.
+
+<div align="center">
+  <img src="docs/assets/modeler.png" alt="Visual Query Modeler" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
+</div>
+
 ### 🧠 Intelligent Editor
 
 Write HQL queries faster with syntax highlighting, schema-aware autocomplete, and real-time error checking. The editor understands your graph structure and suggests valid traversals as you type.
@@ -75,14 +83,6 @@ Interact with your data using high-performance node-link diagrams. Explore clust
 
 <div align="center">
   <img src="docs/assets/graph.png" alt="Graph Visualization" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
-</div>
-
-### 🧩 Visual Query Modeler
-
-Build complex HQL queries without writing code. Use a block-based interface to define traversals, filters, and projections visually.
-
-<div align="center">
-  <img src="docs/assets/modeler.png" alt="Visual Query Modeler" width="100%" style="border-radius: 10px; border: 1px solid #e5e5e5;" />
 </div>
 
 ### Build from Source
