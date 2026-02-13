@@ -11,15 +11,17 @@ export interface ConnectionProps {
   onConnect: (conn: ConnectionInfo) => void;
   onDisconnect: () => void;
   onTest: (conn: ConnectionInfo) => Promise<void>;
+  onEditingIdChange?: () => void;
 }
 
 export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel: () => void }) => {
   const [testResult, setTestResult] = createSignal<{ success: boolean; message: string } | null>(null);
 
-  // Clear test results when switching connections
+  // Clear test results and global errors when switching connections
   createEffect(() => {
     connectionStore.editingId;
     setTestResult(null);
+    props.onEditingIdChange?.();
   });
 
   // Automatically start adding a connection if the list is empty
@@ -186,9 +188,9 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
               </For>
             </div>
 
-            <div class="h-[40px] border-t border-native bg-native-sidebar/30 flex items-center justify-center">
-              <div class="flex items-center gap-2 text-[10px] text-native-quaternary font-medium">
-                <ShieldCheck size={12} />
+            <div class="h-[52px] border-t border-native bg-native-sidebar/30 flex items-center justify-center">
+              <div class="flex items-center gap-2 text-[11px] text-native-quaternary font-medium">
+                <ShieldCheck size={15} />
                 <span>Helix Explorer Secured</span>
               </div>
             </div>
@@ -250,19 +252,15 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                   <Show when={testResult() || props.error}>
                     <div
                       class={`mt-4 p-2.5 px-3.5 rounded-lg flex gap-2.5 items-center animate-in fade-in slide-in-from-top-2 duration-300 ${
-                        testResult()?.success && !props.error
+                        testResult()?.success
                           ? "bg-emerald-500/8 text-emerald-600 dark:text-emerald-400 border border-emerald-500/15"
                           : "bg-red-500/8 text-red-600 dark:text-red-400 border border-red-500/15"
                       }`}
                     >
                       <div class="shrink-0">
-                        {testResult()?.success && !props.error ? (
-                          <CheckCircle2 size={14} strokeWidth={2.5} class="text-emerald-500" />
-                        ) : (
-                          <AlertCircle size={14} strokeWidth={2.5} class="text-red-500" />
-                        )}
+                        {testResult()?.success ? <CheckCircle2 size={14} strokeWidth={2.5} class="text-emerald-500" /> : <AlertCircle size={14} strokeWidth={2.5} class="text-red-500" />}
                       </div>
-                      <span class="text-[11px] font-medium leading-tight">{props.error || testResult()?.message}</span>
+                      <span class="text-[11px] font-medium leading-tight">{testResult()?.message || props.error}</span>
                     </div>
                   </Show>
                 </div>

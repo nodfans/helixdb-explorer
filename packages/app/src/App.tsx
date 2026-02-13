@@ -212,6 +212,7 @@ function App() {
           onConnect={connection.handleConnect}
           onDisconnect={connection.disconnect}
           onTest={connection.testConnection}
+          onEditingIdChange={() => connection.setError(null)}
           onCancel={connection.closeSettings}
         />
 

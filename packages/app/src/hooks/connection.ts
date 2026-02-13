@@ -132,6 +132,7 @@ export function createConnection() {
   };
 
   const testConnection = async (conn: ConnectionInfo) => {
+    setError(null);
     const trimmedHost = (conn.host || "").trim();
     if (!trimmedHost || trimmedHost === "http://" || trimmedHost === "https://") {
       throw new Error("Invalid Host");
@@ -179,6 +180,7 @@ export function createConnection() {
     apiClient,
     handleConnect,
     testConnection,
+    setError,
     disconnect: handleDisconnect,
     openSettings: () => setShowSettings(true),
     closeSettings: () => setShowSettings(false),

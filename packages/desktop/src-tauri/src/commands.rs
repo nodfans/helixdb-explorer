@@ -21,6 +21,17 @@ pub fn terminate_app() {
     std::process::exit(0);
 }
 
+fn map_reqwest_error(e: reqwest::Error, prefix: &str) -> String {
+    if e.is_connect() {
+        if let Some(url) = e.url() {
+            let host = url.host_str().unwrap_or("127.0.0.1");
+            let port = url.port().map(|p| format!(":{}", p)).unwrap_or_default();
+            return format!("ERROR: Connection refused: {}{}", host, port);
+        }
+    }
+    format!("{}: {}", prefix, e)
+}
+
 #[tauri::command]
 pub fn helix_request(
     method: String,
@@ -52,9 +63,7 @@ pub fn helix_request(
         req = req.body(b);
     }
 
-    let resp = req.send().map_err(|e| {
-        format!("Request error: {}", e)
-    })?;
+    let resp = req.send().map_err(|e| map_reqwest_error(e, "Request error"))?;
 
     let status = resp.status();
     let text = resp.text().unwrap_or_default();
@@ -80,7 +89,7 @@ pub async fn execute_query(url: String, query_name: String, args: serde_json::Va
         .json(&args)
         .send()
         .await
-        .map_err(|e| format!("Request failed: {}", e))?;
+        .map_err(|e| map_reqwest_error(e, "Request failed"))?;
 
     if resp.status().is_success() {
         let json = resp.json::<serde_json::Value>()
@@ -189,7 +198,7 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
     let init_resp = client.post(format!("{}/mcp/init", url))
         .send()
         .await
-        .map_err(|e| format!("Init failed: {}", e))?;
+        .map_err(|e| map_reqwest_error(e, "Init failed"))?;
     
     if !init_resp.status().is_success() {
         let status = init_resp.status();
@@ -247,7 +256,7 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
                 .json(&body)
                 .send()
                 .await
-                .map_err(|e| format!("Search call failed: {}", e))?;
+                .map_err(|e| map_reqwest_error(e, "Search call failed"))?;
             
             if !tool_resp.status().is_success() {
                 let status = tool_resp.status();
@@ -263,7 +272,7 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
                 }))
                 .send()
                 .await
-                .map_err(|e| format!("Tool call failed: {}", e))?;
+                .map_err(|e| map_reqwest_error(e, "Tool call failed"))?;
             
             if !tool_resp.status().is_success() {
                 let status = tool_resp.status();
@@ -294,7 +303,7 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
                 }))
                 .send()
                 .await
-                .map_err(|e| format!("Collect failed: {}", e))?
+                .map_err(|e| map_reqwest_error(e, "Collect failed"))?
         },
         FinalAction::Count => {
              client.post(format!("{}/mcp/aggregate_by", url))
@@ -305,7 +314,7 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
                 }))
                 .send()
                 .await
-                .map_err(|e| format!("Count failed: {}", e))?
+                .map_err(|e| map_reqwest_error(e, "Count failed"))?
         },
         FinalAction::Aggregate { properties } => {
              client.post(format!("{}/mcp/aggregate_by", url))
@@ -316,7 +325,7 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
                 }))
                 .send()
                 .await
-                .map_err(|e| format!("Aggregate failed: {}", e))?
+                .map_err(|e| map_reqwest_error(e, "Aggregate failed"))?
         },
         FinalAction::GroupBy { properties } => {
              client.post(format!("{}/mcp/group_by", url))
@@ -327,7 +336,7 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
                 }))
                 .send()
                 .await
-                .map_err(|e| format!("GroupBy failed: {}", e))?
+                .map_err(|e| map_reqwest_error(e, "GroupBy failed"))?
         },
     };
 
@@ -961,5 +970,3 @@ fn walk_return_type(ret: &ReturnType, used: &mut HashSet<String>, literals: &mut
         _ => {}
     }
 }
-
-
