@@ -338,11 +338,47 @@ export class HelixApi {
     return endpoints;
   }
 
-  async fetchNodesAndEdges(_limit: number = 100): Promise<NodesEdgesResponse> {
+  /**
+   * Normalizes IDs from the backend.
+   * Backend returns raw u128 numeric strings in Top-N (limit) mode,
+   * but hyphenated UUID strings in full graph mode.
+   */
+  private normalizeId(id: string | number): string {
+    const s = String(id);
+    if (s.includes("-")) return s;
+
+    // Attempt to convert numeric string to UUID hyphenated format
     try {
-      // Note: We intentionally don't pass the limit parameter here
-      // Backend returns different data format (long numbers vs UUID) when limit is specified
-      return await this.request(`/nodes-edges`);
+      const BigInt = globalThis.BigInt;
+      const n = BigInt(s);
+      const hex = n.toString(16).padStart(32, "0");
+      return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20, 32)].join("-");
+    } catch {
+      return s;
+    }
+  }
+
+  async fetchNodesAndEdges(limit?: number): Promise<NodesEdgesResponse> {
+    try {
+      const url = limit ? `/nodes-edges?limit=${limit}` : `/nodes-edges`;
+      const response = (await this.request(url)) as any;
+
+      // Normalize all IDs in the response
+      if (response?.data) {
+        response.data.nodes = (response.data.nodes || []).map((node: any) => ({
+          ...node,
+          id: this.normalizeId(node.id),
+        }));
+
+        response.data.edges = (response.data.edges || []).map((edge: any) => ({
+          ...edge,
+          from: this.normalizeId(edge.from),
+          to: this.normalizeId(edge.to),
+          id: edge.id ? this.normalizeId(edge.id) : undefined,
+        }));
+      }
+
+      return response;
     } catch (e: any) {
       if (String(e).includes("empty")) {
         return {

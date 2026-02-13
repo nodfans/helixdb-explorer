@@ -1,7 +1,7 @@
 import { createSignal, createEffect, createMemo, onCleanup, onMount, Show, For } from "solid-js";
 import { HelixApi } from "../lib/api";
 import ForceGraphFactory from "force-graph";
-import { Database, Network, RefreshCw, ChevronRight, X, Sparkles, Maximize, Settings2 } from "lucide-solid";
+import { Database, Network, RefreshCw, ChevronRight, X, Sparkles, Maximize } from "lucide-solid";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ToolbarLayout } from "./ui/toolbar-layout";
@@ -114,88 +114,128 @@ export const Graph = (props: GraphProps) => {
   };
 
   // Controls
-  const [typeFilter, setTypeFilter] = createSignal<string>("all");
-  const [nodeLimit, setNodeLimit] = createSignal(100);
+  const [nodeLimit, setNodeLimit] = createSignal(5);
   const [showDetailPanel, setShowDetailPanel] = createSignal(true);
   const [searchQuery, setSearchQuery] = createSignal("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = createSignal("");
+  const [rankingMode, setRankingMode] = createSignal(false);
+
+  // Debounce search query
+  createEffect(() => {
+    const query = searchQuery();
+    const timeout = setTimeout(() => {
+      setDebouncedSearchQuery(query);
+    }, 200);
+    onCleanup(() => clearTimeout(timeout));
+  });
 
   // Derived data
-  const nodeTypes = createMemo(() => {
-    const types = new Set<string>();
-    allNodes().forEach((n) => {
-      if (n.type) types.add(n.type);
-      else if (n.label) types.add(n.label);
+  // Pre-calculate metrics to avoid O(N) work in every reactive update
+  const nodeMetrics = createMemo(() => {
+    const degreeMap = new Map<string, number>();
+    const nodes = allNodes();
+    const edges = allEdges();
+
+    edges.forEach((e) => {
+      const s = typeof e.source === "object" ? (e.source as any).id : e.source;
+      const t = typeof e.target === "object" ? (e.target as any).id : e.target;
+      if (s) degreeMap.set(s, (degreeMap.get(s) || 0) + 1);
+      if (t) degreeMap.set(t, (degreeMap.get(t) || 0) + 1);
     });
-    return Array.from(types).sort();
+
+    const sortedHubIds = nodes.map((n) => n.id).sort((a, b) => (degreeMap.get(b) || 0) - (degreeMap.get(a) || 0));
+
+    return { degreeMap, sortedHubIds };
   });
 
   const graphData = createMemo(() => {
-    // First, collect all node IDs that are referenced by edges
-    const connectedNodeIds = new Set<string>();
-    allEdges().forEach((e) => {
-      const sourceId = typeof e.source === "object" ? (e.source as any).id : e.source;
-      const targetId = typeof e.target === "object" ? (e.target as any).id : e.target;
-      if (sourceId) connectedNodeIds.add(sourceId);
-      if (targetId) connectedNodeIds.add(targetId);
-    });
+    const { degreeMap, sortedHubIds } = nodeMetrics();
+    let nodesToDisplay: GraphNode[] = [];
+    let linksToDisplay: any[] = [];
 
-    // Create a map of existing nodes
-    const existingNodeMap = new Map<string, GraphNode>();
-    allNodes().forEach((n) => existingNodeMap.set(n.id, n));
+    // 1. Handle Ranking Mode (Hub Analysis)
+    if (rankingMode()) {
+      const hubIds = new Set(sortedHubIds.slice(0, nodeLimit()));
 
-    // Build nodes list: include all nodes referenced by edges
-    // For missing nodes (referenced by edge but not in data), create placeholder
-    let nodes: GraphNode[] = [];
-    connectedNodeIds.forEach((nodeId) => {
-      const existingNode = existingNodeMap.get(nodeId);
-      if (existingNode) {
-        nodes.push({
-          ...existingNode,
-          color: getNodeColor(existingNode),
-        });
-      } else {
-        // Create placeholder node for missing node reference
-        const placeholderNode: GraphNode = {
-          id: nodeId,
-          name: nodeId.slice(0, 8) + "...",
-          label: "Entity",
-          type: "Entity",
-        };
-        nodes.push({
-          ...placeholderNode,
-          color: getNodeColor(placeholderNode),
-        });
-      }
-    });
+      // Select ALL edges connected to at least one hub
+      const hubLinks = allEdges().filter((e) => {
+        const s = typeof e.source === "object" ? (e.source as any).id : e.source;
+        const t = typeof e.target === "object" ? (e.target as any).id : e.target;
+        return hubIds.has(s) || hubIds.has(t);
+      });
 
-    // Filter by type
-    if (typeFilter() !== "all") {
-      nodes = nodes.filter((n) => n.type === typeFilter() || n.label === typeFilter());
-    }
+      // Collect all node IDs (Hubs + their neighbors)
+      const visibleNodeIds = new Set<string>();
+      hubLinks.forEach((e) => {
+        const s = typeof e.source === "object" ? (e.source as any).id : e.source;
+        const t = typeof e.target === "object" ? (e.target as any).id : e.target;
+        if (s) visibleNodeIds.add(s);
+        if (t) visibleNodeIds.add(t);
+      });
+      // Ensure all hubs are included even if isolated (unlikely but possible)
+      hubIds.forEach((id) => visibleNodeIds.add(id));
 
-    // Filter by search query
-    if (searchQuery().trim()) {
-      const query = searchQuery().toLowerCase();
-      nodes = nodes.filter((n) => n.name?.toLowerCase().includes(query) || n.id.toLowerCase().includes(query) || n.type?.toLowerCase().includes(query));
-    }
+      const existingNodeMap = new Map<string, GraphNode>();
+      allNodes().forEach((n) => existingNodeMap.set(n.id, n));
 
-    const nodeIds = new Set(nodes.map((n) => n.id));
-    const links = allEdges()
-      .filter((e) => {
-        // Resolve IDs whether they are strings or node objects
-        const sourceId = typeof e.source === "object" ? (e.source as any).id : e.source;
-        const targetId = typeof e.target === "object" ? (e.target as any).id : e.target;
+      visibleNodeIds.forEach((id) => {
+        const n = existingNodeMap.get(id);
+        if (n) {
+          nodesToDisplay.push({
+            ...n,
+            color: getNodeColor(n),
+            degree: degreeMap.get(n.id) || 0,
+            val: hubIds.has(n.id) ? 3 : 1, // Visually distinguish hubs
+          });
+        } else {
+          // Placeholder for missing neighbor
+          nodesToDisplay.push({
+            id,
+            name: id.slice(0, 8) + "...",
+            label: "Entity",
+            type: "Entity",
+            color: "#94a3b8",
+            degree: degreeMap.get(id) || 0,
+            val: 1,
+          } as any);
+        }
+      });
 
-        return nodeIds.has(sourceId) && nodeIds.has(targetId);
-      })
-      .map((e) => ({
+      linksToDisplay = hubLinks.map((e) => ({
         ...e,
-        // CRITICAL: Reset source/target to IDs so force-graph re-binds them to NEW node objects
         source: typeof e.source === "object" ? (e.source as any).id : e.source,
         target: typeof e.target === "object" ? (e.target as any).id : e.target,
       }));
+    } else {
+      // 3. Normal Mode (Full Connectivity)
+      const nodeMap = new Map<string, GraphNode>();
+      allNodes().forEach((n) => nodeMap.set(n.id, n));
 
-    return { nodes, links };
+      // In full mode, we show all connected nodes or everything?
+      // Following previous pattern: show nodes that have edges or are in allNodes
+      nodesToDisplay = allNodes().map((n) => ({
+        ...n,
+        color: getNodeColor(n),
+        degree: degreeMap.get(n.id) || 0,
+      }));
+
+      linksToDisplay = allEdges().map((e) => ({
+        ...e,
+        source: typeof e.source === "object" ? (e.source as any).id : e.source,
+        target: typeof e.target === "object" ? (e.target as any).id : e.target,
+      }));
+    }
+
+    // 2. Global Search Filter
+    const search = debouncedSearchQuery().trim();
+    if (search) {
+      const query = search.toLowerCase();
+      nodesToDisplay = nodesToDisplay.filter((n) => n.name?.toLowerCase().includes(query) || n.id.toLowerCase().includes(query) || n.type?.toLowerCase().includes(query));
+      const activeIds = new Set(nodesToDisplay.map((n) => n.id));
+      linksToDisplay = linksToDisplay.filter((l) => activeIds.has(l.source) && activeIds.has(l.target));
+    }
+
+    return { nodes: nodesToDisplay, links: linksToDisplay };
   });
 
   const stats = createMemo(() => ({
@@ -210,8 +250,7 @@ export const Graph = (props: GraphProps) => {
     setLoading(true);
     setError(null);
     try {
-      const limit = Math.min(nodeLimit(), 500);
-      const data = await props.api.fetchNodesAndEdges(limit);
+      const data = await props.api.fetchNodesAndEdges();
 
       // Capture existing positions before loading new data
       const existingNodeMap = new Map<string, GraphNode>();
@@ -476,13 +515,12 @@ export const Graph = (props: GraphProps) => {
       // Set data
       updateGraphData();
 
-      // 🔍 Better default scale
+      // 🔍 Better default scale - Zoom to Fit
       const zoomTimeout = setTimeout(() => {
-        if (graphInstance) {
-          graphInstance.centerAt(0, 0, 800);
-          graphInstance.zoom(1.2, 800);
+        if (graphInstance && allNodes().length > 0) {
+          graphInstance.zoomToFit(800, 80);
         }
-      }, 100);
+      }, 300); // Slightly longer delay to allow physics to breathe
       timers.push(zoomTimeout as any);
 
       console.log("✨ 2D Graph initialized (Random Cloud)");
@@ -516,11 +554,7 @@ export const Graph = (props: GraphProps) => {
 
     if (countChanged) {
       // Only reheat on structural changes
-      graphInstance.d3AlphaTarget(0.1).restart();
-      const reheatTimeout = setTimeout(() => {
-        if (graphInstance) graphInstance.d3AlphaTarget(0);
-      }, 300);
-      timers.push(reheatTimeout as any);
+      graphInstance.d3ReheatSimulation();
     }
   });
 
@@ -612,36 +646,32 @@ export const Graph = (props: GraphProps) => {
 
             <div class="w-px h-5" style={{ "background-color": "var(--macos-border-light)" }} />
 
-            {/* Filters */}
-            <div class="flex items-center gap-2">
-              <Settings2 size={13} class="text-native-tertiary" />
-              <select
-                value={typeFilter()}
-                onChange={(e) => setTypeFilter(e.currentTarget.value)}
-                class="h-7 px-3 pr-7 bg-native-sidebar border border-native rounded-md text-[12px] font-medium text-native-secondary appearance-none cursor-pointer transition-all hover:border-accent outline-none"
-                style={{
-                  "background-image":
-                    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
-                  "background-repeat": "no-repeat",
-                  "background-position": "right 8px center",
-                }}
-              >
-                <option value="all">All Types</option>
-                <For each={nodeTypes()}>{(type) => <option value={type}>{type}</option>}</For>
-              </select>
-            </div>
+            {/* Top N & Limit Group */}
+            {/* Top N & Limit Group */}
+            <div class="flex items-center">
+              <Button variant="toolbar" active={rankingMode()} onClick={() => setRankingMode(!rankingMode())} class="flex items-center gap-1.5 rounded-r-none border-r-0 h-7 transition-all">
+                <span class="font-medium text-[11px]">Top N</span>
+              </Button>
 
-            <div class="flex items-center gap-2">
-              <span class="text-[10px] font-semibold text-native-tertiary">Limit</span>
-              <input
-                type="number"
-                min="10"
-                max="500"
-                step="10"
-                value={nodeLimit()}
-                onChange={(e) => setNodeLimit(parseInt(e.currentTarget.value) || 100)}
-                class="h-7 w-16 px-1.5 bg-native-sidebar border border-native rounded-md text-[12px] font-medium text-native-secondary text-center focus:border-accent outline-none transition-all tabular-nums"
-              />
+              <div
+                class={`flex items-center h-7 border border-[var(--macos-border-light)] rounded-r-md transition-all px-1.5 ${
+                  rankingMode() ? "bg-[var(--accent)]/5 border-l-[var(--macos-border-light)]" : "opacity-30 grayscale pointer-events-none bg-transparent"
+                }`}
+              >
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  step="1"
+                  value={nodeLimit()}
+                  onInput={(e) => {
+                    let val = parseInt(e.currentTarget.value) || 1;
+                    val = Math.max(1, Math.min(50, val));
+                    setNodeLimit(val);
+                  }}
+                  class="w-7 bg-transparent text-[11px] font-bold text-native-primary text-center focus:outline-none tabular-nums"
+                />
+              </div>
             </div>
           </div>
 
@@ -673,16 +703,16 @@ export const Graph = (props: GraphProps) => {
                   graphInstance.zoom(1.4, 400);
                 }
               }}
-              class="flex items-center gap-1.5 transition-all"
+              class="flex items-center gap-1.5 transition-all group active:scale-95"
               title="Center View"
             >
-              <Maximize size={12} strokeWidth={2.5} class="text-accent" />
-              <span>Center</span>
+              <Maximize size={12} strokeWidth={2.5} class="text-accent group-hover:scale-110 transition-transform" />
+              <span class="font-medium">Center</span>
             </Button>
 
-            <Button variant="toolbar" onClick={refresh} disabled={loading()} class="flex items-center gap-1.5 transition-all">
-              <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : ""} text-accent`} />
-              <span>Refresh</span>
+            <Button variant="toolbar" onClick={refresh} disabled={loading()} class="flex items-center gap-1.5 transition-all group active:scale-95">
+              <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : "group-hover:rotate-180"} transition-transform text-accent`} />
+              <span class="font-medium">Refresh</span>
             </Button>
 
             <div class="w-px h-5" style={{ "background-color": "var(--macos-border-light)" }} />
@@ -749,18 +779,23 @@ export const Graph = (props: GraphProps) => {
           </div>
         </Show>
 
-        {/* Loading Overlay */}
-        <Show when={loading()}>
-          <div class="absolute inset-0 flex items-center justify-center bg-native-content/80 backdrop-blur-md z-50">
-            <div class="flex flex-col items-center gap-4">
-              <div class="relative">
-                <div class="w-12 h-12 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
-                <Sparkles size={20} class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-accent" />
-              </div>
-              <span class="text-[13px] font-medium text-native-secondary">Analyzing graph data...</span>
+        {/* Loading Overlay - Smoother Transition */}
+        <div
+          class="absolute inset-0 flex items-center justify-center pointer-events-none z-50 transition-all duration-300 ease-in-out"
+          style={{
+            opacity: loading() ? 1 : 0,
+            "backdrop-filter": loading() ? "blur(4px)" : "blur(0px)",
+            "background-color": loading() ? "rgba(9, 9, 11, 0.4)" : "rgba(9, 9, 11, 0)",
+          }}
+        >
+          <div class="flex flex-col items-center gap-3 scale-90 transition-transform duration-300" style={{ transform: loading() ? "scale(1)" : "scale(0.95)" }}>
+            <div class="relative">
+              <div class="w-10 h-10 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
+              <Sparkles size={16} class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-accent" />
             </div>
+            <span class="text-[11px] font-medium text-native-secondary tracking-tight">Updating graph...</span>
           </div>
-        </Show>
+        </div>
 
         {/* Error Overlay */}
         <Show when={error()}>

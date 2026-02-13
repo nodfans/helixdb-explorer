@@ -21,7 +21,7 @@ pub fn terminate_app() {
     std::process::exit(0);
 }
 
-fn map_reqwest_error(e: reqwest::Error, prefix: &str) -> String {
+pub fn map_reqwest_error(e: reqwest::Error, prefix: &str) -> String {
     if e.is_connect() {
         if let Some(url) = e.url() {
             let host = url.host_str().unwrap_or("127.0.0.1");
@@ -92,13 +92,13 @@ pub async fn execute_query(url: String, query_name: String, args: serde_json::Va
         .map_err(|e| map_reqwest_error(e, "Request failed"))?;
 
     if resp.status().is_success() {
-        let json = resp.json::<serde_json::Value>()
+        let json: serde_json::Value = resp.json()
             .await
             .map_err(|e| format!("Failed to parse response: {}", e))?;
         Ok(json)
     } else {
         let status = resp.status();
-        let err_text = resp.text().await.unwrap_or_default();
+        let err_text = resp.text().await.unwrap_or_else(|_| String::new());
         Err(format!("Server error ({}): {}", status, err_text))
     }
 }
@@ -202,7 +202,7 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
     
     if !init_resp.status().is_success() {
         let status = init_resp.status();
-        let err_text = init_resp.text().await.unwrap_or_default();
+        let err_text = init_resp.text().await.unwrap_or_else(|_| String::new());
         return Err(format!("Init request failed ({}): {}", status, err_text));
     }
 
@@ -260,7 +260,7 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
             
             if !tool_resp.status().is_success() {
                 let status = tool_resp.status();
-                let err_text = tool_resp.text().await.unwrap_or_default();
+                let err_text = tool_resp.text().await.unwrap_or_else(|_| String::new());
                 return Err(format!("Search error ({}): {}", status, err_text));
             }
         } else {
@@ -276,7 +276,7 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
             
             if !tool_resp.status().is_success() {
                 let status = tool_resp.status();
-                let err_text = tool_resp.text().await.unwrap_or_default();
+                let err_text = tool_resp.text().await.unwrap_or_else(|_| String::new());
                 return Err(format!("Tool call error ({}): {}", status, err_text));
             }
         }
@@ -362,7 +362,7 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
         Ok(final_results)
     } else {
         let status = final_resp.status();
-        let err_text = final_resp.text().await.unwrap_or_default();
+        let err_text = final_resp.text().await.unwrap_or_else(|_| String::new());
         Err(format!("Query execution error ({}): {}", status, err_text))
     }
 }
