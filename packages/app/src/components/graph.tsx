@@ -839,7 +839,7 @@ export const Graph = (props: GraphProps) => {
                         {([key, value]) => (
                           <div class="group rounded-md bg-native-content/5 hover:bg-native-content/10 transition-all p-2 border border-transparent hover:border-native-subtle">
                             <div class="text-[10px] font-normal text-native-tertiary uppercase tracking-wider mb-1 opacity-70 group-hover:opacity-100 transition-opacity">{key}</div>
-                            <div class="text-[11px] font-sans text-native-primary break-all select-all leading-relaxed">
+                            <div class="text-[11px] font-sans text-native-primary break-all select-text leading-relaxed">
                               {value === null || value === undefined ? (
                                 <span class="text-native-quaternary italic">null</span>
                               ) : typeof value === "object" ? (

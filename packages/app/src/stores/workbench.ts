@@ -18,6 +18,7 @@ export interface WorkbenchState {
   error: string | null;
   viewMode: "json" | "table";
   searchQuery: string;
+  resultSearchQuery: string;
   showParamsSidebar: boolean;
   queryStateCache: Record<string, QueryState>;
   sidebarWidth: number;
@@ -34,6 +35,7 @@ const [workbenchState, setWorkbenchState] = createStore<WorkbenchState>({
   error: null,
   viewMode: "table",
   searchQuery: "",
+  resultSearchQuery: "",
   showParamsSidebar: false,
   queryStateCache: {},
   sidebarWidth: 200,

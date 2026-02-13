@@ -52,6 +52,9 @@ export const Queries = (props: QueriesProps) => {
   const searchQuery = () => workbenchState.searchQuery;
   const setSearchQuery = (v: any) => setWorkbenchState("searchQuery", v);
 
+  const resultSearchQuery = () => workbenchState.resultSearchQuery;
+  const setResultSearchQuery = (v: any) => setWorkbenchState("resultSearchQuery", v);
+
   const showParamsSidebar = () => workbenchState.showParamsSidebar;
   const setShowParamsSidebar = (v: any) => setWorkbenchState("showParamsSidebar", v);
 
@@ -60,6 +63,7 @@ export const Queries = (props: QueriesProps) => {
   const [isResizing, setIsResizing] = createSignal(false);
   const [isResizingRight, setIsResizingRight] = createSignal(false);
   const [isCopied, setIsCopied] = createSignal(false);
+  const [searchFocused, setSearchFocused] = createSignal(false);
 
   const hasParams = () => {
     const ep = selectedEndpoint();
@@ -278,7 +282,19 @@ export const Queries = (props: QueriesProps) => {
       data = [raw];
     }
 
-    return [...data].reverse();
+    const dataRows = [...data].reverse();
+
+    // Client-side search filtering
+    const query = resultSearchQuery().trim().toLowerCase();
+    if (!query) return dataRows;
+
+    return dataRows.filter((row) => {
+      return Object.entries(row).some(([key, val]) => {
+        if (key === "__original") return false;
+        if (val === null || val === undefined) return false;
+        return String(val).toLowerCase().includes(query);
+      });
+    });
   });
 
   const filteredEndpoints = () => {
@@ -387,8 +403,8 @@ export const Queries = (props: QueriesProps) => {
                   class="h-7 w-7 flex items-center justify-center rounded-md hover:bg-native-content/50 active:bg-native-content transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
                   title={!hasParams() ? "No parameters" : showParamsSidebar() ? "Close Parameters" : "Add Parameters"}
                 >
-                  <Show when={showParamsSidebar()} fallback={<Plus size={15} class="text-accent" strokeWidth={2.5} />}>
-                    <Minus size={15} class="text-red-500" strokeWidth={2.5} />
+                  <Show when={showParamsSidebar()} fallback={<Plus size={18} class="text-accent" strokeWidth={3} />}>
+                    <Minus size={18} class="text-red-500" strokeWidth={3} />
                   </Show>
                 </button>
               </div>
@@ -400,6 +416,28 @@ export const Queries = (props: QueriesProps) => {
                   </span>
                   <div class="w-px h-3.5 opacity-30" style={{ "background-color": "var(--macos-border-light)" }} />
                 </Show>
+
+                <div class="relative group/search">
+                  <Search size={12} class="absolute left-2.5 top-1/2 -translate-y-1/2 text-native-quaternary group-focus-within/search:text-accent transition-colors" />
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={resultSearchQuery()}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setSearchFocused(false)}
+                    onInput={(e) => setResultSearchQuery(e.currentTarget.value)}
+                    class="h-7 pl-8 pr-7 bg-native-content/50 border border-native rounded-md text-[11px] text-native-primary placeholder:text-native-quaternary focus:outline-none focus:border-accent/40 focus:bg-native-content transition-all duration-300 ease-out"
+                    style={{ width: searchFocused() || resultSearchQuery() ? "180px" : "110px" }}
+                  />
+                  <Show when={resultSearchQuery()}>
+                    <button
+                      onClick={() => setResultSearchQuery("")}
+                      class="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 hover:bg-native-content/80 rounded-md text-native-quaternary hover:text-native-primary transition-colors"
+                    >
+                      <X size={10} />
+                    </button>
+                  </Show>
+                </div>
 
                 <div class="flex items-center gap-1.5">
                   <Button variant="toolbar" size="sm" active={viewMode() === "table"} onClick={() => setViewMode("table")} class="flex items-center gap-1.5 transition-all duration-75">
