@@ -170,6 +170,23 @@ body {
   margin-bottom: 4rem;
 }
 
+.nav-ph-badge {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+
+.nav-ph-badge:hover {
+  opacity: 1;
+}
+
+.nav-ph-badge img {
+  height: 100%;
+  width: auto;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
