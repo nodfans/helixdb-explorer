@@ -317,7 +317,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                           setTestResult(null);
                           if (!editingConn().localPath) {
                             try {
-                              const path = await invoke<string>("detect_workspace_path");
+                              const path = await invoke<string>("detect_workspace_path", { port: editingConn().port });
                               if (path) updateEditing({ localPath: path });
                             } catch (e) {}
                           }

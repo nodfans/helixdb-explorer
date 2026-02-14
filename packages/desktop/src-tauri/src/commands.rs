@@ -304,8 +304,8 @@ pub fn save_connection_config(app: tauri::AppHandle, config: serde_json::Value) 
 }
 
 #[tauri::command]
-pub fn detect_workspace_path() -> Result<String, String> {
-    config::detect_workspace_path()
+pub fn detect_workspace_path(port: Option<String>) -> Result<String, String> {
+    config::detect_workspace_path(port)
 }
 
 #[derive(serde::Serialize, Clone)]
