@@ -7,7 +7,7 @@ import { formatHQL } from "../lib/hql-formatter";
 import { HelixApi } from "../lib/api";
 import { activeConnection, getConnectionUrl, setConnectionStore, saveConnections } from "../stores/connection";
 import { HqlPanel, SyncConfirmationOverlay } from "./ui/hql-panel";
-import { extractTableData } from "../lib/result-helper";
+import { extractTableData, extractMultiTableData } from "../lib/result-helper";
 
 export interface HQLProps {
   isConnected: boolean;
@@ -206,7 +206,8 @@ export const HQL = (props: HQLProps) => {
         output: JSON.stringify(result, null, 2),
         executionTime: duration,
         viewMode: isTable ? "table" : "json",
-        tableData: isTable ? tableData : undefined, // Store extracted data for table view specifically
+        tableData: isTable ? tableData : undefined,
+        multiTableData: extractMultiTableData(result),
         logs: `[${new Date().toLocaleTimeString()}] Query executed in ${duration}ms\nSize: ${result ? JSON.stringify(result).length : 0} bytes`,
       });
     } catch (err: any) {

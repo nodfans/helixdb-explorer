@@ -3,9 +3,41 @@ import { HelixDB } from "helix-ts";
 import { HelixApi } from "../lib/api";
 import { invoke } from "@tauri-apps/api/core";
 import { setConnectionStore, activeConnection, getConnectionUrl, ConnectionInfo, saveConnections } from "../stores/connection";
+import { setWorkbenchState } from "../stores/workbench";
+import { setHqlStore } from "../stores/hql";
 
 // Helper to check if we are running inside Tauri
 const isTauri = () => typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__;
+
+export const resetWorkspaceState = () => {
+  // 1. Clear Workbench
+  setWorkbenchState({
+    endpoints: [],
+    selectedEndpoint: null,
+    params: {},
+    result: null,
+    rawResult: null,
+    error: null,
+    queryStateCache: {},
+    loading: false,
+  });
+
+  // 2. Clear HQL Results (keep code)
+  setHqlStore("tabs", () => true, {
+    output: "",
+    rawOutput: null,
+    status: "idle",
+    queryStatus: "idle",
+    syncStatus: "idle",
+    tableData: [],
+    multiTableData: {},
+    selectedRows: [],
+    logs: "",
+  });
+
+  // 3. Clear Schema
+  setHqlStore("schema", null);
+};
 
 export function createConnection() {
   const [showSettings, setShowSettings] = createSignal(false);
@@ -84,6 +116,7 @@ export function createConnection() {
   });
 
   const handleConnect = async (conn: ConnectionInfo) => {
+    resetWorkspaceState(); // PURGE CACHE on every fresh connection/switch
     setIsConnecting(true);
     setError(null);
 

@@ -4,10 +4,11 @@ import { EndpointConfig } from "../lib/types";
 import { workbenchState, setWorkbenchState } from "../stores/workbench";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Database, Copy, Check, ChevronRight, AlertCircle, Plus, Minus, Play, Loader2, X, Table, Braces, Zap, Search } from "lucide-solid";
+import { Database, Copy, Check, ChevronRight, AlertCircle, Plus, Minus, Play, Loader2, X, Table, Braces, Zap, Search, Link } from "lucide-solid";
 import { ResultTable } from "./ui/result-table";
 import { ToolbarLayout } from "./ui/toolbar-layout";
 import { EmptyState } from "./ui/empty-state";
+import { extractMultiTableData } from "../lib/result-helper";
 
 interface QueriesProps {
   api: HelixApi;
@@ -164,6 +165,8 @@ export const Queries = (props: QueriesProps) => {
     const endpoint = selectedEndpoint();
     if (!endpoint) return;
 
+    const targetEndpointId = endpoint.id; // LOCK 1: Capture the endpoint we are aiming for
+
     setResult(null);
     setRawResult(null);
     setSelectedRows([]);
@@ -171,6 +174,13 @@ export const Queries = (props: QueriesProps) => {
 
     try {
       const res = await props.api.executeEndpoint(endpoint, params());
+
+      // GUARD: If user switched endpoints while waiting, DISCARD the result
+      if (selectedEndpoint()?.id !== targetEndpointId) {
+        console.warn(`[Workbench] Discarding stale result for endpoint: ${targetEndpointId}`);
+        return;
+      }
+
       setRawResult(res);
       setResult(JSON.stringify(res, null, 2));
 
@@ -188,6 +198,8 @@ export const Queries = (props: QueriesProps) => {
         setSelectedRows([res]);
       }
     } catch (err: any) {
+      // GUARD: If user switched endpoints while waiting, DISCARD the error
+      if (selectedEndpoint()?.id !== targetEndpointId) return;
       setError(err.message || "Query execution failed");
     }
   };
@@ -253,48 +265,27 @@ export const Queries = (props: QueriesProps) => {
     });
   });
 
-  const tableData = createMemo(() => {
+  const multiTableData = createMemo(() => {
     const raw = rawResult();
-    if (!raw) return [];
+    if (!raw) return {};
 
-    let data: any[] = [];
-    if (Array.isArray(raw)) {
-      data = raw;
-    } else if (typeof raw === "object" && raw !== null) {
-      const entries = Object.entries(raw);
-      const arrays = entries.filter(([_, v]) => Array.isArray(v));
-
-      if (arrays.length === 1) {
-        data = arrays[0][1] as any[];
-      } else if (arrays.length > 1) {
-        const priority = ["data", "results", "items", "users", "records"];
-        const match = arrays.find(([k]) => priority.includes(k.toLowerCase()));
-        if (match) {
-          data = match[1] as any[];
-        } else {
-          const nonEmpty = arrays.find(([_, v]) => (v as any[]).length > 0);
-          data = (nonEmpty ? nonEmpty[1] : arrays[0][1]) as any[];
-        }
-      } else {
-        data = [raw];
-      }
-    } else {
-      data = [raw];
-    }
-
-    const dataRows = [...data].reverse();
-
-    // Client-side search filtering
+    const extracted = extractMultiTableData(raw);
     const query = resultSearchQuery().trim().toLowerCase();
-    if (!query) return dataRows;
 
-    return dataRows.filter((row) => {
-      return Object.entries(row).some(([key, val]) => {
-        if (key === "__original") return false;
-        if (val === null || val === undefined) return false;
-        return String(val).toLowerCase().includes(query);
+    if (!query) return extracted;
+
+    // Apply search filtering to each table
+    const filtered: Record<string, any[]> = {};
+    for (const [key, rows] of Object.entries(extracted)) {
+      filtered[key] = rows.filter((row) => {
+        return Object.entries(row).some(([k, val]) => {
+          if (k === "__original") return false;
+          if (val === null || val === undefined) return false;
+          return String(val).toLowerCase().includes(query);
+        });
       });
-    });
+    }
+    return filtered;
   });
 
   const filteredEndpoints = () => {
@@ -380,11 +371,26 @@ export const Queries = (props: QueriesProps) => {
 
         <div class="flex-1 flex flex-col overflow-hidden bg-[var(--bg-workbench-content)]">
           <Show when={selectedEndpoint()} fallback={<EmptyState icon={Zap} title="Select a query to start" description="Choose a registered query from the sidebar to begin exploring your data." />}>
-            <ToolbarLayout class="justify-between items-center">
-              <div class="flex items-center gap-3">
-                <span class="text-[10px] font-semibold text-native-quaternary tracking-wider uppercase">Response</span>
+            <ToolbarLayout class="justify-between items-center pl-1">
+              <div class="flex items-center gap-3 min-w-0">
+                <Show when={selectedEndpoint()} fallback={<span class="text-[10px] font-semibold text-native-quaternary tracking-wider uppercase">Response</span>}>
+                  <div
+                    class="flex items-center gap-1.5 cursor-pointer hover:bg-native-hover/60 px-1.5 py-0.5 rounded transition-colors group/path"
+                    onClick={() => {
+                      const ep = selectedEndpoint();
+                      if (!ep) return;
+                      const host = (window as any).getConnectionUrl();
+                      const fullUrl = `${host}/${ep.name}`;
+                      navigator.clipboard.writeText(fullUrl);
+                    }}
+                    title="Click to copy full API URL"
+                  >
+                    <code class="text-[11px] text-native-tertiary font-mono truncate max-w-[240px] group-hover/path:text-native-secondary transition-colors">/{selectedEndpoint()?.name}</code>
+                    <Link size={10} class="text-native-quaternary opacity-0 group-hover/path:opacity-100 transition-opacity" />
+                  </div>
+                </Show>
 
-                <div class="w-px h-3.5 opacity-30" style={{ "background-color": "var(--macos-border-strong)" }} />
+                <div class="w-px h-3.5 opacity-30 shrink-0" style={{ "background-color": "var(--macos-border-strong)" }} />
 
                 <button
                   disabled={props.isExecuting || !canExecute()}
@@ -411,9 +417,7 @@ export const Queries = (props: QueriesProps) => {
 
               <div class="flex items-center gap-3">
                 <Show when={rawResult()}>
-                  <span class="text-[10px] text-native-tertiary tabular-nums font-medium">
-                    {tableData().length} {tableData().length === 1 ? "result" : "results"}
-                  </span>
+                  <span class="text-[10px] text-native-tertiary tabular-nums font-medium">{Object.values(multiTableData()).reduce((acc, rows) => acc + rows.length, 0)} results</span>
                   <div class="w-px h-3.5 opacity-30" style={{ "background-color": "var(--macos-border-light)" }} />
                 </Show>
 
@@ -452,6 +456,7 @@ export const Queries = (props: QueriesProps) => {
                 </div>
               </div>
             </ToolbarLayout>
+
             <div class="flex-1 flex overflow-hidden">
               <div class="flex-1 flex flex-col overflow-hidden relative">
                 <Show when={props.isExecuting}>
@@ -495,8 +500,30 @@ export const Queries = (props: QueriesProps) => {
                       </div>
                     }
                   >
-                    <div class="flex-1 overflow-auto h-full">
-                      <ResultTable data={tableData()} onSelect={setSelectedRows} selectedRows={selectedRows()} />
+                    <div class="flex-1 overflow-auto h-full space-y-5 pl-1.5 pr-1 py-2 scrollbar-thin flex flex-col">
+                      <For each={Object.entries(multiTableData())}>
+                        {([name, rows]) => {
+                          const tableCount = () => Object.keys(multiTableData()).length;
+                          return (
+                            <div class="flex flex-col gap-2" classList={{ "flex-1 min-h-[200px]": tableCount() === 1 }}>
+                              <div class="flex items-center gap-2 px-1">
+                                <Table size={12} class="text-accent" />
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-native-secondary">{name}</span>
+                                <span class="text-[10px] text-native-quaternary tabular-nums">({rows.length})</span>
+                              </div>
+                              <div
+                                class="border border-native rounded-sm overflow-hidden bg-native-sidebar/20 flex flex-col"
+                                classList={{
+                                  "max-h-[400px]": tableCount() > 1,
+                                  "flex-1": tableCount() === 1,
+                                }}
+                              >
+                                <ResultTable data={rows} onSelect={setSelectedRows} selectedRows={selectedRows()} />
+                              </div>
+                            </div>
+                          );
+                        }}
+                      </For>
                     </div>
                   </Show>
                 </Show>

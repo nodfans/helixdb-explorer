@@ -65,7 +65,7 @@ export function Grid(props: GridProps) {
     const offset = props.offset || 0;
     const maxRowNumber = props.data.length - 1 + offset;
     const numDigits = String(Math.max(0, maxRowNumber)).length;
-    const calculatedWidth = Math.min(Math.max(50, numDigits * 9 + 20), 80);
+    const calculatedWidth = Math.min(Math.max(36, numDigits * 9 + 12), 80);
     setRowNumberWidth(calculatedWidth);
   });
 
@@ -228,7 +228,7 @@ export function Grid(props: GridProps) {
         "box-shadow": props.class?.includes("shadow-none") ? "none" : "var(--grid-shadow)",
       }}
     >
-      <div ref={containerRef} onScroll={handleScroll} class="flex-1 min-h-0 overflow-auto overscroll-behavior-y-contain">
+      <div ref={containerRef} onScroll={handleScroll} class={`flex-1 min-h-0 scrollbar-thin overscroll-behavior-y-contain ${props.data.length === 0 ? "overflow-hidden" : "overflow-auto"}`}>
         <div class="inline-block min-w-full align-middle relative" style={{ height: `${virtualStore().totalHeight + 32}px` }}>
           {/* Header */}
           <div
@@ -264,7 +264,7 @@ export function Grid(props: GridProps) {
             <For each={props.columns}>
               {(column) => (
                 <div
-                  class="flex-shrink-0 px-4 flex items-center relative group select-none cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-all duration-200"
+                  class="flex-shrink-0 px-1.5 flex items-center relative group select-none cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-all duration-200"
                   style={{
                     width: `${columnWidths()[column.key] || 150}px`,
                     "min-height": "32px",
@@ -276,8 +276,8 @@ export function Grid(props: GridProps) {
                   }}
                   onClick={() => handleHeaderClick(column.key)}
                 >
-                  <span class="truncate pr-4">{column.label}</span>
-                  <div class="absolute right-4 flex items-center">
+                  <span class="truncate pr-2.5">{column.label}</span>
+                  <div class="absolute right-1.5 flex items-center">
                     <Show
                       when={sortConfig()?.key === column.key}
                       fallback={
@@ -404,7 +404,7 @@ export function Grid(props: GridProps) {
                               when={isEditing()}
                               fallback={
                                 <div
-                                  class="px-4 w-full truncate"
+                                  class="px-1.5 w-full truncate"
                                   style={{
                                     color: "var(--grid-cell-text)",
                                     "font-size": "12px",
@@ -423,7 +423,7 @@ export function Grid(props: GridProps) {
                                 onInput={(e) => setEditValue(e.currentTarget.value)}
                                 onBlur={() => handleCellSave(rowIndex(), column.key)}
                                 onKeyDown={(e) => handleKeyDown(e, rowIndex(), column.key)}
-                                class="absolute inset-0 w-full h-full px-4 outline-none"
+                                class="absolute inset-0 w-full h-full px-1.5 outline-none"
                                 style={{
                                   "background-color": "var(--grid-input-bg)",
                                   color: "var(--grid-cell-text)",

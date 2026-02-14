@@ -1,5 +1,5 @@
 /**
- * Standalone Seeding Script
+ * Standalone Seeding Script (Scaled Complexity)
  * Run with: npx tsx scripts/seed-db.ts
  */
 
@@ -17,110 +17,119 @@ async function request(endpoint: string, body: any = null) {
 
   if (!resp.ok) {
     const text = await resp.text();
-    throw new Error(`[${resp.status}] ${text}`);
+    throw new Error(`[${resp.status}] ${text} (Payload: ${JSON.stringify(body)})`);
   }
   return resp.json();
 }
 
 async function seed() {
-  console.log("🚀 Starting data seeding...");
+  console.log("🚀 Starting Scaled Data Seeding...");
 
   try {
-    // 1. Create Users (20 users)
-    const userIds: string[] = [];
-    const names = ["Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Heidi", "Ivan", "Judy", "Karl", "Linda", "Mike", "Nancy", "Oscar", "Peggy", "Quinn", "Rose", "Steve", "Trent"];
+    // 0. Cleanup
+    console.log("🧹 Cleaning up existing data...");
+    await request("/clear_all_data");
 
-    console.log("👤 Creating 20 Users...");
-    for (const name of names) {
-      const age = 20 + Math.floor(Math.random() * 40);
-      const score = 50 + Math.random() * 50;
-      const res = await request("/create_user", { name, age, active: Math.random() > 0.2, score });
-      // Extract the object (e.g. res.user) and get its id
+    // 1. Create Users (50 users)
+    const userIds: string[] = [];
+    console.log("👤 Creating 50 Users...");
+    for (let i = 1; i <= 50; i++) {
+      const payload = {
+        name: `User_${i.toString().padStart(3, "0")}`,
+        age: 18 + Math.floor(Math.random() * 60),
+        active: Math.random() > 0.2,
+        score: parseFloat((Math.random() * 1000).toFixed(2)),
+        created_at: "2026-01-01T00:00:00Z",
+      };
+      const res = await request("/create_user", payload);
       const userData = Object.values(res)[0] as any;
       userIds.push(userData.id);
     }
 
-    // 2. Create Posts (50 posts)
-    const postIds: string[] = [];
-    const categories = ["Tech", "Life", "Finance", "Cooking", "Travel"];
-    const titles = [
-      "HQL vs SQL: The Ultimate Guide",
-      "Graph Databases are Awesome",
-      "Vector Search Explained",
-      "How to Bake Sourdough",
-      "My Trip to Japan",
-      "Investing 101",
-      "Rust Programming Tips",
-      "SolidJS: Reactive UI",
-      "Tauri is the future",
-      "Best Coffee in Seattle",
-      "10 Tips for Remote Work",
-      "Healthy Meal Prep",
-      "Introduction to Machine Learning",
-      "Deep Learning with PyTorch",
-      "AI in 2026",
-      "The Magic of Graphs",
-      "Scalable Systems Design",
-      "Modern Web Architecture",
-    ];
+    // 2. Create Products (100 products)
+    const productIds: string[] = [];
+    console.log("📦 Creating 100 Products...");
+    for (let i = 1; i <= 100; i++) {
+      const res = await request("/create_product", {
+        sku: `SKU-${i.toString().padStart(4, "0")}`,
+        name: `HighEnd Gadget ${i}`,
+        price: 9.99 + Math.random() * 2000,
+      });
+      const prodData = Object.values(res)[0] as any;
+      productIds.push(prodData.id);
+    }
 
-    console.log("📝 Creating 50 Posts...");
-    for (let i = 0; i < 50; i++) {
-      const userId = userIds[i % userIds.length];
-      const title = titles[i % titles.length] + ` Part ${Math.floor(i / titles.length) + 1}`;
-      const content = `This is a long article about ${title}. It contains keywords for search testing. #${categories[i % categories.length]}`;
-      const res = await request("/seed_post_to_user", {
-        user_id: userId,
-        title,
-        content,
-        category: categories[i % categories.length],
-        published: true,
-        created_at: `2026-02-${(i % 28) + 1}`,
+    // 3. Create Organizations (10 orgs)
+    const orgIds: string[] = [];
+    const industries = ["Tech", "Bio", "Finance", "Space", "AI", "GreenEnergy", "Robotics", "Web3"];
+    console.log("🏢 Creating 10 Organizations...");
+    for (let i = 1; i <= 10; i++) {
+      const res = await request("/create_organization", {
+        name: `${industries[i % industries.length]}Corp_${i}`,
+        tax_id: `TX-${Math.random().toString(36).toUpperCase().slice(2, 10)}`,
+      });
+      const orgData = Object.values(res)[0] as any;
+      orgIds.push(orgData.id);
+    }
+
+    // 4. Create Posts (100 posts)
+    const postIds: string[] = [];
+    console.log("📝 Creating 100 Posts...");
+    for (let i = 1; i <= 100; i++) {
+      const res = await request("/create_post", {
+        title: `Engineering Log #${i}`,
+        content: `Technical documentation for system cluster ${i}. Performance at ${Math.floor(Math.random() * 100)}%.`,
+        category: industries[i % industries.length],
+        published: Math.random() > 0.1,
       });
       const postData = Object.values(res)[0] as any;
       postIds.push(postData.id);
     }
 
-    // 3. Create Comments (100 comments)
-    console.log("💬 Creating 100 Comments...");
-    for (let i = 0; i < 100; i++) {
-      const userId = userIds[Math.floor(Math.random() * userIds.length)];
-      const postId = postIds[Math.floor(Math.random() * postIds.length)];
-      await request("/seed_comment", {
-        user_id: userId,
-        post_id: postId,
-        text: `Random comment #${i + 1} on this great post!`,
-        created_at: `2026-02-${(i % 28) + 1}`,
+    // 5. Connect Entities (Denser Graph)
+    console.log("🔗 Connecting Entities randomly...");
+    for (const uid of userIds) {
+      // Each user works at 1 org
+      await request("/connect_works_at", {
+        from_id: uid,
+        to_id: orgIds[Math.floor(Math.random() * orgIds.length)],
+        since: "2025-01-01T00:00:00Z",
       });
+
+      // Each user authors 1-5 posts
+      const authoredCount = 1 + Math.floor(Math.random() * 5);
+      for (let j = 0; j < authoredCount; j++) {
+        await request("/connect_authored", {
+          from_id: uid,
+          to_id: postIds[Math.floor(Math.random() * postIds.length)],
+          at: "2026-02-14T00:00:00Z",
+        });
+      }
+
+      // Each user purchases 0-10 products
+      const purchaseCount = Math.floor(Math.random() * 11);
+      for (let j = 0; j < purchaseCount; j++) {
+        await request("/connect_purchased", {
+          from_id: uid,
+          to_id: productIds[Math.floor(Math.random() * productIds.length)],
+          date: "2026-02-14T00:00:00Z",
+        });
+      }
+
+      // Each user follows 0-8 other users (Social graph)
+      const followCount = Math.floor(Math.random() * 9);
+      for (let j = 0; j < followCount; j++) {
+        const targetId = userIds[Math.floor(Math.random() * userIds.length)];
+        if (targetId !== uid) {
+          // Note: We don't have connect_follows in queries.hx yet, let's fix that or Skip
+          // Actually, I'll update queries.hx next to include connect_follows
+        }
+      }
     }
 
-    // 4. Relationships (Friendships & Likes)
-    console.log("🔗 Creating Relationships...");
-    for (let i = 0; i < userIds.length; i++) {
-      const next = (i + 1) % userIds.length;
-      await request("/make_friends", { user_id1: userIds[i], user_id2: userIds[next], since: "2025-01-01" });
-    }
-    for (let i = 0; i < 50; i++) {
-      const userId = userIds[Math.floor(Math.random() * userIds.length)];
-      const postId = postIds[Math.floor(Math.random() * postIds.length)];
-      await request("/like_post", { user_id: userId, post_id: postId, liked_at: `2026-02-${(i % 28) + 1}` });
-    }
-
-    // 5. Vectors
-    console.log("🧬 Adding Vector Data...");
-    for (let i = 0; i < 10; i++) {
-      const data = Array.from({ length: 4 }, () => Math.random());
-      await request("/add_user_vector", {
-        user_id: userIds[i % userIds.length],
-        data,
-      });
-    }
-
-    console.log("✅ Seeding complete!");
-    console.log(`Summary: Created 20 users, 50 posts, 100 comments, and related edges.`);
+    console.log("✅ Scaled Seeding complete!");
   } catch (err) {
     console.error("❌ Seeding failed:", err);
-    // process.exit(1);
   }
 }
 

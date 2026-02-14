@@ -14,6 +14,7 @@ export interface HqlTab {
   viewMode?: "table" | "json" | "log";
   logs?: string;
   tableData?: any[];
+  multiTableData?: Record<string, any[]>;
   selectedRows?: any[];
 }
 

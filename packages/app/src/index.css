@@ -440,9 +440,14 @@ input {
    Scrollbar - macOS Style
    ======================================== */
 
+.scrollbar-thin::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 11px;
+  height: 11px;
 }
 
 ::-webkit-scrollbar-track {
@@ -450,19 +455,18 @@ input {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--text-quaternary);
-  opacity: 0.3;
+  background: var(--text-tertiary);
   border-radius: 10px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--text-tertiary);
+  background-color: var(--text-secondary);
 }
 
 ::-webkit-scrollbar-thumb:active {
-  background-color: var(--text-tertiary);
+  background-color: var(--accent);
 }
 
 ::-webkit-scrollbar-corner {

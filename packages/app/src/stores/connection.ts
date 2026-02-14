@@ -72,3 +72,9 @@ export const activeConnection = () => {
 export const editingConnection = () => {
   return connectionStore.connections.find((c) => c.id === connectionStore.editingId) || activeConnection();
 };
+
+// Expose to window for UI use in HqlPanel/Queries
+if (typeof window !== "undefined") {
+  (window as any).activeConnection = activeConnection;
+  (window as any).getConnectionUrl = () => getConnectionUrl(activeConnection());
+}

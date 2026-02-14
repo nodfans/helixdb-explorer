@@ -1,5 +1,5 @@
-import { Show, Switch, Match, type Accessor, Index, createSignal } from "solid-js";
-import { Database, FileCode, Loader2, CheckCircle2, X, Info, Copy, ChevronDown } from "lucide-solid";
+import { Show, Switch, Match, type Accessor, Index, createSignal, For } from "solid-js";
+import { Table, Copy, ChevronDown, Loader2, X, Database, FileCode, CheckCircle2, Info, Link } from "lucide-solid";
 import { Button } from "./button";
 import { ResultTable } from "./result-table";
 import type { HqlTab } from "../../stores/hql";
@@ -97,6 +97,24 @@ export const HqlPanel = (props: HqlPanelProps) => {
                   </div>
                 </Match>
               </Switch>
+
+              {/* API Path Integrated into Status Area */}
+              <Show when={props.activeTab.queryStatus === "success" || props.activeTab.queryStatus === "error"}>
+                <div class="w-px h-3.5 bg-native-active/30 mx-1" />
+                <div
+                  class="flex items-center gap-1.5 cursor-pointer hover:bg-native-hover/60 px-1.5 py-0.5 rounded transition-colors group/path"
+                  onClick={() => {
+                    const host = (window as any).getConnectionUrl();
+                    const fullUrl = `${host}/mcp/dynamic-hql`;
+                    navigator.clipboard.writeText(fullUrl);
+                    props.logEntry(`[API] Copied: ${fullUrl}`);
+                  }}
+                  title="Click to copy full API URL"
+                >
+                  <code class="text-[10px] text-native-tertiary font-mono truncate max-w-[120px] group-hover/path:text-native-secondary transition-colors">/mcp/dynamic-hql</code>
+                  <Link size={10} class="text-native-quaternary opacity-0 group-hover/path:opacity-100 transition-opacity" />
+                </div>
+              </Show>
             </div>
           </Show>
         </div>
@@ -170,6 +188,33 @@ export const HqlPanel = (props: HqlPanelProps) => {
                             {props.activeTab.output}
                             <SupportedOperationsHelp />
                           </div>
+                        </div>
+                      </Match>
+                      <Match when={props.activeTab.multiTableData && Object.keys(props.activeTab.multiTableData).length > 0}>
+                        <div class="flex-1 overflow-auto h-full space-y-5 pl-1.5 pr-1 py-2 scrollbar-thin flex flex-col">
+                          <For each={Object.entries(props.activeTab.multiTableData || {})}>
+                            {([name, rows]: [string, any[]]) => {
+                              const tableCount = () => Object.keys(props.activeTab.multiTableData || {}).length;
+                              return (
+                                <div class="flex flex-col gap-2" classList={{ "flex-1 min-h-[200px]": tableCount() === 1 }}>
+                                  <div class="flex items-center gap-2 px-1">
+                                    <Table size={12} class="text-accent" />
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-native-secondary">{name}</span>
+                                    <span class="text-[10px] text-native-quaternary tabular-nums">({rows.length})</span>
+                                  </div>
+                                  <div
+                                    class="border border-native rounded-sm overflow-hidden bg-native-sidebar/20 flex flex-col"
+                                    classList={{
+                                      "max-h-[400px]": tableCount() > 1,
+                                      "flex-1": tableCount() === 1,
+                                    }}
+                                  >
+                                    <ResultTable data={rows} onSelect={(rows) => props.updateActiveTab({ selectedRows: rows })} selectedRows={props.activeTab.selectedRows} />
+                                  </div>
+                                </div>
+                              );
+                            }}
+                          </For>
                         </div>
                       </Match>
                       <Match when={props.activeTab.tableData || (Array.isArray(props.activeTab.rawOutput) ? props.activeTab.rawOutput : null)}>
