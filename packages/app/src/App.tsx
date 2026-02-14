@@ -118,7 +118,7 @@ function App() {
         </div>
       </Show>
 
-      <div class="h-screen flex flex-col overflow-hidden" style={{ "background-color": "var(--macos-window-bg)" }}>
+      <div class="h-screen flex flex-col overflow-hidden bg-transparent">
         <TopNav activeView={currentView()} onSelectView={setCurrentView} isConnected={connection.isConnected()} onOpenSettings={connection.openSettings} />
 
         <main class="flex-1 flex flex-col overflow-hidden bg-native-content relative">
