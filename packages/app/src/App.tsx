@@ -19,37 +19,26 @@ import { AlertCircle, Database, Network, Zap } from "lucide-solid";
 function App() {
   const connection = createConnection();
 
-  // Splash Screen State
   const [showSplash, setShowSplash] = createSignal(true);
 
-  // App State
   const [currentView, setCurrentView] = createSignal("hql");
-
-  // Query State
   const [isExecuting, setIsExecuting] = createSignal(false);
   const [wbExecute, setWbExecute] = createSignal<(() => Promise<void>) | undefined>();
 
-  // Theme Settings State
   const [showThemeSettings, setShowThemeSettings] = createSignal(false);
 
-  // Exit Modal State
   const [showExitModal, setShowExitModal] = createSignal(false);
   let allowedToClose = false;
 
-  // Store unlisten function for cleanup
   let unlistenSettings: UnlistenFn | undefined;
   let unlistenClose: UnlistenFn | undefined;
 
-  // Initialize theme and listen for native menu events
   onMount(async () => {
     initTheme();
 
-    // Listen for Settings menu item from native macOS menu
     unlistenSettings = await listen("open-settings", () => {
       setShowThemeSettings(true);
     });
-
-    // Exit Warning
     try {
       const appWindow = getCurrentWindow();
       unlistenClose = await appWindow.onCloseRequested(async (event) => {
@@ -63,7 +52,6 @@ function App() {
     }
   });
 
-  // Cleanup event listener
   onCleanup(() => {
     if (unlistenSettings) unlistenSettings();
     if (unlistenClose) unlistenClose();
@@ -74,7 +62,6 @@ function App() {
       await invoke("terminate_app");
     } catch (e) {
       console.error("Failed to terminate app", e);
-      // Fallback
       const appWindow = getCurrentWindow();
       await appWindow.destroy();
     }
@@ -105,12 +92,9 @@ function App() {
 
   return (
     <>
-      {/* Splash Screen Overlay */}
       <Show when={showSplash()}>
         <SplashScreen onComplete={() => setShowSplash(false)} minDuration={2200} />
       </Show>
-
-      {/* Exit Confirmation Modal */}
       <Show when={showExitModal()}>
         <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[20000] flex items-center justify-center animate-in fade-in duration-200">
           <div class="w-[320px] bg-native-elevated border border-native rounded-2xl shadow-macos-lg overflow-hidden animate-in zoom-in-95 duration-200">
@@ -176,7 +160,6 @@ function App() {
             </Show>
           </div>
 
-          {/* Centralized Disconnected Overlay */}
           <Show when={!connection.isConnected() && ["schema", "queries", "graph"].includes(currentView())}>
             <div class="absolute inset-0 flex items-center justify-center bg-native-content z-[100]">
               <Show when={currentView() === "schema"}>

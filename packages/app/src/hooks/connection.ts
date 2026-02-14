@@ -3,14 +3,12 @@ import { HelixDB } from "helix-ts";
 import { HelixApi } from "../lib/api";
 import { invoke } from "@tauri-apps/api/core";
 import { setConnectionStore, activeConnection, getConnectionUrl, ConnectionInfo, saveConnections } from "../stores/connection";
-import { setWorkbenchState } from "../stores/workbench";
+import { setWorkbenchState, queryStateCache } from "../stores/workbench";
 import { setHqlStore } from "../stores/hql";
 
-// Helper to check if we are running inside Tauri
 const isTauri = () => typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__;
 
 export const resetWorkspaceState = () => {
-  // 1. Clear Workbench
   setWorkbenchState({
     endpoints: [],
     selectedEndpoint: null,
@@ -18,11 +16,11 @@ export const resetWorkspaceState = () => {
     result: null,
     rawResult: null,
     error: null,
-    queryStateCache: {},
     loading: false,
   });
 
-  // 2. Clear HQL Results (keep code)
+  queryStateCache.clear();
+
   setHqlStore("tabs", () => true, {
     output: "",
     rawOutput: null,
@@ -35,7 +33,6 @@ export const resetWorkspaceState = () => {
     logs: "",
   });
 
-  // 3. Clear Schema
   setHqlStore("schema", null);
 };
 
@@ -86,7 +83,6 @@ export function createConnection() {
         } as Response;
       }
     } else {
-      // Browser fallback
       try {
         return await fetch(url, init);
       } catch (err: any) {
@@ -116,7 +112,7 @@ export function createConnection() {
   });
 
   const handleConnect = async (conn: ConnectionInfo) => {
-    resetWorkspaceState(); // PURGE CACHE on every fresh connection/switch
+    resetWorkspaceState();
     setIsConnecting(true);
     setError(null);
 
@@ -138,7 +134,6 @@ export function createConnection() {
         throw new Error(errorText || `Server responded with status ${response.status}`);
       }
 
-      // Update the connection in the store list and persist
       setConnectionStore("connections", (connections) => {
         const index = connections.findIndex((c) => c.id === conn.id);
         if (index !== -1) {
@@ -189,8 +184,7 @@ export function createConnection() {
     setIsConnected(false);
     setShowSuccess(false);
 
-    // Clear workbench state on disconnect
-    import("../stores/workbench").then(({ setWorkbenchState }) => {
+    import("../stores/workbench").then(({ setWorkbenchState, queryStateCache }) => {
       setWorkbenchState({
         endpoints: [],
         selectedEndpoint: null,
@@ -198,8 +192,8 @@ export function createConnection() {
         result: null,
         rawResult: null,
         error: null,
-        queryStateCache: {},
       });
+      queryStateCache.clear();
     });
   };
 

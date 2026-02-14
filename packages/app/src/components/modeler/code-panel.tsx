@@ -265,7 +265,6 @@ export const CodePanel = (props: CodePanelProps) => {
 
                 <div class="h-px bg-[var(--border-subtle)] opacity-30 my-3" />
 
-                {/* Analytics Section */}
                 <div class="space-y-1.5">
                   <h4 class="text-[10px] font-bold text-[var(--text-tertiary)] tracking-wider mb-2 uppercase">Stats & Analytics</h4>
                   <div class="grid grid-cols-1 gap-2 pl-1">

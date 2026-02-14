@@ -603,7 +603,6 @@ export class HqlCodeGen {
             level: "error",
           });
         } else {
-          // Identifier check
           if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(prop.name)) {
             diagnostics.push({
               entityId: entity.id,

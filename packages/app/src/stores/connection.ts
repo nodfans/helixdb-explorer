@@ -13,12 +13,11 @@ export interface ConnectionInfo {
 interface ConnectionState {
   connections: ConnectionInfo[];
   activeConnectionId: string | null;
-  editingId: string | null; // For the manager UI
+  editingId: string | null;
 }
 
 const isTauri = () => (window as any).__TAURI_INTERNALS__ !== undefined;
 
-// Default empty state
 const initialState: ConnectionState = {
   connections: [],
   activeConnectionId: null,
@@ -27,14 +26,13 @@ const initialState: ConnectionState = {
 
 export const [connectionStore, setConnectionStore] = createStore<ConnectionState>(initialState);
 
-// Initial load from Tauri if available
 if (isTauri()) {
   invoke("load_connection_config")
     .then((saved: any) => {
       if (saved && saved.connections) {
         setConnectionStore({
           connections: saved.connections,
-          activeConnectionId: null, // Always start disconnected
+          activeConnectionId: null,
           editingId: saved.connections[0]?.id || null,
         });
       }
@@ -42,19 +40,16 @@ if (isTauri()) {
     .catch((err) => console.error("Failed to load connections from Tauri", err));
 }
 
-// Persistence logic
 export const saveConnections = () => {
   const data = {
     connections: connectionStore.connections,
   };
 
-  // File System (Desktop Persistence Only)
   if (isTauri()) {
     invoke("save_connection_config", { config: data }).catch((err) => console.error("Failed to save connections to Tauri", err));
   }
 };
 
-// Utilities
 export const getConnectionUrl = (conn: ConnectionInfo) => {
   if (!conn || !conn.host) return "";
   let host = conn.host.trim();
@@ -73,7 +68,6 @@ export const editingConnection = () => {
   return connectionStore.connections.find((c) => c.id === connectionStore.editingId) || activeConnection();
 };
 
-// Expose to window for UI use in HqlPanel/Queries
 if (typeof window !== "undefined") {
   (window as any).activeConnection = activeConnection;
   (window as any).getConnectionUrl = () => getConnectionUrl(activeConnection());

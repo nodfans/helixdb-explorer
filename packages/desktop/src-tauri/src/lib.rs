@@ -90,7 +90,6 @@ pub fn run() {
                 let _ = apply_vibrancy(&window, NSVisualEffectMaterial::Sidebar, None, None);
             }
 
-            // Create Application menu
             let settings_item = MenuItem::with_id(app, "settings", "Settings...", true, Some("CmdOrCtrl+,"))?;
             let about_item = PredefinedMenuItem::about(app, Some("About HelixDB Explorer"), None)?;
             let quit_item = PredefinedMenuItem::quit(app, Some("Quit HelixDB Explorer"))?;
@@ -116,7 +115,6 @@ pub fn run() {
                 ],
             )?;
 
-            // Edit menu
             let edit_menu = Submenu::with_items(
                 app,
                 "Edit",
@@ -132,7 +130,6 @@ pub fn run() {
                 ],
             )?;
 
-            // Window menu
             let window_menu = Submenu::with_items(
                 app,
                 "Window",

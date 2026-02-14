@@ -1,7 +1,8 @@
 import { createSignal, createEffect, For, Show, createMemo, batch, onCleanup } from "solid-js";
+import { reconcile } from "solid-js/store";
 import { HelixApi } from "../lib/api";
 import { EndpointConfig } from "../lib/types";
-import { workbenchState, setWorkbenchState } from "../stores/workbench";
+import { workbenchState, setWorkbenchState, queryStateCache } from "../stores/workbench";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Database, Copy, Check, ChevronRight, AlertCircle, Plus, Minus, Play, Loader2, X, Table, Braces, Zap, Search, Link } from "lucide-solid";
@@ -19,7 +20,6 @@ interface QueriesProps {
 }
 
 export const Queries = (props: QueriesProps) => {
-  // Use Persistent Store
   const endpoints = () => workbenchState.endpoints;
   const setEndpoints = (v: any) => setWorkbenchState("endpoints", v);
 
@@ -59,12 +59,12 @@ export const Queries = (props: QueriesProps) => {
   const showParamsSidebar = () => workbenchState.showParamsSidebar;
   const setShowParamsSidebar = (v: any) => setWorkbenchState("showParamsSidebar", v);
 
-  // Local-only UI signals that don't need persistence
   const [selectedRows, setSelectedRows] = createSignal<any[]>([]);
   const [isResizing, setIsResizing] = createSignal(false);
   const [isResizingRight, setIsResizingRight] = createSignal(false);
   const [isCopied, setIsCopied] = createSignal(false);
   const [searchFocused, setSearchFocused] = createSignal(false);
+  const [isRunning, setIsRunning] = createSignal(false);
 
   const hasParams = () => {
     const ep = selectedEndpoint();
@@ -100,7 +100,7 @@ export const Queries = (props: QueriesProps) => {
     batch(() => {
       const currentEndpoint = selectedEndpoint();
       if (currentEndpoint) {
-        setWorkbenchState("queryStateCache", currentEndpoint.id, {
+        queryStateCache.set(currentEndpoint.id, {
           params: deepClone(params()),
           result: result(),
           rawResult: deepClone(rawResult()),
@@ -109,7 +109,7 @@ export const Queries = (props: QueriesProps) => {
         });
       }
 
-      const cached = workbenchState.queryStateCache[endpoint.id];
+      const cached = queryStateCache.get(endpoint.id);
 
       // Select NEW endpoint
       setSelectedEndpoint(deepClone(endpoint));
@@ -122,13 +122,15 @@ export const Queries = (props: QueriesProps) => {
       }
 
       if (cached) {
+        // Restore this endpoint's own cached state
         setParams(deepClone(cached.params));
         setResult(cached.result);
-        setRawResult(deepClone(cached.rawResult));
+        setRawResult(reconcile(deepClone(cached.rawResult)));
         setError(cached.error);
         setViewMode(cached.viewMode);
         setSelectedRows([]);
       } else {
+        // Never run before — show empty state
         const initialParams: Record<string, any> = {};
         if (endpoint.params) {
           endpoint.params.forEach((p) => {
@@ -161,12 +163,18 @@ export const Queries = (props: QueriesProps) => {
     }
   };
 
+  const [runId, setRunId] = createSignal(0);
+
   const executeQuery = async () => {
     const endpoint = selectedEndpoint();
     if (!endpoint) return;
 
-    const targetEndpointId = endpoint.id; // LOCK 1: Capture the endpoint we are aiming for
+    const targetEndpointId = endpoint.id;
 
+    const currentRunId = runId() + 1;
+    setRunId(currentRunId);
+
+    setIsRunning(true);
     setResult(null);
     setRawResult(null);
     setSelectedRows([]);
@@ -175,13 +183,19 @@ export const Queries = (props: QueriesProps) => {
     try {
       const res = await props.api.executeEndpoint(endpoint, params());
 
-      // GUARD: If user switched endpoints while waiting, DISCARD the result
+      // GUARD 1: If user switched endpoints while waiting, DISCARD the result
       if (selectedEndpoint()?.id !== targetEndpointId) {
         console.warn(`[Workbench] Discarding stale result for endpoint: ${targetEndpointId}`);
         return;
       }
 
-      setRawResult(res);
+      // GUARD 2: If a newer request was started, DISCARD this stale result
+      if (runId() !== currentRunId) {
+        console.warn(`[Workbench] Discarding stale run #${currentRunId} (latest: ${runId()})`);
+        return;
+      }
+
+      setRawResult(reconcile(res));
       setResult(JSON.stringify(res, null, 2));
 
       const hasArray = Array.isArray(res) || (typeof res === "object" && res !== null && Object.values(res).some((v) => Array.isArray(v)));
@@ -198,9 +212,11 @@ export const Queries = (props: QueriesProps) => {
         setSelectedRows([res]);
       }
     } catch (err: any) {
-      // GUARD: If user switched endpoints while waiting, DISCARD the error
-      if (selectedEndpoint()?.id !== targetEndpointId) return;
+      // GUARD: If user switched endpoints or started new run, DISCARD the error
+      if (selectedEndpoint()?.id !== targetEndpointId || runId() !== currentRunId) return;
       setError(err.message || "Query execution failed");
+    } finally {
+      setIsRunning(false);
     }
   };
 
@@ -459,7 +475,7 @@ export const Queries = (props: QueriesProps) => {
 
             <div class="flex-1 flex overflow-hidden">
               <div class="flex-1 flex flex-col overflow-hidden relative">
-                <Show when={props.isExecuting}>
+                <Show when={props.isExecuting || isRunning()}>
                   <div class="flex-1 flex items-center justify-center">
                     <div class="flex flex-col items-center gap-4">
                       <div class="w-6 h-6 border-2 border-accent/20 border-t-accent rounded-full animate-spin"></div>
@@ -480,7 +496,7 @@ export const Queries = (props: QueriesProps) => {
                   </div>
                 </Show>
 
-                <Show when={rawResult() && !error() && !props.isExecuting}>
+                <Show when={rawResult() && !error() && !props.isExecuting && !isRunning()}>
                   <Show
                     when={viewMode() === "table"}
                     fallback={
@@ -528,7 +544,7 @@ export const Queries = (props: QueriesProps) => {
                   </Show>
                 </Show>
 
-                <Show when={!rawResult() && !error() && !props.isExecuting}>
+                <Show when={!rawResult() && !error() && !props.isExecuting && !isRunning()}>
                   <EmptyState icon={Zap} title="Ready to query" description={hasParams() ? "Click the green + button above to add parameters" : "Click run to execute this query"} />
                 </Show>
               </div>

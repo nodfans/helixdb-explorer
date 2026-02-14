@@ -8,7 +8,6 @@ use helix_db::helixc::parser::types::{
     ValueType, IdType, FieldValue, FieldValueType
 };
 use helix_db::protocol::value::Value;
-use crate::hql_translator::{map_traversal_to_tools, FinalAction};
 
 #[tauri::command]
 pub fn log_to_terminal(message: String) {
@@ -24,7 +23,7 @@ pub fn terminate_app() {
 pub fn map_reqwest_error(e: reqwest::Error, prefix: &str) -> String {
     if e.is_connect() {
         if let Some(url) = e.url() {
-            let host = url.host_str().unwrap_or("127.0.0.1");
+            let host = url.host_str().unwrap_or(url.as_str());
             let port = url.port().map(|p| format!(":{}", p)).unwrap_or_default();
             return format!("ERROR: Connection refused: {}{}", host, port);
         }
@@ -104,9 +103,8 @@ pub async fn execute_query(url: String, query_name: String, args: serde_json::Va
 }
 
 #[tauri::command]
-pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json::Value, String> {
-    // 1. Parsing Strategy
-    // Function to try parsing source, returning the Source AST if successful
+pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+    // Helper: try parsing HQL source
     fn try_parse(code: &str) -> Result<helix_db::helixc::parser::types::Source, String> {
         let content = write_to_temp_file(vec![code]);
         HelixParser::parse_source(&content).map_err(|e| format!("{:?}", e))
@@ -126,107 +124,253 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
         }
     };
 
-    // 2. Extract Traversal from AST
+    // Extract context and RETURN statements
     if source.queries.len() > 1 {
         return Err("Multiple queries detected in editor. Please select a specific query to execute, or ensure only one query exists.".to_string());
     }
     
     let query = source.queries.first().ok_or_else(|| "No query found in parsed source".to_string())?;
-    
-    // Find the first statement that is a traversal (either direct or via assignment)
-    let mut traversal = None;
-    
+    let mut params_val = params.unwrap_or(serde_json::json!({}));
+
+    // Variable Context
+    let mut variable_assignments = std::collections::HashMap::<String, &helix_db::helixc::parser::types::Traversal>::new();
+    let mut return_vars = Vec::<String>::new();
+
     for stmt in &query.statements {
         match &stmt.statement {
-            StatementType::Expression(expr) => {
-                match &expr.expr {
-                    ExpressionType::Traversal(t) => {
-                        traversal = Some(TraversalType::Normal(&**t));
-                        break; 
-                    },
-                    ExpressionType::BM25Search(bm25) => {
-                        traversal = Some(TraversalType::BM25(bm25));
-                        break;
-                    },
-                    _ => {}
-                }
-            },
             StatementType::Assignment(assign) => {
                 match &assign.value.expr {
-                     ExpressionType::Traversal(t) => {
-                        traversal = Some(TraversalType::Normal(&**t));
-                        break;
+                    ExpressionType::Traversal(t) => {
+                        variable_assignments.insert(assign.variable.clone(), &**t);
                     },
-                    ExpressionType::BM25Search(bm25) => {
-                        traversal = Some(TraversalType::BM25(bm25));
-                        break;
+                    ExpressionType::StringLiteral(s) => {
+                        if let serde_json::Value::Object(map) = &mut params_val {
+                            map.insert(assign.variable.clone(), serde_json::Value::String(s.clone()));
+                        }
+                    },
+                    ExpressionType::IntegerLiteral(i) => {
+                        if let serde_json::Value::Object(map) = &mut params_val {
+                            map.insert(assign.variable.clone(), serde_json::Value::Number((*i).into()));
+                        }
+                    },
+                    ExpressionType::FloatLiteral(f) => {
+                        if let serde_json::Value::Object(map) = &mut params_val {
+                            if let Some(n) = serde_json::Number::from_f64(*f) {
+                                map.insert(assign.variable.clone(), serde_json::Value::Number(n));
+                            }
+                        }
+                    },
+                    ExpressionType::BooleanLiteral(b) => {
+                        if let serde_json::Value::Object(map) = &mut params_val {
+                            map.insert(assign.variable.clone(), serde_json::Value::Bool(*b));
+                        }
                     },
                     _ => {}
                 }
             },
+            StatementType::Expression(expr) => {
+                // Bare traversal -> implicit return if no explicit RETURN exists
+                if let ExpressionType::Traversal(t) = &expr.expr {
+                     variable_assignments.insert("_implicit_".to_string(), &**t);
+                }
+            }
             _ => {}
         }
     }
 
-    enum TraversalType<'a> {
-        Normal(&'a helix_db::helixc::parser::types::Traversal),
-        BM25(&'a helix_db::helixc::parser::types::BM25Search),
+    // Process explicit returns from AST
+    if !query.return_values.is_empty() {
+        for ret in &query.return_values {
+            match ret {
+                ReturnType::Expression(expr) => {
+                     if let ExpressionType::Identifier(id) = &expr.expr {
+                         return_vars.push(id.clone());
+                     }
+                },
+                ReturnType::Array(rets) => {
+                    for r in rets {
+                        if let ReturnType::Expression(expr) = r {
+                            if let ExpressionType::Identifier(id) = &expr.expr {
+                                return_vars.push(id.clone());
+                            }
+                        }
+                    }
+                },
+                _ => {} // Handle Object return types if needed in future
+            }
+        }
+    } else if let Some(_implicit) = variable_assignments.get("_implicit_") {
+        // No explicit return, but we have a bare expression traversal -> return it
+        return_vars.push("_implicit_".to_string());
+    } else if return_vars.is_empty() && !variable_assignments.is_empty() {
+        // Fallback: if no return and no bare expression, but we have assignments, return the last assignment for REPL feel
+        if let Some(last_stmt) = query.statements.last() {
+             if let StatementType::Assignment(assign) = &last_stmt.statement {
+                 return_vars.push(assign.variable.clone());
+             }
+        }
     }
 
-    let traversal = traversal.ok_or_else(|| "No executable traversal found. Dynamic HQL supports direct Traversals (e.g. 'N<User>.out(...)') or Assignments (e.g. 'users = N<User>...').".to_string())?;
+    if return_vars.is_empty() {
+        return Err("No executable traversal or return statement found.".to_string());
+    }
 
-    // 3. Map AST to MCP Tools
-    let (tools, client_filter, final_action) = match traversal {
-        TraversalType::Normal(t) => map_traversal_to_tools(t)?,
-        TraversalType::BM25(bm25) => {
-            (
-                vec![crate::hql_translator::map_bm25_to_tool(bm25)?], 
-                crate::hql_translator::ClientSideFilter::default(), 
-                crate::hql_translator::FinalAction::Collect { range: None }
-            )
-        }
-    };
-
-    // 4. Execute via MCP HTTP API
+    // Execution Engine
     let client = reqwest::Client::builder()
         .no_proxy()
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|e| format!("Failed to build client: {}", e))?;
 
-    // Step A: Init connection
-    let init_resp = client.post(format!("{}/mcp/init", url))
-        .send()
-        .await
-        .map_err(|e| map_reqwest_error(e, "Init failed"))?;
-    
-    if !init_resp.status().is_success() {
-        let status = init_resp.status();
-        let err_text = init_resp.text().await.unwrap_or_else(|_| String::new());
-        return Err(format!("Init request failed ({}): {}", status, err_text));
+    // Fast Path: Try calling compiled query endpoint directly if applicable.
+    // server's compiled engine is more reliable for ID-based traversals.
+    let query_name = &query.name;
+    if query_name != "ExplorerTmp" && !query.parameters.is_empty() {
+        let compiled_url = format!("{}/{}", url, query_name);
+        let compiled_resp = client.post(&compiled_url)
+            .json(&params_val)
+            .send()
+            .await;
+
+        if let Ok(resp) = compiled_resp {
+            if resp.status().is_success() {
+                if let Ok(json) = resp.json::<serde_json::Value>().await {
+                    return Ok(normalize_value(json));
+                }
+            }
+        }
+        // If compiled endpoint fails (404, network error, etc.), fall through to MCP pipeline
     }
 
-    let init_body = init_resp.text().await.map_err(|e| format!("Failed to read init body: {}", e))?;
-    let connection_id: String = serde_json::from_str(&init_body)
-        .map_err(|e| format!("Failed to parse connection_id from '{}': {}", init_body, e))?;
+    // MCP Pipeline Fallback
+    let mut final_map = serde_json::Map::new();
 
-    // Step B: Tool calls with Intelligent Routing
-    let mut tool_iter = tools.iter().enumerate().peekable();
-    
-    while let Some((i, tool)) = tool_iter.next() {
-        use crate::mcp_protocol::ToolArgs;
+    // Shuffle return variables to mimic server's random HashMap behavior
+    {
+        use rand::seq::SliceRandom;
+        let mut rng = rand::thread_rng();
+        return_vars.shuffle(&mut rng);
+    }
+
+    for var_name in return_vars {
+        let traversal = match resolve_traversal(&var_name, &variable_assignments)? {
+            Some(t) => t,
+            None => continue,
+        };
+
+        // Init connection per variable to ensure isolation
+        let init_resp = client.post(format!("{}/mcp/init", url))
+            .send()
+            .await
+            .map_err(|e| map_reqwest_error(e, "Init failed"))?;
         
+        if !init_resp.status().is_success() {
+            let status = init_resp.status();
+            let err_text = init_resp.text().await.unwrap_or_else(|_| String::new());
+            return Err(format!("Init request failed ({}): {}", status, err_text));
+        }
+
+        let init_body = init_resp.text().await.map_err(|e| format!("Failed to read init body: {}", e))?;
+        let connection_id: String = serde_json::from_str(&init_body)
+            .map_err(|e| format!("Failed to parse connection_id from '{}': {}", init_body, e))?;
+
+        // Execute individual traversal pipeline
+        let result = execute_pipeline(&client, &url, &connection_id, &traversal, &params_val).await?;
+        
+        if var_name == "_implicit_" && final_map.is_empty() {
+            return Ok(normalize_value(result)); // Single direct traversal return
+        }
+        
+        final_map.insert(var_name, result);
+    }
+
+    if final_map.len() == 1 && final_map.contains_key("_implicit_") {
+        return Ok(normalize_value(final_map.get("_implicit_").unwrap().clone()));
+    }
+
+    Ok(normalize_value(serde_json::Value::Object(final_map)))
+}
+
+// Helper: Normalize the result to match the clean format of compiled queries
+// (Flattens "properties", ensures "id", removes internal metadata)
+fn normalize_value(v: serde_json::Value) -> serde_json::Value {
+    match v {
+        serde_json::Value::Array(arr) => {
+            serde_json::Value::Array(arr.into_iter().map(normalize_value).collect())
+        }
+        serde_json::Value::Object(mut map) => {
+            // Check if this looks like a Node/Edge with "properties"
+            if let Some(serde_json::Value::Object(props)) = map.remove("properties") {
+                // It's a Node/Edge structure. Flatten properties up.
+                
+                // Merge properties
+                for (k, v) in props {
+                    map.insert(k, v);
+                }
+            }
+            
+            // Remove internal fields if they exist and we want a clean view
+            // We do this unconditionally to handle both raw (nested) and pre-flattened responses
+            map.remove("out_edges");
+            map.remove("in_edges");
+            map.remove("vectors");
+            map.remove("version");
+            
+            // Recursively normalize children
+            for (_, v) in map.iter_mut() {
+                *v = normalize_value(v.clone());
+            }
+            
+            serde_json::Value::Object(map)
+        }
+        _ => v,
+    }
+}
+
+fn resolve_traversal<'a>(
+    name: &str, 
+    assignments: &std::collections::HashMap<String, &'a helix_db::helixc::parser::types::Traversal>
+) -> Result<Option<helix_db::helixc::parser::types::Traversal>, String> {
+    let t = match assignments.get(name) {
+        Some(t) => *t,
+        None => return Ok(None),
+    };
+
+    let mut resolved = t.clone();
+
+    // Recursive resolution if the traversal starts with an identifier
+    if let StartNode::Identifier(id) = &resolved.start {
+        if let Some(parent_t) = resolve_traversal(id, assignments)? {
+            // Prepend parent steps to current steps
+            let mut all_steps = parent_t.steps.clone();
+            all_steps.extend(resolved.steps);
+            resolved.start = parent_t.start;
+            resolved.steps = all_steps;
+        }
+    }
+
+    Ok(Some(resolved))
+}
+
+async fn execute_pipeline(
+    client: &reqwest::Client,
+    url: &str,
+    connection_id: &str,
+    traversal: &helix_db::helixc::parser::types::Traversal,
+    params: &serde_json::Value
+) -> Result<serde_json::Value, String> {
+    use crate::hql_translator::{map_traversal_to_tools, FinalAction};
+    use crate::mcp_protocol::{ToolArgs, FilterProperties, FilterTraversal, Operator};
+    use helix_db::protocol::value::Value;
+    
+    // 1. Map to tools
+    let (tools, final_action, id_filters) = map_traversal_to_tools(traversal, params)?;
+
+    // Helper: send a single tool_call to the MCP server
+    async fn send_tool(client: &reqwest::Client, url: &str, connection_id: &str, tool: &ToolArgs) -> Result<(), String> {
         let is_search = matches!(tool, ToolArgs::SearchKeyword { .. } | ToolArgs::SearchVec { .. } | ToolArgs::SearchVecText { .. });
         
         if is_search {
-            if i > 0 {
-                return Err("Search operations (SearchBM25, SearchV) can only be used at the start of a query in dynamic HQL.".to_string());
-            }
-            if tool_iter.peek().is_some() {
-                 return Err("Chained search (search followed by other steps) is not yet supported in dynamic HQL. Please use a Synced Query (#[mcp]) for complex search pipelines.".to_string());
-            }
-
-            // Route to specialized endpoint
             let (endpoint, body) = match tool {
                 ToolArgs::SearchKeyword { query, limit, label } => (
                     "search_keyword",
@@ -264,7 +408,6 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
                 return Err(format!("Search error ({}): {}", status, err_text));
             }
         } else {
-            // Generic tool call
             let tool_resp = client.post(format!("{}/mcp/tool_call", url))
                 .json(&serde_json::json!({
                     "connection_id": connection_id,
@@ -280,90 +423,237 @@ pub async fn execute_dynamic_hql(url: String, code: String) -> Result<serde_json
                 return Err(format!("Tool call error ({}): {}", status, err_text));
             }
         }
+        Ok(())
     }
 
-    // Step C: Execute Final Action (Collect, Aggregate, or GroupBy)
-    let final_resp = match final_action {
-        FinalAction::Collect { range } => {
-             let range_json = if let Some((start, end)) = range {
-                 if let Some(e) = end {
-                    serde_json::json!({ "start": start, "end": e })
-                 } else {
-                    serde_json::json!({ "start": start })
-                 }
-             } else {
-                 serde_json::json!(null)
-             };
+    // Helper: collect results from the current pipeline
+    async fn collect_results(client: &reqwest::Client, url: &str, connection_id: &str, range: Option<(usize, Option<usize>)>) -> Result<serde_json::Value, String> {
+        let range_json = if let Some((start, end)) = range {
+            if let Some(e) = end {
+                serde_json::json!({ "start": start, "end": e })
+            } else {
+                serde_json::json!({ "start": start })
+            }
+        } else {
+            serde_json::json!(null)
+        };
 
-             client.post(format!("{}/mcp/collect", url))
-                .json(&serde_json::json!({
-                    "connection_id": connection_id,
-                    "range": range_json,
-                    "drop": true
-                }))
-                .send()
-                .await
-                .map_err(|e| map_reqwest_error(e, "Collect failed"))?
-        },
-        FinalAction::Count => {
-             client.post(format!("{}/mcp/aggregate_by", url))
-                .json(&serde_json::json!({
-                    "connection_id": connection_id,
-                    "properties": Vec::<String>::new(),
-                    "drop": true
-                }))
-                .send()
-                .await
-                .map_err(|e| map_reqwest_error(e, "Count failed"))?
-        },
-        FinalAction::Aggregate { properties } => {
-             client.post(format!("{}/mcp/aggregate_by", url))
-                .json(&serde_json::json!({
-                    "connection_id": connection_id,
-                    "properties": properties,
-                    "drop": true
-                }))
-                .send()
-                .await
-                .map_err(|e| map_reqwest_error(e, "Aggregate failed"))?
-        },
-        FinalAction::GroupBy { properties } => {
-             client.post(format!("{}/mcp/group_by", url))
-                .json(&serde_json::json!({
-                    "connection_id": connection_id,
-                    "properties": properties,
-                    "drop": true
-                }))
-                .send()
-                .await
-                .map_err(|e| map_reqwest_error(e, "GroupBy failed"))?
-        },
-    };
-
-    if final_resp.status().is_success() {
-        let results: serde_json::Value = final_resp.json()
+        let resp = client.post(format!("{}/mcp/collect", url))
+            .json(&serde_json::json!({
+                "connection_id": connection_id,
+                "range": range_json,
+                "drop": true
+            }))
+            .send()
             .await
-            .map_err(|e| format!("Failed to parse results: {}", e))?;
-        // 5. Client-Side Post-Processing
-        let mut final_results = results;
-        if let Some(ids) = client_filter.id_filter {
-             if let Some(arr) = final_results.as_array() {
-                 let filtered: Vec<serde_json::Value> = arr.iter().filter(|item| {
-                     if let Some(id_val) = item.get("id") {
-                         if let Some(id_str) = id_val.as_str() {
-                             return ids.contains(&id_str.to_string());
-                         }
-                     }
-                     false
-                 }).cloned().collect();
-                 final_results = serde_json::Value::Array(filtered);
-             }
+            .map_err(|e| map_reqwest_error(e, "Collect failed"))?;
+
+        if resp.status().is_success() {
+            resp.json().await.map_err(|e| format!("Failed to parse results: {}", e))
+        } else {
+            let status = resp.status();
+            let err_text = resp.text().await.unwrap_or_else(|_| String::new());
+            Err(format!("Query execution error ({}): {}", status, err_text))
         }
-        Ok(final_results)
+    }
+
+    // Helper: client-side filter a JSON array by ID
+    fn filter_by_ids(value: &serde_json::Value, ids: &[String]) -> serde_json::Value {
+        match value {
+            serde_json::Value::Array(arr) => {
+                let filtered: Vec<serde_json::Value> = arr.iter().filter(|item| {
+                    if let Some(id_val) = item.get("id").and_then(|v| v.as_str()) {
+                        ids.iter().any(|target_id| target_id == id_val)
+                    } else {
+                        false
+                    }
+                }).cloned().collect();
+                serde_json::Value::Array(filtered)
+            }
+            _ => value.clone(),
+        }
+    }
+
+    // 2. Determine execution strategy based on whether we have ID filters
+    let has_subsequent_steps = tools.len() > 1; // More tools beyond the start NFromType/EFromType
+
+    if !id_filters.is_empty() && has_subsequent_steps {
+        // TWO-PASS EXECUTION for ID-filtered traversals with subsequent steps
+        // Pass 1: Collect/filter by ID client-side.
+        // Pass 2: Rebuild pipeline using property-based FilterItems for server processing.
+        
+        let start_tool = &tools[0];
+        let remaining_tools = &tools[1..];
+
+        // Pass 1: get the specific item(s) matched by ID
+        send_tool(client, url, connection_id, start_tool).await?;
+        let all_items = collect_results(client, url, connection_id, None).await?;
+        let filtered = filter_by_ids(&all_items, &id_filters);
+
+        // Extract properties from the first matched item to build a property-based filter
+        let prop_filter = if let Some(item) = filtered.as_array().and_then(|a| a.first()) {
+            if let serde_json::Value::Object(map) = item {
+                // Build FilterProperties from all user-defined properties (skip id, label, version)
+                let props: Vec<FilterProperties> = map.iter()
+                    .filter(|(k, _)| *k != "id" && *k != "label" && *k != "version")
+                    .filter_map(|(k, v)| {
+                        let value = match v {
+                            serde_json::Value::String(s) => Some(Value::String(s.clone())),
+                            serde_json::Value::Number(n) => {
+                                if let Some(i) = n.as_i64() {
+                                    Some(Value::I64(i))
+                                } else if let Some(f) = n.as_f64() {
+                                    Some(Value::F64(f))
+                                } else {
+                                    None
+                                }
+                            }
+                            serde_json::Value::Bool(b) => Some(Value::Boolean(*b)),
+                            _ => None,
+                        };
+                        value.map(|v| FilterProperties {
+                            key: k.clone(),
+                            value: v,
+                            operator: Some(Operator::Eq),
+                        })
+                    })
+                    .collect();
+                
+                if !props.is_empty() {
+                    Some(ToolArgs::FilterItems {
+                        filter: FilterTraversal {
+                            properties: Some(vec![props]),
+                            filter_traversals: None,
+                        }
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            // No items matched the ID filter — return empty for this variable
+            return Ok(serde_json::Value::Array(vec![]));
+        };
+
+        // Pass 2: new connection, start tool + property filter + remaining steps
+        let init_resp = client.post(format!("{}/mcp/init", url))
+            .send()
+            .await
+            .map_err(|e| map_reqwest_error(e, "Init failed for pass 2"))?;
+        if !init_resp.status().is_success() {
+            return Err("Pass 2 init failed".to_string());
+        }
+        let init_body = init_resp.text().await.map_err(|e| format!("Failed to read init body: {}", e))?;
+        let conn2: String = serde_json::from_str(&init_body)
+            .map_err(|e| format!("Failed to parse connection_id: {}", e))?;
+
+        // Send start tool
+        send_tool(client, url, &conn2, start_tool).await?;
+        // Send property-based filter (replaces broken ID filter)
+        if let Some(pf) = &prop_filter {
+            send_tool(client, url, &conn2, pf).await?;
+        }
+        // Send remaining steps
+        for tool in remaining_tools {
+            send_tool(client, url, &conn2, tool).await?;
+        }
+
+        // Collect final results
+        let range = match &final_action {
+            FinalAction::Collect { range } => *range,
+            _ => None,
+        };
+        
+        match final_action {
+            FinalAction::Collect { .. } => collect_results(client, url, &conn2, range).await,
+            FinalAction::Count => {
+                let resp = client.post(format!("{}/mcp/aggregate_by", url))
+                    .json(&serde_json::json!({ "connection_id": conn2, "properties": Vec::<String>::new(), "drop": true }))
+                    .send().await.map_err(|e| map_reqwest_error(e, "Count failed"))?;
+                if resp.status().is_success() {
+                    resp.json().await.map_err(|e| format!("Failed to parse: {}", e))
+                } else {
+                    Err(format!("Count error: {}", resp.status()))
+                }
+            }
+            FinalAction::Aggregate { properties } => {
+                let resp = client.post(format!("{}/mcp/aggregate_by", url))
+                    .json(&serde_json::json!({ "connection_id": conn2, "properties": properties, "drop": true }))
+                    .send().await.map_err(|e| map_reqwest_error(e, "Aggregate failed"))?;
+                if resp.status().is_success() {
+                    resp.json().await.map_err(|e| format!("Failed to parse: {}", e))
+                } else {
+                    Err(format!("Aggregate error: {}", resp.status()))
+                }
+            }
+            FinalAction::GroupBy { properties } => {
+                let resp = client.post(format!("{}/mcp/group_by", url))
+                    .json(&serde_json::json!({ "connection_id": conn2, "properties": properties, "drop": true }))
+                    .send().await.map_err(|e| map_reqwest_error(e, "GroupBy failed"))?;
+                if resp.status().is_success() {
+                    resp.json().await.map_err(|e| format!("Failed to parse: {}", e))
+                } else {
+                    Err(format!("GroupBy error: {}", resp.status()))
+                }
+            }
+        }
     } else {
-        let status = final_resp.status();
-        let err_text = final_resp.text().await.unwrap_or_else(|_| String::new());
-        Err(format!("Query execution error ({}): {}", status, err_text))
+        // STANDARD EXECUTION (no ID filter, or ID filter with no subsequent steps)
+        
+        // Execute all tools
+        for tool in &tools {
+            send_tool(client, url, connection_id, tool).await?;
+        }
+
+        // Final action
+        let result = match final_action {
+            FinalAction::Collect { range } => collect_results(client, url, connection_id, range).await?,
+            FinalAction::Count => {
+                let resp = client.post(format!("{}/mcp/aggregate_by", url))
+                    .json(&serde_json::json!({ "connection_id": connection_id, "properties": Vec::<String>::new(), "drop": true }))
+                    .send().await.map_err(|e| map_reqwest_error(e, "Count failed"))?;
+                if resp.status().is_success() {
+                    resp.json().await.map_err(|e| format!("Failed to parse: {}", e))?
+                } else {
+                    let status = resp.status();
+                    let err_text = resp.text().await.unwrap_or_else(|_| String::new());
+                    return Err(format!("Query execution error ({}): {}", status, err_text));
+                }
+            }
+            FinalAction::Aggregate { properties } => {
+                let resp = client.post(format!("{}/mcp/aggregate_by", url))
+                    .json(&serde_json::json!({ "connection_id": connection_id, "properties": properties, "drop": true }))
+                    .send().await.map_err(|e| map_reqwest_error(e, "Aggregate failed"))?;
+                if resp.status().is_success() {
+                    resp.json().await.map_err(|e| format!("Failed to parse: {}", e))?
+                } else {
+                    let status = resp.status();
+                    let err_text = resp.text().await.unwrap_or_else(|_| String::new());
+                    return Err(format!("Query execution error ({}): {}", status, err_text));
+                }
+            }
+            FinalAction::GroupBy { properties } => {
+                let resp = client.post(format!("{}/mcp/group_by", url))
+                    .json(&serde_json::json!({ "connection_id": connection_id, "properties": properties, "drop": true }))
+                    .send().await.map_err(|e| map_reqwest_error(e, "GroupBy failed"))?;
+                if resp.status().is_success() {
+                    resp.json().await.map_err(|e| format!("Failed to parse: {}", e))?
+                } else {
+                    let status = resp.status();
+                    let err_text = resp.text().await.unwrap_or_else(|_| String::new());
+                    return Err(format!("Query execution error ({}): {}", status, err_text));
+                }
+            }
+        };
+
+        // Client-side ID filtering for simple start-node queries (no subsequent steps)
+        if !id_filters.is_empty() {
+            Ok(filter_by_ids(&result, &id_filters))
+        } else {
+            Ok(result)
+        }
     }
 }
 

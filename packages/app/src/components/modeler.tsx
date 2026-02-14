@@ -271,9 +271,7 @@ export const Modeler = (_props: ModelerProps) => {
         {/* macOS style toolbar */}
         <ToolbarLayout>
           <div class="flex items-center gap-2">
-            {/* Primary Action Button - macOS Blue */}
-            {/* Primary Action Button - Neutral now */}
-            {/* Primary Action Button - Neutral now */}
+            {/* Primary Action Button */}
             <Button
               variant="toolbar"
               onMouseDown={(e) => {
@@ -286,7 +284,6 @@ export const Modeler = (_props: ModelerProps) => {
             </Button>
 
             {/* Secondary Action Button */}
-            {/* Secondary Action Button */}
             <Button
               variant="toolbar"
               onMouseDown={(e) => {
@@ -298,7 +295,6 @@ export const Modeler = (_props: ModelerProps) => {
               <Share2 size={13} strokeWidth={2.5} class="text-accent" /> New Edge
             </Button>
 
-            {/* Vector Action Button */}
             {/* Vector Action Button */}
             <Button
               variant="toolbar"

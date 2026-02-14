@@ -94,14 +94,12 @@ function formatBlock(lines: string[]): string[] {
   const mainBody = bodyText.substring(0, returnIdx).trim();
   const returnPart = bodyText.substring(returnIdx + 8).trim();
 
-  // Split by variable assignment, DROP keyword, OR comment starts
   const statements = mainBody
     .split(/(?=\b[a-zA-Z_]\w*\s*<-)|(?=\bDROP\b)|(?=\/\/|#|\/\*)/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 
   for (const stmt of statements) {
-    // If it's a standalone comment, just push it
     if (stmt.startsWith("//") || stmt.startsWith("#") || stmt.startsWith("/*")) {
       resultLines.push("    " + stmt);
       continue;
@@ -118,15 +116,12 @@ function formatBlock(lines: string[]): string[] {
 
     const parts = splitByDoubleColonSafe(expression);
 
-    // Apply capitalization to all parts
     const capitalizedParts = parts.map(capitalizeKeywords);
 
-    // Check ALL parts for multi-prop objects
     let isMultiLine = false;
     for (let i = 0; i < capitalizedParts.length; i++) {
       if (capitalizedParts[i].includes("{") && capitalizedParts[i].includes(",")) {
         capitalizedParts[i] = capitalizedParts[i].replace(/(\{)(.*?)(\})/g, (match, open, content, close) => {
-          // Only format if there are commas inside
           if (!content.includes(",")) return match;
 
           const props = content
@@ -142,7 +137,6 @@ function formatBlock(lines: string[]): string[] {
       }
     }
 
-    // LOGIC: When to collapse to single line?
     const isCompact =
       parts.length <= 2 ||
       (!isMultiLine &&
@@ -168,16 +162,13 @@ function formatBlock(lines: string[]): string[] {
     }
   }
 
-  // Handle Return Part - separate possible trailing comments
   const returnParts = returnPart.split(/(?=\/\/|#|\/\*)/);
   if (returnParts.length > 0) {
     resultLines.push(`    RETURN ${capitalizeKeywords(returnParts[0].trim())}`);
-    // If there's a comment, add a newline before it to separate from the query body
     if (returnParts.length > 1) {
-      resultLines.push(""); // Add breathing room before the separator comment
+      resultLines.push("");
     }
     for (let i = 1; i < returnParts.length; i++) {
-      // No indent for trailing comments - they are usually section separators
       resultLines.push(returnParts[i].trim());
     }
   }
@@ -219,12 +210,10 @@ function splitByDoubleColonSafe(text: string): string[] {
 function capitalizeKeywords(text: string): string {
   if (!text) return "";
 
-  // Split by comments to protect them from being capitalized
   const parts = text.split(/(\/\/.*|#.*|\/\*[\s\S]*?\*\/)/);
 
   return parts
     .map((part, i) => {
-      // Index is odd -> this is a comment according to the regex with capture group
       if (i % 2 === 1) return part;
 
       let result = part;

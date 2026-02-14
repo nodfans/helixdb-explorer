@@ -16,6 +16,7 @@ export interface HqlTab {
   tableData?: any[];
   multiTableData?: Record<string, any[]>;
   selectedRows?: any[];
+  params: Record<string, any>;
 }
 
 export interface HqlState {
@@ -38,6 +39,7 @@ const defaultTab: HqlTab = {
   logs: "",
   tableData: [],
   selectedRows: [],
+  params: {},
 };
 
 const [hqlStore, setHqlStore] = createStore<HqlState>({

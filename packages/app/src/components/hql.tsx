@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createSignal, For, onMount, Show, onCleanup } from "solid-js";
-import { Play, Plus, X, FileCode, Database, Sparkles, Check, Upload } from "lucide-solid";
+import { reconcile } from "solid-js/store";
+import { Play, Plus, Minus, X, FileCode, Database, Sparkles, Check, Upload, Trash } from "lucide-solid";
 import { invoke } from "@tauri-apps/api/core";
 import { hqlStore, setHqlStore, type HqlTab } from "../stores/hql";
 import { HQLEditor } from "./ui/hql-editor";
@@ -24,6 +25,7 @@ export const HQL = (props: HQLProps) => {
   const [formatted, setFormatted] = createSignal(false);
   const [gutterWidth, setGutterWidth] = createSignal(40);
   const [selectedText, setSelectedText] = createSignal("");
+  const [showParamsSidebar, setShowParamsSidebar] = createSignal(false);
   const [pendingSync, setPendingSync] = createSignal<{
     items: Array<{
       query_name: string;
@@ -104,6 +106,7 @@ export const HQL = (props: HQLProps) => {
       status: "idle",
       queryStatus: "idle",
       syncStatus: "idle",
+      params: {},
     };
     setHqlStore("tabs", [...hqlStore.tabs, newTab]);
     setHqlStore("activeTabId", id);
@@ -143,13 +146,11 @@ export const HQL = (props: HQLProps) => {
   };
 
   const executeHql = async (codeOverride?: string) => {
-    const targetTabId = hqlStore.activeTabId; // Capture the tab ID at start
+    const targetTabId = hqlStore.activeTabId;
     const currentTab = hqlStore.tabs.find((t) => t.id === targetTabId) || activeTab();
 
-    // Determine execution scope: Selection > Override > Tab Code
     const codeToProcess = selectedText().trim() || codeOverride || currentTab.code;
 
-    // Define helper within scope to ensure targetTabId is captured correctly
     const updateTargetTab = (updates: Partial<HqlTab>) => {
       setHqlStore("tabs", (t) => t.id === targetTabId, updates);
     };
@@ -191,6 +192,7 @@ export const HQL = (props: HQLProps) => {
       const result: any = await invoke("execute_dynamic_hql", {
         url: getConnectionUrl(activeConnection()),
         code: codeToProcess,
+        params: currentTab.params,
       });
 
       const endTime = performance.now();
@@ -202,10 +204,10 @@ export const HQL = (props: HQLProps) => {
       updateTargetTab({
         status: "success",
         queryStatus: "success",
-        rawOutput: result,
+        rawOutput: reconcile(result),
         output: JSON.stringify(result, null, 2),
         executionTime: duration,
-        viewMode: isTable ? "table" : "json",
+        viewMode: "table",
         tableData: isTable ? tableData : undefined,
         multiTableData: extractMultiTableData(result),
         logs: `[${new Date().toLocaleTimeString()}] Query executed in ${duration}ms\nSize: ${result ? JSON.stringify(result).length : 0} bytes`,
@@ -356,6 +358,19 @@ export const HQL = (props: HQLProps) => {
           </Show>
         </button>
 
+        {/* Params Button */}
+        <button
+          onClick={() => setShowParamsSidebar(!showParamsSidebar())}
+          class={`h-7 w-7 p-0 flex items-center justify-center rounded-md transition-colors ${
+            Object.keys(activeTab().params || {}).length > 0 ? "text-accent bg-accent/10" : "text-native-quaternary hover:text-native-secondary hover:bg-native-content"
+          }`}
+          title={showParamsSidebar() ? "Hide Parameters" : "Show Parameters"}
+        >
+          <Show when={showParamsSidebar()} fallback={<Plus size={16} strokeWidth={2} />}>
+            <Minus size={16} strokeWidth={2} />
+          </Show>
+        </button>
+
         {/* Sync Button - Icon Only */}
         <button
           onClick={async () => {
@@ -471,6 +486,97 @@ export const HQL = (props: HQLProps) => {
             diagnostics={activeTab().diagnostics || []}
           />
         </div>
+
+        {/* Parameters Sidebar */}
+        <Show when={showParamsSidebar()}>
+          <div class="w-[280px] flex-none border-l border-native bg-[var(--bg-workbench-sidebar)] flex flex-col z-10 transition-all duration-300">
+            <div class="h-9 px-4 flex items-center justify-between border-b border-native bg-native-sidebar/50">
+              <span class="text-[11px] font-semibold text-native-secondary uppercase tracking-wider">Parameters</span>
+              <button
+                onClick={() => {
+                  updateActiveTab({ params: {} });
+                }}
+                class="p-1 text-native-quaternary hover:text-red-500 transition-colors"
+                title="Clear All Parameters"
+              >
+                <Trash size={12} />
+              </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 space-y-4">
+              <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] text-native-tertiary">Key</span>
+                  <span class="text-[10px] text-native-tertiary">Value</span>
+                </div>
+
+                <For each={Object.entries(activeTab().params || {})}>
+                  {([key, value]) => (
+                    <div class="flex items-center gap-2 group">
+                      <input
+                        type="text"
+                        value={key}
+                        onInput={(e) => {
+                          const newKey = e.currentTarget.value;
+                          if (newKey !== key) {
+                            const newParams = { ...activeTab().params };
+                            delete newParams[key];
+                            newParams[newKey] = value;
+                            updateActiveTab({ params: newParams });
+                          }
+                        }}
+                        class="flex-1 h-7 px-2 bg-native-content border border-native rounded text-[11px] text-native-primary placeholder:text-native-quaternary focus:border-accent/40 outline-none"
+                        placeholder="Key"
+                      />
+                      <input
+                        type="text"
+                        value={value}
+                        onInput={(e) => {
+                          const newVal = e.currentTarget.value;
+                          updateActiveTab({
+                            params: { ...activeTab().params, [key]: newVal },
+                          });
+                        }}
+                        class="flex-1 h-7 px-2 bg-native-content border border-native rounded text-[11px] text-native-primary placeholder:text-native-quaternary focus:border-accent/40 outline-none"
+                        placeholder="Value"
+                      />
+                      <button
+                        onClick={() => {
+                          const newParams = { ...activeTab().params };
+                          delete newParams[key];
+                          updateActiveTab({ params: newParams });
+                        }}
+                        class="p-1 text-native-quaternary hover:text-native-secondary opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  )}
+                </For>
+
+                <button
+                  onClick={() => {
+                    const newKey = `param${Object.keys(activeTab().params || {}).length + 1}`;
+                    updateActiveTab({
+                      params: { ...activeTab().params, [newKey]: "" },
+                    });
+                  }}
+                  class="w-full h-7 flex items-center justify-center gap-1.5 border border-dashed border-native rounded text-[11px] text-native-tertiary hover:text-native-primary hover:border-native-active transition-colors"
+                >
+                  <Plus size={10} />
+                  <span>Add Parameter</span>
+                </button>
+              </div>
+
+              <div class="p-3 bg-native-content/50 rounded border border-native">
+                <p class="text-[10px] text-native-tertiary leading-relaxed">
+                  Use these parameters in your query as variables. <br />
+                  Example: <code class="bg-native-content px-1 rounded border border-native">N&lt;User&gt;(user_id)</code> where <code class="text-accent">user_id</code> is a key defined above.
+                </p>
+              </div>
+            </div>
+          </div>
+        </Show>
 
         {/* Results Resizer - macOS style */}
         <Show when={showResults()}>

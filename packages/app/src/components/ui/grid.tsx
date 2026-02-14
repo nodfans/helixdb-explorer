@@ -264,7 +264,7 @@ export function Grid(props: GridProps) {
             <For each={props.columns}>
               {(column) => (
                 <div
-                  class="flex-shrink-0 px-1.5 flex items-center relative group select-none cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-all duration-200"
+                  class="flex-shrink-0 px-1.5 flex items-center relative group select-none cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
                   style={{
                     width: `${columnWidths()[column.key] || 150}px`,
                     "min-height": "32px",

@@ -18,7 +18,11 @@ export const ResultTable = (props: { data: any[]; onSelect?: (rows: any[]) => vo
       for (const key in row) {
         const val = row[key];
         if (val !== null && typeof val === "object") {
-          newRow[key] = JSON.stringify(val);
+          try {
+            newRow[key] = JSON.stringify(val);
+          } catch (e) {
+            newRow[key] = "[Complex Object]";
+          }
         } else {
           newRow[key] = val;
         }

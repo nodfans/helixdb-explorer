@@ -1,5 +1,5 @@
 import { Show, Switch, Match, type Accessor, Index, createSignal, For } from "solid-js";
-import { Table, Copy, ChevronDown, Loader2, X, Database, FileCode, CheckCircle2, Info, Link } from "lucide-solid";
+import { Table, Copy, ChevronDown, Loader2, X, Database, FileCode, CheckCircle2, Info } from "lucide-solid";
 import { Button } from "./button";
 import { ResultTable } from "./result-table";
 import type { HqlTab } from "../../stores/hql";
@@ -80,8 +80,11 @@ export const HqlPanel = (props: HqlPanelProps) => {
                     <Show when={props.activeTab.rawOutput}>
                       <div class="w-[3.5px] h-[3.5px] rounded-full bg-[var(--text-tertiary)] mx-1.5 shrink-0 opacity-60" />
                       <span class="text-[10px] text-native-quaternary font-mono">
-                        {props.activeTab.tableData ? props.activeTab.tableData.length : Array.isArray(props.activeTab.rawOutput) ? props.activeTab.rawOutput.length : 1}{" "}
-                        {(props.activeTab.tableData ? props.activeTab.tableData.length : Array.isArray(props.activeTab.rawOutput) ? props.activeTab.rawOutput.length : 1) === 1 ? "result" : "results"}
+                        {(() => {
+                          const multi = props.activeTab.multiTableData;
+                          const count = multi ? Object.values(multi).reduce((acc: number, rows: any[]) => acc + rows.length, 0) : 0;
+                          return `${count} ${count === 1 ? "result" : "results"}`;
+                        })()}
                       </span>
                     </Show>
                     <Show when={props.activeTab.executionTime}>
@@ -97,24 +100,6 @@ export const HqlPanel = (props: HqlPanelProps) => {
                   </div>
                 </Match>
               </Switch>
-
-              {/* API Path Integrated into Status Area */}
-              <Show when={props.activeTab.queryStatus === "success" || props.activeTab.queryStatus === "error"}>
-                <div class="w-px h-3.5 bg-native-active/30 mx-1" />
-                <div
-                  class="flex items-center gap-1.5 cursor-pointer hover:bg-native-hover/60 px-1.5 py-0.5 rounded transition-colors group/path"
-                  onClick={() => {
-                    const host = (window as any).getConnectionUrl();
-                    const fullUrl = `${host}/mcp/dynamic-hql`;
-                    navigator.clipboard.writeText(fullUrl);
-                    props.logEntry(`[API] Copied: ${fullUrl}`);
-                  }}
-                  title="Click to copy full API URL"
-                >
-                  <code class="text-[10px] text-native-tertiary font-mono truncate max-w-[120px] group-hover/path:text-native-secondary transition-colors">/mcp/dynamic-hql</code>
-                  <Link size={10} class="text-native-quaternary opacity-0 group-hover/path:opacity-100 transition-opacity" />
-                </div>
-              </Show>
             </div>
           </Show>
         </div>

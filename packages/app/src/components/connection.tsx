@@ -80,8 +80,6 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
     }
   };
 
-  // Removed handleAutoDetect and detecting signal as auto-detection is now part of handleTest and Connect
-
   return (
     <Show when={props.isOpen}>
       <div class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/25 backdrop-blur-[12px] p-4 animate-in fade-in duration-300" onClick={props.onCancel}>

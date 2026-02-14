@@ -35,7 +35,7 @@ interface GraphEdge {
   [key: string]: any;
 }
 
-// 🎨 Color palette - Professional blue inspired by Navicat
+// Color palette - Professional blue inspired by Navicat
 const TYPE_COLORS: Record<string, string> = {
   User: "#10b981", // emerald
   Post: "#3b82f6", // blue
@@ -61,7 +61,7 @@ const getNodeColor = (node: GraphNode): string => {
   return TYPE_COLORS[type] || hashColor(type);
 };
 
-// 🔎 Robust Name Resolution
+// Robust Name Resolution
 const resolveNodeName = (node: any, fallbackId?: string): string => {
   const id = node.id || fallbackId || "";
 
@@ -89,7 +89,6 @@ export const Graph = (props: GraphProps) => {
   let containerRef: HTMLDivElement | undefined;
   let graphInstance: any = null;
 
-  // State
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [allNodes, setAllNodes] = createSignal<GraphNode[]>([]);
@@ -109,7 +108,6 @@ export const Graph = (props: GraphProps) => {
     }
   };
 
-  // Controls
   const [nodeLimit, setNodeLimit] = createSignal(5);
   const [showDetailPanel, setShowDetailPanel] = createSignal(true);
   const [searchQuery, setSearchQuery] = createSignal("");
@@ -354,7 +352,7 @@ export const Graph = (props: GraphProps) => {
     }
   };
 
-  // 🎨 Custom node renderer with semantic zoom
+  // Custom node renderer with semantic zoom
   const drawNode = (node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const isHovered = node.id === hoveredNodeId();
     const isSelected = selectedNode()?.id === node.id;
@@ -368,7 +366,7 @@ export const Graph = (props: GraphProps) => {
     if (isHovered) size = BASE_NODE_SIZE * 1.5;
     else if (isSelected) size = BASE_NODE_SIZE * 1.3;
 
-    // ✨ Outer Bloom/Glow
+    // Outer Bloom/Glow
     if (isHovered || isSelected) {
       const glowScale = isHovered ? 4 : 3;
       const gradient = ctx.createRadialGradient(node.x!, node.y!, size, node.x!, node.y!, size * glowScale);
@@ -381,7 +379,7 @@ export const Graph = (props: GraphProps) => {
       ctx.fill();
     }
 
-    // ✨ Node Core
+    // Node Core
     ctx.beginPath();
     ctx.arc(node.x!, node.y!, size, 0, 2 * Math.PI);
 
@@ -394,19 +392,19 @@ export const Graph = (props: GraphProps) => {
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // ✨ Inner Ring (Glass accent)
+    // Inner Ring (Glass accent)
     ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // ✨ Outer Border (Focus accent)
+    // Outer Border (Focus accent)
     if (isHovered || isSelected) {
       ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 2;
       ctx.stroke();
     }
 
-    // ✨ Label Rendering (Always shown if zoomed in, or on hover)
+    // Label Rendering (Always shown if zoomed in, or on hover)
     if (mode === "detailed" || isHovered) {
       const label = node.id;
       const fontSize = isHovered ? 11 : 9;
@@ -473,14 +471,14 @@ export const Graph = (props: GraphProps) => {
         }
       });
 
-      // ✋ Enable node dragging!
+      // Enable node dragging!
       graphInstance.enableNodeDrag(true);
       graphInstance.onNodeDrag((_node: any) => {
         containerRef!.style.cursor = "grabbing";
       });
       graphInstance.onNodeDragEnd((node: any) => {
         containerRef!.style.cursor = "grab";
-        // 📌 Persistent positioning: fix the node where it's dropped
+        // Persistent positioning: fix the node where it's dropped
         node.fx = node.x;
         node.fy = node.y;
       });
@@ -512,7 +510,7 @@ export const Graph = (props: GraphProps) => {
       graphInstance.linkDirectionalParticleSpeed(0.006); // Slower, smoother flow
       graphInstance.linkDirectionalParticleColor(() => "#3b82f6"); // matched blue
 
-      // 🧲 Physics - Loose deck feeling that fans out
+      // Physics - Loose deck feeling that fans out
       graphInstance.d3AlphaDecay(0.02);
       graphInstance.d3VelocityDecay(0.3);
       graphInstance.warmupTicks(100); // Pre-settle a bit
@@ -524,21 +522,19 @@ export const Graph = (props: GraphProps) => {
       graphInstance.d3Force("center").strength(0.05); // Centering
       graphInstance.d3Force("collide", () => 30); // Prevent overlapping
 
-      // 🛑 Disable auto-alpha reheat on data changes to prevent jumpiness
+      // Disable auto-alpha reheat on data changes to prevent jumpiness
       graphInstance.dagMode(null);
 
       // Set data
       updateGraphData();
 
-      // 🔍 Better default scale - Zoom to Fit
+      // Better default scale - Zoom to Fit
       const zoomTimeout = setTimeout(() => {
         if (graphInstance && allNodes().length > 0) {
           graphInstance.zoomToFit(800, 80);
         }
       }, 300); // Slightly longer delay to allow physics to breathe
       timers.push(zoomTimeout as any);
-
-      console.log("✨ 2D Graph initialized (Random Cloud)");
     } catch (err) {
       console.error("Failed to initialize graph:", err);
       setError("Failed to initialize visualization");

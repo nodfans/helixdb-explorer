@@ -1,13 +1,9 @@
-use helix_db::helixc::parser::types::{Traversal, StartNode, StepType, Expression, ExpressionType, BooleanOpType, GraphStepType, Object, FieldValue, FieldValueType, IdType, ValueType};
+// helix_db imports refined 
 use helix_db::protocol::value::Value;
 use crate::mcp_protocol::{ToolArgs, EdgeType, FilterProperties, FilterTraversal, Operator, Order};
 
 
 
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct ClientSideFilter {
-    pub id_filter: Option<Vec<String>>,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FinalAction {
@@ -39,20 +35,20 @@ pub fn map_bm25_to_tool(bm25: &helix_db::helixc::parser::types::BM25Search) -> R
     })
 }
 
-pub fn map_traversal_to_tools(traversal: &Traversal) -> Result<(Vec<ToolArgs>, ClientSideFilter, FinalAction), String> {
+pub fn map_traversal_to_tools(traversal: &Traversal, params: &serde_json::Value) -> Result<(Vec<ToolArgs>, FinalAction, Vec<String>), String> {
     let mut tools = Vec::new();
-    let mut client_filter = ClientSideFilter::default();
     let mut final_action = FinalAction::Collect { range: None };
+    let mut id_filters_out = Vec::new();
 
     // Map StartNode
+    // IDs are handled separately (client-side filter or property-based re-filter).
     match &traversal.start {
         StartNode::Node { node_type, ids } => {
             tools.push(ToolArgs::NFromType { node_type: node_type.clone() });
             if let Some(ids) = ids {
-                let (id_strings, props) = extract_ids_and_props(ids)?;
-                if !id_strings.is_empty() {
-                    client_filter.id_filter = Some(id_strings);
-                }
+                let (id_strings, props) = extract_ids_and_props(ids, params)?;
+                // Return ID strings for caller to handle
+                id_filters_out = id_strings;
                 if !props.is_empty() {
                     tools.push(ToolArgs::FilterItems { 
                         filter: FilterTraversal {
@@ -66,10 +62,8 @@ pub fn map_traversal_to_tools(traversal: &Traversal) -> Result<(Vec<ToolArgs>, C
         StartNode::Edge { edge_type, ids } => {
             tools.push(ToolArgs::EFromType { edge_type: edge_type.clone() });
             if let Some(ids) = ids {
-                let (id_strings, props) = extract_ids_and_props(ids)?;
-                if !id_strings.is_empty() {
-                    client_filter.id_filter = Some(id_strings);
-                }
+                let (id_strings, props) = extract_ids_and_props(ids, params)?;
+                id_filters_out = id_strings;
                 if !props.is_empty() {
                     tools.push(ToolArgs::FilterItems { 
                         filter: FilterTraversal {
@@ -81,14 +75,10 @@ pub fn map_traversal_to_tools(traversal: &Traversal) -> Result<(Vec<ToolArgs>, C
             }
         }
         StartNode::Vector { vector_type, ids } => {
-            // Note: Vector mapping to tool might need refinement depending on backend
-            // For now, treat it similarly to Node
             tools.push(ToolArgs::NFromType { node_type: vector_type.clone() });
             if let Some(ids) = ids {
-                let (id_strings, props) = extract_ids_and_props(ids)?;
-                if !id_strings.is_empty() {
-                    client_filter.id_filter = Some(id_strings);
-                }
+                let (id_strings, props) = extract_ids_and_props(ids, params)?;
+                id_filters_out = id_strings;
                 if !props.is_empty() {
                     tools.push(ToolArgs::FilterItems { 
                         filter: FilterTraversal {
@@ -100,12 +90,9 @@ pub fn map_traversal_to_tools(traversal: &Traversal) -> Result<(Vec<ToolArgs>, C
             }
         }
         StartNode::SearchVector(sv) => {
-            tools.push(map_search_vector_to_tool(sv)?);
+            tools.push(map_search_vector_to_tool(sv, params)?);
         }
         StartNode::Identifier(_) => {
-            // Identifier start nodes (e.g. user <- User) signify a continuation 
-            // In dynamic HQL translation, we can just omit the start tool 
-            // as the identifier will be resolved in context or treated as a pipeline start.
         }
         StartNode::Anonymous => {} 
     }
@@ -142,11 +129,10 @@ pub fn map_traversal_to_tools(traversal: &Traversal) -> Result<(Vec<ToolArgs>, C
                          });
                      }
                      GraphStepType::SearchVector(sv) => {
-                         tools.push(map_search_vector_to_tool(sv)?);
+                         tools.push(map_search_vector_to_tool(sv, params)?);
                      }
                      GraphStepType::FromN | GraphStepType::ToN => {
-                         // These are merged into Out/In steps in MCP and don't exist as independent tools.
-                         // We look back to find the most recent edge step to convert it to a node step.
+                         // Convert recent edge step to node step (MCP fusion)
                          let mut found = false;
                          for tool in tools.iter_mut().rev() {
                              match tool {
@@ -180,7 +166,7 @@ pub fn map_traversal_to_tools(traversal: &Traversal) -> Result<(Vec<ToolArgs>, C
                  }
             }
             StepType::Where(expr) => {
-                let filter = map_expression_to_filter(expr)?;
+                let filter = map_expression_to_filter(expr, params)?;
                 tools.push(ToolArgs::FilterItems { filter });
             }
             StepType::OrderBy(order_by) => {
@@ -212,12 +198,12 @@ pub fn map_traversal_to_tools(traversal: &Traversal) -> Result<(Vec<ToolArgs>, C
                 };
             }
             StepType::Range((start_expr, end_expr)) => {
-                 let start = match extract_value(&start_expr)? {
+                 let start = match extract_value(start_expr, params)? {
                      Value::I32(val) => val as usize,
                      Value::I64(val) => val as usize,
                      _ => 0,
                  };
-                 let end = match extract_value(&end_expr)? {
+                 let end = match extract_value(end_expr, params)? {
                      Value::I32(val) => Some(val as usize),
                      Value::I64(val) => Some(val as usize),
                      _ => None,
@@ -228,23 +214,23 @@ pub fn map_traversal_to_tools(traversal: &Traversal) -> Result<(Vec<ToolArgs>, C
                 final_action = FinalAction::Collect { range: Some((0, Some(1))) };
             }
             StepType::Object(obj) => {
-                let filter = map_object_to_filter(obj)?;
+                let filter = map_object_to_filter(obj, params)?;
                 tools.push(ToolArgs::FilterItems { filter });
             }
             _ => return Err(format!("Unsupported step type at index {}: {:?}", i, step.step)),
         }
     }
 
-    Ok((tools, client_filter, final_action))
+    Ok((tools, final_action, id_filters_out))
 }
 
-fn map_expression_to_filter(expr: &Expression) -> Result<FilterTraversal, String> {
+fn map_expression_to_filter(expr: &Expression, params: &serde_json::Value) -> Result<FilterTraversal, String> {
     match &expr.expr {
         ExpressionType::And(exprs) => {
             let mut combined_dnf: Vec<Vec<FilterProperties>> = vec![vec![]]; 
 
             for e in exprs {
-                let sub_filter = map_expression_to_filter(e)?;
+                let sub_filter = map_expression_to_filter(e, params)?;
                 if let Some(sub_props) = sub_filter.properties {
                     let mut new_dnf = Vec::new();
                     for existing_and in &combined_dnf {
@@ -265,7 +251,7 @@ fn map_expression_to_filter(expr: &Expression) -> Result<FilterTraversal, String
         ExpressionType::Or(exprs) => {
             let mut combined_dnf = Vec::new();
             for e in exprs {
-                let sub_filter = map_expression_to_filter(e)?;
+                let sub_filter = map_expression_to_filter(e, params)?;
                 if let Some(sub_props) = sub_filter.properties {
                     combined_dnf.extend(sub_props);
                 }
@@ -294,12 +280,12 @@ fn map_expression_to_filter(expr: &Expression) -> Result<FilterTraversal, String
                          if let StepType::BooleanOperation(op) = &traversal.steps[1].step {
                              let prop_key = obj.fields[0].key.clone();
                              let (operator, value) = match &op.op {
-                                 BooleanOpType::Equal(e) => (Operator::Eq, extract_value(e)?),
-                                 BooleanOpType::NotEqual(e) => (Operator::Neq, extract_value(e)?),
-                                 BooleanOpType::GreaterThan(e) => (Operator::Gt, extract_value(e)?),
-                                 BooleanOpType::GreaterThanOrEqual(e) => (Operator::Gte, extract_value(e)?),
-                                 BooleanOpType::LessThan(e) => (Operator::Lt, extract_value(e)?),
-                                 BooleanOpType::LessThanOrEqual(e) => (Operator::Lte, extract_value(e)?),
+                                 BooleanOpType::Equal(e) => (Operator::Eq, extract_value(e, params)?),
+                                 BooleanOpType::NotEqual(e) => (Operator::Neq, extract_value(e, params)?),
+                                 BooleanOpType::GreaterThan(e) => (Operator::Gt, extract_value(e, params)?),
+                                 BooleanOpType::GreaterThanOrEqual(e) => (Operator::Gte, extract_value(e, params)?),
+                                 BooleanOpType::LessThan(e) => (Operator::Lt, extract_value(e, params)?),
+                                 BooleanOpType::LessThanOrEqual(e) => (Operator::Lte, extract_value(e, params)?),
                                  _ => return Err("Unsupported boolean operator in dynamic HQL".to_string()),
                              };
 
@@ -317,13 +303,13 @@ fn map_expression_to_filter(expr: &Expression) -> Result<FilterTraversal, String
              }
 
              // Otherwise, treat as a recursive sub-traversal filter (e.g. _::Out("follow"))
-             fn map_steps_to_recursive_filter(steps: &[helix_db::helixc::parser::types::Step]) -> Result<Option<FilterTraversal>, String> {
+             fn map_steps_to_recursive_filter(steps: &[helix_db::helixc::parser::types::Step], params: &serde_json::Value) -> Result<Option<FilterTraversal>, String> {
                  if steps.is_empty() { return Ok(None); }
                  
                  let step = &steps[0];
                  let tool = match &step.step {
                      StepType::Node(gs) | StepType::Edge(gs) => {
-                         let next_filter = map_steps_to_recursive_filter(&steps[1..])?;
+                         let next_filter = map_steps_to_recursive_filter(&steps[1..], params)?;
                          match &gs.step {
                              GraphStepType::Out(edge_label) => ToolArgs::OutStep { 
                                  edge_label: edge_label.clone(), 
@@ -355,29 +341,48 @@ fn map_expression_to_filter(expr: &Expression) -> Result<FilterTraversal, String
                  }))
              }
 
-             let filter_traversal = map_steps_to_recursive_filter(&traversal.steps)?;
+             let filter_traversal = map_steps_to_recursive_filter(&traversal.steps, params)?;
              Ok(filter_traversal.unwrap_or_default())
         }
         _ => Err(format!("Unsupported expression type in WHERE: {:?}", expr.expr)),
     }
 }
 
-fn extract_value(expr: &Expression) -> Result<Value, String> {
+fn extract_value(expr: &Expression, params: &serde_json::Value) -> Result<Value, String> {
     match &expr.expr {
         ExpressionType::StringLiteral(s) => Ok(Value::String(s.clone())),
         ExpressionType::IntegerLiteral(i) => Ok(Value::I32(*i)),
         ExpressionType::FloatLiteral(f) => Ok(Value::F64(*f)),
         ExpressionType::BooleanLiteral(b) => Ok(Value::Boolean(*b)),
-        ExpressionType::Identifier(s) => Ok(Value::String(s.clone())),
+        ExpressionType::Identifier(s) => {
+            if let Some(val) = params.get(s) {
+                match val {
+                    serde_json::Value::String(vs) => Ok(Value::String(vs.clone())),
+                    serde_json::Value::Number(vn) => {
+                        if let Some(i) = vn.as_i64() {
+                            Ok(Value::I32(i as i32))
+                        } else if let Some(f) = vn.as_f64() {
+                            Ok(Value::F64(f))
+                        } else {
+                            Ok(Value::String(vn.to_string()))
+                        }
+                    }
+                    serde_json::Value::Bool(vb) => Ok(Value::Boolean(*vb)),
+                    _ => Ok(Value::String(val.to_string())),
+                }
+            } else {
+                Ok(Value::String(s.clone()))
+            }
+        },
         _ => Err(format!("Unsupported value type in WHERE comparison: {:?}", expr.expr)),
     }
 }
 
-fn map_object_to_filter(obj: &Object) -> Result<FilterTraversal, String> {
+fn map_object_to_filter(obj: &Object, params: &serde_json::Value) -> Result<FilterTraversal, String> {
     let mut props = Vec::new();
     for field in &obj.fields {
         let key = field.key.clone();
-        let value = extract_field_value(&field.value)?;
+        let value = extract_field_value(&field.value, params)?;
         props.push(FilterProperties {
             key,
             value,
@@ -391,16 +396,35 @@ fn map_object_to_filter(obj: &Object) -> Result<FilterTraversal, String> {
     Ok(filter)
 }
 
-fn extract_field_value(fv: &FieldValue) -> Result<Value, String> {
+fn extract_field_value(fv: &FieldValue, params: &serde_json::Value) -> Result<Value, String> {
     match &fv.value {
         FieldValueType::Literal(v) => Ok(v.clone()),
-        FieldValueType::Expression(expr) => extract_value(expr),
-        FieldValueType::Identifier(s) => Ok(Value::String(s.clone())),
-        _ => Err("Unsupported field value type in object filter".to_string()),
+        FieldValueType::Expression(expr) => extract_value(expr, params),
+        FieldValueType::Identifier(s) => {
+            if let Some(val) = params.get(s) {
+                match val {
+                    serde_json::Value::String(vs) => Ok(Value::String(vs.clone())),
+                    serde_json::Value::Number(vn) => {
+                        if let Some(i) = vn.as_i64() {
+                            Ok(Value::I32(i as i32))
+                        } else if let Some(f) = vn.as_f64() {
+                            Ok(Value::F64(f))
+                        } else {
+                            Ok(Value::String(vn.to_string()))
+                        }
+                    }
+                    serde_json::Value::Bool(vb) => Ok(Value::Boolean(*vb)),
+                    _ => Ok(Value::String(val.to_string())),
+                }
+            } else {
+                Ok(Value::String(s.clone()))
+            }
+        },
+        _ => Err(format!("Unsupported field value type: {:?}", fv.value)),
     }
 }
 
-fn extract_ids_and_props(ids: &[IdType]) -> Result<(Vec<String>, Vec<FilterProperties>), String> {
+fn extract_ids_and_props(ids: &[IdType], params: &serde_json::Value) -> Result<(Vec<String>, Vec<FilterProperties>), String> {
     let mut id_strings = Vec::new();
     let mut props = Vec::new();
     for id in ids {
@@ -428,13 +452,19 @@ fn extract_ids_and_props(ids: &[IdType]) -> Result<(Vec<String>, Vec<FilterPrope
                     operator: Some(Operator::Eq),
                 });
             }
-            _ => {}
+            IdType::Identifier { value, .. } => {
+                if let Some(val) = params.get(value) {
+                    id_strings.push(val.as_str().unwrap_or(&val.to_string()).to_string());
+                } else {
+                    id_strings.push(value.clone());
+                }
+            }
         }
     }
     Ok((id_strings, props))
 }
 
-fn map_search_vector_to_tool(sv: &helix_db::helixc::parser::types::SearchVector) -> Result<ToolArgs, String> {
+fn map_search_vector_to_tool(sv: &helix_db::helixc::parser::types::SearchVector, params: &serde_json::Value) -> Result<ToolArgs, String> {
     use helix_db::helixc::parser::types::{VectorData, EvaluatesToString, EvaluatesToNumberType};
     
     let label = sv.vector_type.clone().unwrap_or_default();
@@ -457,7 +487,13 @@ fn map_search_vector_to_tool(sv: &helix_db::helixc::parser::types::SearchVector)
         Some(VectorData::Embed(embed)) => {
             let query = match &embed.value {
                 EvaluatesToString::StringLiteral(s) => s.clone(),
-                EvaluatesToString::Identifier(s) => s.clone(),
+                EvaluatesToString::Identifier(s) => {
+                    if let Some(val) = params.get(s) {
+                        val.as_str().unwrap_or(&val.to_string()).to_string()
+                    } else {
+                        s.clone()
+                    }
+                }
             };
             Ok(ToolArgs::SearchVecText {
                 query,

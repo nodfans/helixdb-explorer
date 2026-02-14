@@ -9,6 +9,8 @@ export type QueryState = {
   viewMode: "json" | "table";
 };
 
+export const queryStateCache = new Map<string, QueryState>();
+
 export interface WorkbenchState {
   endpoints: EndpointConfig[];
   selectedEndpoint: EndpointConfig | null;
@@ -20,7 +22,6 @@ export interface WorkbenchState {
   searchQuery: string;
   resultSearchQuery: string;
   showParamsSidebar: boolean;
-  queryStateCache: Record<string, QueryState>;
   sidebarWidth: number;
   rightSidebarWidth: number;
   loading: boolean;
@@ -37,7 +38,6 @@ const [workbenchState, setWorkbenchState] = createStore<WorkbenchState>({
   searchQuery: "",
   resultSearchQuery: "",
   showParamsSidebar: false,
-  queryStateCache: {},
   sidebarWidth: 200,
   rightSidebarWidth: 240,
   loading: false,
