@@ -1917,7 +1917,7 @@ dependencies = [
 
 [[package]]
 name = "helixdb-explorer"
-version = "0.1.8"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "dirs 5.0.1",

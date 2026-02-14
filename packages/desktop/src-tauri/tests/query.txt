@@ -1,0 +1,139 @@
+// PRODUCED BY AUTOMATED GENERATOR - ALIGNED WITHschema.hx
+// VALIDATED AGAINST THE HELIX PARSER GRAMMAR
+
+// Fetch all nodes of type User
+QUERY GetAllUser() =>
+    res <- N<User>
+    RETURN res
+
+
+// Fetch a specific User by its unique ID
+QUERY GetUserById(target_id: ID) =>
+    res <- N<User>(target_id)
+    RETURN res
+
+
+// Fetch all nodes of type EmailAddress
+QUERY GetAllEmailAddress() =>
+    res <- N<EmailAddress>
+    RETURN res
+
+
+// Fetch a specific EmailAddress by its unique ID
+QUERY GetEmailAddressById(target_id: ID) =>
+    res <- N<EmailAddress>(target_id)
+    RETURN res
+
+
+// Fetch all nodes of type Post
+QUERY GetAllPost() =>
+    res <- N<Post>
+    RETURN res
+
+
+// Fetch a specific Post by its unique ID
+QUERY GetPostById(target_id: ID) =>
+    res <- N<Post>(target_id)
+    RETURN res
+
+
+// Fetch all nodes of type Product
+QUERY GetAllProduct() =>
+    res <- N<Product>
+    RETURN res
+
+
+// Fetch a specific Product by its unique ID
+QUERY GetProductById(target_id: ID) =>
+    res <- N<Product>(target_id)
+    RETURN res
+
+
+// Fetch all nodes of type Organization
+QUERY GetAllOrganization() =>
+    res <- N<Organization>
+    RETURN res
+
+
+// Fetch a specific Organization by its unique ID
+QUERY GetOrganizationById(target_id: ID) =>
+    res <- N<Organization>(target_id)
+    RETURN res
+
+
+// Traverse Outbound edge 'HasEmail' from User to EmailAddress
+QUERY TraverseHasEmail(start_id: ID) =>
+    start <- N<User>(start_id)
+    res <- start::Out<HasEmail>
+    RETURN res
+
+
+// Traverse Inbound edge 'HasEmail' from EmailAddress back to nodes
+QUERY InboundHasEmail(end_id: ID) =>
+    end <- N<EmailAddress>(end_id)
+    res <- end::In<HasEmail>
+    RETURN res
+
+
+// Traverse Outbound edge 'Authored' from User to Post
+QUERY TraverseAuthored(start_id: ID) =>
+    start <- N<User>(start_id)
+    res <- start::Out<Authored>
+    RETURN res
+
+
+// Traverse Inbound edge 'Authored' from Post back to nodes
+QUERY InboundAuthored(end_id: ID) =>
+    end <- N<Post>(end_id)
+    res <- end::In<Authored>
+    RETURN res
+
+
+// Traverse Outbound edge 'Follows' from User to User
+QUERY TraverseFollows(start_id: ID) =>
+    start <- N<User>(start_id)
+    res <- start::Out<Follows>
+    RETURN res
+
+
+// Traverse Inbound edge 'Follows' from User back to nodes
+QUERY InboundFollows(end_id: ID) =>
+    end <- N<User>(end_id)
+    res <- end::In<Follows>
+    RETURN res
+
+
+// Traverse Outbound edge 'Purchased' from User to Product
+QUERY TraversePurchased(start_id: ID) =>
+    start <- N<User>(start_id)
+    res <- start::Out<Purchased>
+    RETURN res
+
+
+// Traverse Inbound edge 'Purchased' from Product back to nodes
+QUERY InboundPurchased(end_id: ID) =>
+    end <- N<Product>(end_id)
+    res <- end::In<Purchased>
+    RETURN res
+
+
+// Traverse Outbound edge 'WorksAt' from User to Organization
+QUERY TraverseWorksAt(start_id: ID) =>
+    start <- N<User>(start_id)
+    res <- start::Out<WorksAt>
+    RETURN res
+
+
+// Traverse Inbound edge 'WorksAt' from Organization back to nodes
+QUERY InboundWorksAt(end_id: ID) =>
+    end <- N<Organization>(end_id)
+    res <- end::In<WorksAt>
+    RETURN res
+
+
+// Complex logic: AND conditions, exclusion, and existence checks
+QUERY FilteredUser(val: I32) =>
+    res <- N<User>::WHERE(AND(_::ID::NEQ("0"), EXISTS(_::Out<HasEmail>)))
+    RETURN res
+
+

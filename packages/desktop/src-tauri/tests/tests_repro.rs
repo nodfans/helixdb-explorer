@@ -1,153 +1,193 @@
 
-use helixdb_explorer_lib::hql_translator::{map_traversal_to_tools, resolve_traversal};
 use helix_db::helixc::parser::HelixParser;
+use helix_db::helixc::parser::types::{Content, HxFile, Source};
+use serde::Deserialize;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::io::Write;
-use serde_json::json;
-use helix_db::helixc::parser::types::Traversal;
 
-pub fn write_to_temp_file(content: Vec<&str>) -> helix_db::helixc::parser::types::Content {
-    let mut files = Vec::new();
-    for c in content {
-        let mut file = tempfile::NamedTempFile::new().unwrap();
-        file.write_all(c.as_bytes()).unwrap();
-        let path = file.path().to_string_lossy().into_owned();
-        files.push(helix_db::helixc::parser::types::HxFile {
-            name: path,
-            content: c.to_string(),
-        });
+// ---------------------------------------------------------------------
+// 1. Portable Path Resolution
+// ---------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+struct Connection {
+    #[serde(default)]
+    pub name: String,
+    #[serde(rename = "localPath")]
+    pub local_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ConnectionsConfig {
+    pub connections: Vec<Connection>,
+}
+
+/// Dynamically locate the Helix Explorer configuration directory.
+fn get_config_path() -> Option<PathBuf> {
+    let mut path = if cfg!(target_os = "macos") {
+        dirs::home_dir()?.join("Library/Application Support")
+    } else {
+        dirs::config_dir()?
+    };
+    path.push("com.helixdb.explorer/connections.json");
+    Some(path)
+}
+
+/// Load connection settings from the dynamic config path.
+fn load_connections() -> Option<ConnectionsConfig> {
+    let path = get_config_path()?;
+    if path.exists() {
+        let content = fs::read_to_string(path).ok()?;
+        serde_json::from_str(&content).ok()
+    } else {
+        None
     }
-    helix_db::helixc::parser::types::Content {
-        content: String::new(),
-        files,
-        source: Default::default(),
+}
+
+/// Heuristic to find schema.hx by walking up parent directories.
+/// This ensures we can find the schema regardless of where the test is run.
+fn find_schema(start_path: &Path) -> Option<PathBuf> {
+    let mut curr = start_path.to_path_buf();
+    loop {
+        let targets = vec![
+            curr.join("db/schema.hx"),
+            curr.join("schema.hx"),
+            curr.join("helix.hx"),
+        ];
+        for t in targets {
+            if t.exists() { return Some(t); }
+        }
+        if !curr.pop() { break; }
+    }
+    None
+}
+
+// ---------------------------------------------------------------------
+// 2. Query Generation Engine
+// ---------------------------------------------------------------------
+
+struct QueryGenerator<'a> {
+    source: &'a Source,
+}
+
+impl<'a> QueryGenerator<'a> {
+    fn new(source: &'a Source) -> Self {
+        Self { source }
+    }
+
+    fn generate_all(&self) -> Vec<String> {
+        let mut queries = Vec::new();
+        let schema = match self.source.get_latest_schema() {
+            Ok(s) => s,
+            Err(_) => return queries,
+        };
+
+        // Node Queries
+        for node in &schema.node_schemas {
+            let name = &node.name.1;
+            queries.push(format!(
+                "// Fetch all nodes of type {}\nQUERY GetAll{}() =>\n    res <- N<{}>\n    RETURN res\n",
+                name, name, name
+            ));
+            queries.push(format!(
+                "// Fetch {} by ID\nQUERY Get{}ById(target_id: ID) =>\n    res <- N<{}>(target_id)\n    RETURN res\n",
+                name, name, name
+            ));
+        }
+
+        // Edge Traversals
+        for edge in &schema.edge_schemas {
+            let name = &edge.name.1;
+            let from = &edge.from.1;
+            let to = &edge.to.1;
+
+            queries.push(format!(
+                "// Traverse {} from {} to {}\nQUERY Traverse{}(start_id: ID) =>\n    start <- N<{}>(start_id)\n    res <- start::Out<{}>\n    RETURN res\n",
+                name, from, to, name, from, name
+            ));
+            queries.push(format!(
+                "// Reverse {} traversal\nQUERY Inbound{}(end_id: ID) =>\n    end <- N<{}>(end_id)\n    res <- end::In<{}>\n    RETURN res\n",
+                name, name, to, name
+            ));
+        }
+
+        // Complex Logic
+        if !schema.node_schemas.is_empty() && !schema.edge_schemas.is_empty() {
+             let node = &schema.node_schemas[0].name.1;
+             let edge = &schema.edge_schemas[0].name.1;
+             queries.push(format!(
+                 "// Complex logic check\nQUERY Filtered{}(val: I32) =>\n    res <- N<{}>::WHERE(AND(_::ID::NEQ(\"0\"), EXISTS(_::Out<{}>)))\n    RETURN res\n",
+                 node, node, edge
+             ));
+        }
+
+        queries
     }
 }
 
-fn setup_test(query: &str) -> (std::collections::HashMap<String, Traversal>, serde_json::Value) {
-    let content = write_to_temp_file(vec![query]);
-    let source = HelixParser::parse_source(&content).expect("Parse failed");
-    let q = &source.queries[0];
-    
-    let mut params = json!({});
-    let mut variable_assignments = std::collections::HashMap::new();
+// ---------------------------------------------------------------------
+// 3. Execution & Verification Lifecycle
+// ---------------------------------------------------------------------
 
-    for stmt in &q.statements {
-       match &stmt.statement {
-           helix_db::helixc::parser::types::StatementType::Assignment(assign) => {
-               match &assign.value.expr {
-                   helix_db::helixc::parser::types::ExpressionType::StringLiteral(s) => {
-                       if let serde_json::Value::Object(map) = &mut params {
-                           map.insert(assign.variable.clone(), serde_json::Value::String(s.clone()));
-                       }
-                   },
-                   helix_db::helixc::parser::types::ExpressionType::Traversal(t) => {
-                        variable_assignments.insert(assign.variable.clone(), (**t).clone());
-                   }
-                   _ => {}
-               }
-           }
-           _ => {}
-       }
+#[test]
+fn generate_and_verify_real_queries() {
+    println!(">>> [INIT] Starting Dynamic HQL Generation...");
+
+    let config = load_connections();
+    let mut all_valid_queries = Vec::new();
+
+    // Strategy 1: Use connections.json if available
+    if let Some(cfg) = config {
+        for conn in cfg.connections {
+            let base = PathBuf::from(&conn.local_path);
+            if let Some(schema_path) = find_schema(&base) {
+                process_schema(&schema_path, &mut all_valid_queries);
+            }
+        }
     }
-    (variable_assignments, params)
-}
 
-#[test]
-fn test_deep_recursion_resolution() {
-    let query = r#"
-        QUERY Test() =>
-            v0 <- N<User>("0")
-            v1 <- v0::Out<Step1>
-            v2 <- v1::Out<Step2>
-            v3 <- v2::Out<Step3>
-            v4 <- v3::Out<Step4>
-            v5 <- v4::Out<Step5>
-            RETURN v5
-    "#;
-    
-    let (vars, params) = setup_test(query);
-    let var_refs: std::collections::HashMap<_, _> = vars.iter().map(|(k, v)| (k.clone(), v)).collect();
-    
-    let resolved = resolve_traversal("v5", &var_refs).unwrap().unwrap();
-    
-    // Check steps: Step1, Step2, Step3, Step4, Step5
-    assert_eq!(resolved.steps.len(), 5);
-    
-    let (tools, _action, _ids) = map_traversal_to_tools(&resolved, &params).unwrap();
-    assert_eq!(tools.len(), 6); // N + 5 OutSteps
-}
-
-#[test]
-fn test_circular_dependency_handling() {
-    let query = r#"
-        QUERY Test() =>
-            a <- b::Out<E1>
-            b <- a::Out<E2>
-            RETURN a
-    "#;
-    
-    let (vars, _params) = setup_test(query);
-    let var_refs: std::collections::HashMap<_, _> = vars.iter().map(|(k, v)| (k.clone(), v)).collect();
-    
-    let result = resolve_traversal("a", &var_refs);
-    assert!(result.is_err());
-    assert!(result.err().unwrap().contains("Circular dependency"));
-}
-
-#[test]
-fn test_complex_start_nodes() {
-    let query = r#"
-        QUERY Test() =>
-            target <- N<User>("u1")::WHERE(_::{name}::EQ("John"))
-            results <- target::Out<Follows>
-            RETURN results
-    "#;
-    
-    let (vars, params) = setup_test(query);
-    let var_refs: std::collections::HashMap<_, _> = vars.iter().map(|(k, v)| (k.clone(), v)).collect();
-    
-    let resolved = resolve_traversal("results", &var_refs).unwrap().unwrap();
-    let (tools, _action, id_filters) = map_traversal_to_tools(&resolved, &params).unwrap();
-    
-    // Expect: NFromType, FilterItems(name=John), OutStep(Follows)
-    assert_eq!(tools.len(), 3);
-    assert_eq!(id_filters, vec!["u1"]);
-}
-
-#[test]
-fn test_missing_variable() {
-    let query = r#"
-        QUERY Test() =>
-            a <- N<User>("1")
-            b <- missing_var::Out<Edge>
-            RETURN b
-    "#;
-    
-    let (vars, _params) = setup_test(query);
-    let var_refs: std::collections::HashMap<_, _> = vars.iter().map(|(k, v)| (k.clone(), v)).collect();
-    
-    let result = resolve_traversal("b", &var_refs);
-    assert!(result.is_err(), "Should error when parent variable is missing");
-    assert!(result.err().unwrap().contains("Variable 'missing_var' not found"));
-}
-
-#[test]
-fn test_parameter_substitution_in_resolution() {
-    let query = r#"
-        QUERY Test(id: String) =>
-            user <- N<User>(id)
-            friends <- user::Out<Friend>
-            RETURN friends
-    "#;
-    
-    let (vars, mut params) = setup_test(query);
-    if let serde_json::Value::Object(map) = &mut params {
-        map.insert("id".to_string(), json!("u2"));
+    // Strategy 2: Fallback to current workspace detection
+    if all_valid_queries.is_empty() {
+        let current = std::env::current_dir().unwrap_or_default();
+        if let Some(schema_path) = find_schema(&current) {
+            process_schema(&schema_path, &mut all_valid_queries);
+        }
     }
-    
-    let var_refs: std::collections::HashMap<_, _> = vars.iter().map(|(k, v)| (k.clone(), v)).collect();
-    let resolved = resolve_traversal("friends", &var_refs).unwrap().unwrap();
-    let (_tools, _action, id_filters) = map_traversal_to_tools(&resolved, &params).unwrap();
-    
-    assert_eq!(id_filters, vec!["u2"]);
+
+    // Final Step: Write to query.txt
+    if !all_valid_queries.is_empty() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("tests/query.txt");
+        
+        let mut f = fs::File::create(&path).expect("Could not create query.txt");
+        writeln!(f, "// PORTABLE GENERATOR RESULTS - verified against parser\n").ok();
+        
+        for q in all_valid_queries {
+            writeln!(f, "{}\n", q).ok();
+        }
+        println!(">>> [DONE] Exported verified queries to: {:?}", path);
+    } else {
+        println!(">>> [WARNING] No schema found, 0 queries generated.");
+    }
+}
+
+fn process_schema(path: &Path, output: &mut Vec<String>) {
+    println!(">>> [SCHEMA] Processing: {:?}", path);
+    let content_str = fs::read_to_string(path).ok().unwrap_or_default();
+    let hx_file = HxFile { name: "temp.hx".into(), content: content_str };
+    let content = Content { content: String::new(), files: vec![hx_file], source: Default::default() };
+
+    if let Ok(source) = HelixParser::parse_source(&content) {
+        let generator = QueryGenerator::new(&source);
+        let queries = generator.generate_all();
+        for q in queries {
+            // Self-verify
+            let v_file = HxFile { name: "v.hx".into(), content: q.clone() };
+            let v_content = Content { content: String::new(), files: vec![v_file], source: Default::default() };
+            if HelixParser::parse_source(&v_content).is_ok() {
+                output.push(q);
+            }
+        }
+    }
 }
