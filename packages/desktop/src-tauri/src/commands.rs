@@ -1,13 +1,10 @@
 use std::io::{self, Write};
-use tauri::Manager;
-use std::fs;
 use std::collections::HashSet;
+use std::fs;
 use helix_db::helixc::parser::{HelixParser, write_to_temp_file};
-use helix_db::helixc::parser::types::{
-    Statement, StatementType, Expression, ExpressionType, Query, FieldType, Traversal, StartNode, StepType, ReturnType,
-    ValueType, IdType, FieldValue, FieldValueType
-};
-use helix_db::protocol::value::Value;
+use helix_db::helixc::parser::types::*;
+use crate::hql_analyzer::{self, LitType};
+use crate::config;
 
 #[tauri::command]
 pub fn log_to_terminal(message: String) {
@@ -235,7 +232,7 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
         if let Ok(resp) = compiled_resp {
             if resp.status().is_success() {
                 if let Ok(json) = resp.json::<serde_json::Value>().await {
-                    return Ok(normalize_value(json));
+                    return Ok(crate::hql_translator::normalize_value(json));
                 }
             }
         }
@@ -253,7 +250,7 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
     }
 
     for var_name in return_vars {
-        let traversal = match resolve_traversal(&var_name, &variable_assignments)? {
+        let traversal = match crate::hql_translator::resolve_traversal(&var_name, &variable_assignments)? {
             Some(t) => t,
             None => continue,
         };
@@ -275,420 +272,40 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
             .map_err(|e| format!("Failed to parse connection_id from '{}': {}", init_body, e))?;
 
         // Execute individual traversal pipeline
-        let result = execute_pipeline(&client, &url, &connection_id, &traversal, &params_val).await?;
+        let result = crate::hql_executor::execute_pipeline(&client, &url, &connection_id, &traversal, &params_val).await?;
         
+        // Single implicit return Optimization: if it's the ONLY return, return it raw
         if var_name == "_implicit_" && final_map.is_empty() {
-            return Ok(normalize_value(result)); // Single direct traversal return
+             // We still need to check if there are subsequent variables to be safe
+             // But the current query logic ensures _implicit_ is exclusive if chosen
+             return Ok(crate::hql_translator::normalize_value(result));
         }
         
         final_map.insert(var_name, result);
     }
 
     if final_map.len() == 1 && final_map.contains_key("_implicit_") {
-        return Ok(normalize_value(final_map.get("_implicit_").unwrap().clone()));
+        return Ok(crate::hql_translator::normalize_value(final_map.get("_implicit_").unwrap().clone()));
     }
 
-    Ok(normalize_value(serde_json::Value::Object(final_map)))
+    Ok(crate::hql_translator::normalize_value(serde_json::Value::Object(final_map)))
 }
 
-// Helper: Normalize the result to match the clean format of compiled queries
-// (Flattens "properties", ensures "id", removes internal metadata)
-fn normalize_value(v: serde_json::Value) -> serde_json::Value {
-    match v {
-        serde_json::Value::Array(arr) => {
-            serde_json::Value::Array(arr.into_iter().map(normalize_value).collect())
-        }
-        serde_json::Value::Object(mut map) => {
-            // Check if this looks like a Node/Edge with "properties"
-            if let Some(serde_json::Value::Object(props)) = map.remove("properties") {
-                // It's a Node/Edge structure. Flatten properties up.
-                
-                // Merge properties
-                for (k, v) in props {
-                    map.insert(k, v);
-                }
-            }
-            
-            // Remove internal fields if they exist and we want a clean view
-            // We do this unconditionally to handle both raw (nested) and pre-flattened responses
-            map.remove("out_edges");
-            map.remove("in_edges");
-            map.remove("vectors");
-            map.remove("version");
-            
-            // Recursively normalize children
-            for (_, v) in map.iter_mut() {
-                *v = normalize_value(v.clone());
-            }
-            
-            serde_json::Value::Object(map)
-        }
-        _ => v,
-    }
-}
 
-fn resolve_traversal<'a>(
-    name: &str, 
-    assignments: &std::collections::HashMap<String, &'a helix_db::helixc::parser::types::Traversal>
-) -> Result<Option<helix_db::helixc::parser::types::Traversal>, String> {
-    let t = match assignments.get(name) {
-        Some(t) => *t,
-        None => return Ok(None),
-    };
-
-    let mut resolved = t.clone();
-
-    // Recursive resolution if the traversal starts with an identifier
-    if let StartNode::Identifier(id) = &resolved.start {
-        if let Some(parent_t) = resolve_traversal(id, assignments)? {
-            // Prepend parent steps to current steps
-            let mut all_steps = parent_t.steps.clone();
-            all_steps.extend(resolved.steps);
-            resolved.start = parent_t.start;
-            resolved.steps = all_steps;
-        }
-    }
-
-    Ok(Some(resolved))
-}
-
-async fn execute_pipeline(
-    client: &reqwest::Client,
-    url: &str,
-    connection_id: &str,
-    traversal: &helix_db::helixc::parser::types::Traversal,
-    params: &serde_json::Value
-) -> Result<serde_json::Value, String> {
-    use crate::hql_translator::{map_traversal_to_tools, FinalAction};
-    use crate::mcp_protocol::{ToolArgs, FilterProperties, FilterTraversal, Operator};
-    use helix_db::protocol::value::Value;
-    
-    // 1. Map to tools
-    let (tools, final_action, id_filters) = map_traversal_to_tools(traversal, params)?;
-
-    // Helper: send a single tool_call to the MCP server
-    async fn send_tool(client: &reqwest::Client, url: &str, connection_id: &str, tool: &ToolArgs) -> Result<(), String> {
-        let is_search = matches!(tool, ToolArgs::SearchKeyword { .. } | ToolArgs::SearchVec { .. } | ToolArgs::SearchVecText { .. });
-        
-        if is_search {
-            let (endpoint, body) = match tool {
-                ToolArgs::SearchKeyword { query, limit, label } => (
-                    "search_keyword",
-                    serde_json::json!({
-                        "connection_id": connection_id,
-                        "data": { "query": query, "limit": limit, "label": label }
-                    })
-                ),
-                ToolArgs::SearchVec { vector, k, min_score, cutoff } => (
-                    "search_vector",
-                    serde_json::json!({
-                        "connection_id": connection_id,
-                        "data": { "vector": vector, "k": k, "min_score": min_score, "cutoff": cutoff }
-                    })
-                ),
-                ToolArgs::SearchVecText { query, label, k } => (
-                    "search_vector_text",
-                    serde_json::json!({
-                        "connection_id": connection_id,
-                        "data": { "query": query, "label": label, "k": k }
-                    })
-                ),
-                _ => unreachable!(),
-            };
-
-            let tool_resp = client.post(format!("{}/mcp/{}", url, endpoint))
-                .json(&body)
-                .send()
-                .await
-                .map_err(|e| map_reqwest_error(e, "Search call failed"))?;
-            
-            if !tool_resp.status().is_success() {
-                let status = tool_resp.status();
-                let err_text = tool_resp.text().await.unwrap_or_else(|_| String::new());
-                return Err(format!("Search error ({}): {}", status, err_text));
-            }
-        } else {
-            let tool_resp = client.post(format!("{}/mcp/tool_call", url))
-                .json(&serde_json::json!({
-                    "connection_id": connection_id,
-                    "tool": tool
-                }))
-                .send()
-                .await
-                .map_err(|e| map_reqwest_error(e, "Tool call failed"))?;
-            
-            if !tool_resp.status().is_success() {
-                let status = tool_resp.status();
-                let err_text = tool_resp.text().await.unwrap_or_else(|_| String::new());
-                return Err(format!("Tool call error ({}): {}", status, err_text));
-            }
-        }
-        Ok(())
-    }
-
-    // Helper: collect results from the current pipeline
-    async fn collect_results(client: &reqwest::Client, url: &str, connection_id: &str, range: Option<(usize, Option<usize>)>) -> Result<serde_json::Value, String> {
-        let range_json = if let Some((start, end)) = range {
-            if let Some(e) = end {
-                serde_json::json!({ "start": start, "end": e })
-            } else {
-                serde_json::json!({ "start": start })
-            }
-        } else {
-            serde_json::json!(null)
-        };
-
-        let resp = client.post(format!("{}/mcp/collect", url))
-            .json(&serde_json::json!({
-                "connection_id": connection_id,
-                "range": range_json,
-                "drop": true
-            }))
-            .send()
-            .await
-            .map_err(|e| map_reqwest_error(e, "Collect failed"))?;
-
-        if resp.status().is_success() {
-            resp.json().await.map_err(|e| format!("Failed to parse results: {}", e))
-        } else {
-            let status = resp.status();
-            let err_text = resp.text().await.unwrap_or_else(|_| String::new());
-            Err(format!("Query execution error ({}): {}", status, err_text))
-        }
-    }
-
-    // Helper: client-side filter a JSON array by ID
-    fn filter_by_ids(value: &serde_json::Value, ids: &[String]) -> serde_json::Value {
-        match value {
-            serde_json::Value::Array(arr) => {
-                let filtered: Vec<serde_json::Value> = arr.iter().filter(|item| {
-                    if let Some(id_val) = item.get("id").and_then(|v| v.as_str()) {
-                        ids.iter().any(|target_id| target_id == id_val)
-                    } else {
-                        false
-                    }
-                }).cloned().collect();
-                serde_json::Value::Array(filtered)
-            }
-            _ => value.clone(),
-        }
-    }
-
-    // 2. Determine execution strategy based on whether we have ID filters
-    let has_subsequent_steps = tools.len() > 1; // More tools beyond the start NFromType/EFromType
-
-    if !id_filters.is_empty() && has_subsequent_steps {
-        // TWO-PASS EXECUTION for ID-filtered traversals with subsequent steps
-        // Pass 1: Collect/filter by ID client-side.
-        // Pass 2: Rebuild pipeline using property-based FilterItems for server processing.
-        
-        let start_tool = &tools[0];
-        let remaining_tools = &tools[1..];
-
-        // Pass 1: get the specific item(s) matched by ID
-        send_tool(client, url, connection_id, start_tool).await?;
-        let all_items = collect_results(client, url, connection_id, None).await?;
-        let filtered = filter_by_ids(&all_items, &id_filters);
-
-        // Extract properties from the first matched item to build a property-based filter
-        let prop_filter = if let Some(item) = filtered.as_array().and_then(|a| a.first()) {
-            if let serde_json::Value::Object(map) = item {
-                // Build FilterProperties from all user-defined properties (skip id, label, version)
-                let props: Vec<FilterProperties> = map.iter()
-                    .filter(|(k, _)| *k != "id" && *k != "label" && *k != "version")
-                    .filter_map(|(k, v)| {
-                        let value = match v {
-                            serde_json::Value::String(s) => Some(Value::String(s.clone())),
-                            serde_json::Value::Number(n) => {
-                                if let Some(i) = n.as_i64() {
-                                    Some(Value::I64(i))
-                                } else if let Some(f) = n.as_f64() {
-                                    Some(Value::F64(f))
-                                } else {
-                                    None
-                                }
-                            }
-                            serde_json::Value::Bool(b) => Some(Value::Boolean(*b)),
-                            _ => None,
-                        };
-                        value.map(|v| FilterProperties {
-                            key: k.clone(),
-                            value: v,
-                            operator: Some(Operator::Eq),
-                        })
-                    })
-                    .collect();
-                
-                if !props.is_empty() {
-                    Some(ToolArgs::FilterItems {
-                        filter: FilterTraversal {
-                            properties: Some(vec![props]),
-                            filter_traversals: None,
-                        }
-                    })
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        } else {
-            // No items matched the ID filter — return empty for this variable
-            return Ok(serde_json::Value::Array(vec![]));
-        };
-
-        // Pass 2: new connection, start tool + property filter + remaining steps
-        let init_resp = client.post(format!("{}/mcp/init", url))
-            .send()
-            .await
-            .map_err(|e| map_reqwest_error(e, "Init failed for pass 2"))?;
-        if !init_resp.status().is_success() {
-            return Err("Pass 2 init failed".to_string());
-        }
-        let init_body = init_resp.text().await.map_err(|e| format!("Failed to read init body: {}", e))?;
-        let conn2: String = serde_json::from_str(&init_body)
-            .map_err(|e| format!("Failed to parse connection_id: {}", e))?;
-
-        // Send start tool
-        send_tool(client, url, &conn2, start_tool).await?;
-        // Send property-based filter (replaces broken ID filter)
-        if let Some(pf) = &prop_filter {
-            send_tool(client, url, &conn2, pf).await?;
-        }
-        // Send remaining steps
-        for tool in remaining_tools {
-            send_tool(client, url, &conn2, tool).await?;
-        }
-
-        // Collect final results
-        let range = match &final_action {
-            FinalAction::Collect { range } => *range,
-            _ => None,
-        };
-        
-        match final_action {
-            FinalAction::Collect { .. } => collect_results(client, url, &conn2, range).await,
-            FinalAction::Count => {
-                let resp = client.post(format!("{}/mcp/aggregate_by", url))
-                    .json(&serde_json::json!({ "connection_id": conn2, "properties": Vec::<String>::new(), "drop": true }))
-                    .send().await.map_err(|e| map_reqwest_error(e, "Count failed"))?;
-                if resp.status().is_success() {
-                    resp.json().await.map_err(|e| format!("Failed to parse: {}", e))
-                } else {
-                    Err(format!("Count error: {}", resp.status()))
-                }
-            }
-            FinalAction::Aggregate { properties } => {
-                let resp = client.post(format!("{}/mcp/aggregate_by", url))
-                    .json(&serde_json::json!({ "connection_id": conn2, "properties": properties, "drop": true }))
-                    .send().await.map_err(|e| map_reqwest_error(e, "Aggregate failed"))?;
-                if resp.status().is_success() {
-                    resp.json().await.map_err(|e| format!("Failed to parse: {}", e))
-                } else {
-                    Err(format!("Aggregate error: {}", resp.status()))
-                }
-            }
-            FinalAction::GroupBy { properties } => {
-                let resp = client.post(format!("{}/mcp/group_by", url))
-                    .json(&serde_json::json!({ "connection_id": conn2, "properties": properties, "drop": true }))
-                    .send().await.map_err(|e| map_reqwest_error(e, "GroupBy failed"))?;
-                if resp.status().is_success() {
-                    resp.json().await.map_err(|e| format!("Failed to parse: {}", e))
-                } else {
-                    Err(format!("GroupBy error: {}", resp.status()))
-                }
-            }
-        }
-    } else {
-        // STANDARD EXECUTION (no ID filter, or ID filter with no subsequent steps)
-        
-        // Execute all tools
-        for tool in &tools {
-            send_tool(client, url, connection_id, tool).await?;
-        }
-
-        // Final action
-        let result = match final_action {
-            FinalAction::Collect { range } => collect_results(client, url, connection_id, range).await?,
-            FinalAction::Count => {
-                let resp = client.post(format!("{}/mcp/aggregate_by", url))
-                    .json(&serde_json::json!({ "connection_id": connection_id, "properties": Vec::<String>::new(), "drop": true }))
-                    .send().await.map_err(|e| map_reqwest_error(e, "Count failed"))?;
-                if resp.status().is_success() {
-                    resp.json().await.map_err(|e| format!("Failed to parse: {}", e))?
-                } else {
-                    let status = resp.status();
-                    let err_text = resp.text().await.unwrap_or_else(|_| String::new());
-                    return Err(format!("Query execution error ({}): {}", status, err_text));
-                }
-            }
-            FinalAction::Aggregate { properties } => {
-                let resp = client.post(format!("{}/mcp/aggregate_by", url))
-                    .json(&serde_json::json!({ "connection_id": connection_id, "properties": properties, "drop": true }))
-                    .send().await.map_err(|e| map_reqwest_error(e, "Aggregate failed"))?;
-                if resp.status().is_success() {
-                    resp.json().await.map_err(|e| format!("Failed to parse: {}", e))?
-                } else {
-                    let status = resp.status();
-                    let err_text = resp.text().await.unwrap_or_else(|_| String::new());
-                    return Err(format!("Query execution error ({}): {}", status, err_text));
-                }
-            }
-            FinalAction::GroupBy { properties } => {
-                let resp = client.post(format!("{}/mcp/group_by", url))
-                    .json(&serde_json::json!({ "connection_id": connection_id, "properties": properties, "drop": true }))
-                    .send().await.map_err(|e| map_reqwest_error(e, "GroupBy failed"))?;
-                if resp.status().is_success() {
-                    resp.json().await.map_err(|e| format!("Failed to parse: {}", e))?
-                } else {
-                    let status = resp.status();
-                    let err_text = resp.text().await.unwrap_or_else(|_| String::new());
-                    return Err(format!("Query execution error ({}): {}", status, err_text));
-                }
-            }
-        };
-
-        // Client-side ID filtering for simple start-node queries (no subsequent steps)
-        if !id_filters.is_empty() {
-            Ok(filter_by_ids(&result, &id_filters))
-        } else {
-            Ok(result)
-        }
-    }
-}
-
-fn get_config_path() -> Result<std::path::PathBuf, String> {
-    let home_dir = dirs::home_dir().ok_or_else(|| "Could not find home directory".to_string())?;
-    let config_dir = home_dir.join(".helix-explorer");
-    if !config_dir.exists() {
-        fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
-    }
-    Ok(config_dir.join("connections.json"))
-}
 
 #[tauri::command]
 pub fn load_connection_config(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    // 1. Cleanup old config if it exists
-    if let Ok(old_config_dir) = app.path().app_config_dir() {
-        let old_path = old_config_dir.join("connections.json");
-        if old_path.exists() {
-            let _ = fs::remove_file(&old_path);
-            println!("Deleted old config file at {:?}", old_path);
-        }
-    }
+    config::load_connection_config(app)
+}
 
-    // 2. Load from new path
-    let path = get_config_path()?;
+#[tauri::command]
+pub fn save_connection_config(app: tauri::AppHandle, config: serde_json::Value) -> Result<(), String> {
+    config::save_connection_config(app, config)
+}
 
-    if !path.exists() {
-        return Ok(serde_json::json!({
-            "connections": [],
-            "activeConnectionId": null
-        }));
-    }
-
-    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&content).map_err(|e| e.to_string())
+#[tauri::command]
+pub fn detect_workspace_path() -> Result<String, String> {
+    config::detect_workspace_path()
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -754,7 +371,7 @@ pub async fn sync_hql_to_project(code: String, local_path: String, force: bool) 
     // 6. DWIM mapping for all queries
     let mut all_mappings: Vec<(std::ops::Range<usize>, String)> = Vec::new();
     for query in &incoming_source.queries {
-        let (used_ids, mut literals) = collect_dwim_info(query);
+        let (used_ids, mut literals) = hql_analyzer::collect_dwim_info(query);
         let unused_params: Vec<_> = query.parameters.iter()
             .filter(|p| !used_ids.contains(&p.name.1))
             .collect();
@@ -968,295 +585,4 @@ pub async fn sync_hql_to_project(code: String, local_path: String, force: bool) 
     log(&mut logs, ">>> [Sync] File write successful. (Logic: Individual Timestamps)");
     
     Ok(SyncResponse::Success(logs))
-}
-
-#[tauri::command]
-pub fn detect_workspace_path() -> Result<String, String> {
-    use std::process::Command;
-    
-    // 1. Check if docker is available
-    let docker_check = Command::new("docker")
-        .arg("--version")
-        .output()
-        .map_err(|_| "Docker executable not found. Please ensure Docker is installed and in your PATH.".to_string())?;
-        
-    if !docker_check.status.success() {
-        return Err("Docker is not running or not accessible.".to_string());
-    }
-
-    // 2. List all running container IDs
-    let ps_output = Command::new("docker")
-        .args(&["ps", "-q"])
-        .output()
-        .map_err(|e| format!("Failed to run docker ps: {}", e))?;
-
-    let ids_str = String::from_utf8_lossy(&ps_output.stdout);
-    let ids: Vec<&str> = ids_str.lines().collect();
-
-    if ids.is_empty() {
-        return Err("No running Docker containers found.".to_string());
-    }
-
-    // 3. Inspect all containers to find mounts
-    let inspect_output = Command::new("docker")
-        .arg("inspect")
-        .args(&ids)
-        .output()
-        .map_err(|e| format!("Failed to run docker inspect: {}", e))?;
-
-    let inspect_json: serde_json::Value = serde_json::from_slice(&inspect_output.stdout)
-        .map_err(|e| format!("Failed to parse docker inspect output: {}", e))?;
-
-    if let Some(containers) = inspect_json.as_array() {
-        for container in containers {
-            if let Some(mounts) = container.get("Mounts").and_then(|m| m.as_array()) {
-                for mount in mounts {
-                    // Check for Bind mounts
-                    let is_bind = mount.get("Type")
-                        .and_then(|t| t.as_str())
-                        .map(|t| t == "bind")
-                        .unwrap_or(false);
-
-                    if is_bind {
-                        if let Some(source) = mount.get("Source").and_then(|s| s.as_str()) {
-                            let mut current_path = std::path::Path::new(source);
-                            
-                            // Traverse up the directory tree to find helix.toml
-                            loop {
-                                let config_path = current_path.join("helix.toml");
-                                if config_path.exists() {
-                                    println!(">>> [Auto-Detect] Found helix.toml at: {:?}", config_path);
-                                    return Ok(current_path.to_string_lossy().into_owned());
-                                }
-                                
-                                match current_path.parent() {
-                                    Some(parent) => current_path = parent,
-                                    None => break,
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Err("Could not find any Docker container with a mounted workspace containing 'helix.toml'.".to_string())
-}
-
-#[tauri::command]
-pub fn save_connection_config(_app: tauri::AppHandle, config: serde_json::Value) -> Result<(), String> {
-    let path = get_config_path()?;
-    let content = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
-    fs::write(path, content).map_err(|e| e.to_string())
-}
-
-// --- Universal Purifier (DWIM) Helpers ---
-
-#[derive(Debug, Clone, Copy)]
-enum LitType {
-    String,
-    Number,
-    Boolean,
-}
-
-fn collect_dwim_info(query: &Query) -> (HashSet<String>, Vec<(std::ops::Range<usize>, LitType)>) {
-    let mut used_ids = HashSet::new();
-    let mut literals = Vec::new();
-
-    for stmt in &query.statements {
-        walk_statement(stmt, &mut used_ids, &mut literals);
-    }
-    for ret in &query.return_values {
-        walk_return_type(ret, &mut used_ids, &mut literals);
-    }
-
-    (used_ids, literals)
-}
-
-fn walk_statement(stmt: &Statement, used: &mut HashSet<String>, literals: &mut Vec<(std::ops::Range<usize>, LitType)>) {
-    match &stmt.statement {
-        StatementType::Assignment(a) => {
-            walk_expression(&a.value, used, literals);
-        }
-        StatementType::Expression(e) => {
-            walk_expression(e, used, literals);
-        }
-        StatementType::ForLoop(f) => {
-            used.insert(f.in_variable.1.clone());
-            for s in &f.statements {
-                walk_statement(s, used, literals);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn walk_expression(expr: &Expression, used: &mut HashSet<String>, literals: &mut Vec<(std::ops::Range<usize>, LitType)>) {
-    match &expr.expr {
-        ExpressionType::Identifier(id) => {
-            used.insert(id.clone());
-        }
-        ExpressionType::StringLiteral(_) => {
-            literals.push((expr.loc.byte_range(), LitType::String));
-        }
-        ExpressionType::IntegerLiteral(_) | ExpressionType::FloatLiteral(_) => {
-            literals.push((expr.loc.byte_range(), LitType::Number));
-        }
-        ExpressionType::BooleanLiteral(_) => {
-            literals.push((expr.loc.byte_range(), LitType::Boolean));
-        }
-        ExpressionType::Traversal(t) => {
-            walk_traversal(t, used, literals);
-        }
-        ExpressionType::ArrayLiteral(exprs) | ExpressionType::And(exprs) | ExpressionType::Or(exprs) => {
-            for e in exprs {
-                walk_expression(e, used, literals);
-            }
-        }
-        ExpressionType::Not(e) => {
-            walk_expression(e, used, literals);
-        }
-        ExpressionType::MathFunctionCall(m) => {
-            for e in &m.args {
-                walk_expression(e, used, literals);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn walk_traversal(t: &Traversal, used: &mut HashSet<String>, literals: &mut Vec<(std::ops::Range<usize>, LitType)>) {
-    match &t.start {
-        StartNode::Identifier(id) => {
-            used.insert(id.clone());
-        }
-        StartNode::Node { ids, .. } | StartNode::Edge { ids, .. } | StartNode::Vector { ids, .. } => {
-            if let Some(ids) = ids {
-                for id in ids {
-                    walk_id_type(id, used, literals);
-                }
-            }
-        }
-        _ => {}
-    }
-    for step in &t.steps {
-        match &step.step {
-            StepType::Where(e) => walk_expression(e, used, literals),
-            StepType::OrderBy(o) => walk_expression(&o.expression, used, literals),
-            StepType::Update(u) => {
-                for f in &u.fields {
-                    walk_field_value(&f.value, used, literals);
-                }
-            }
-            StepType::Upsert(u) => {
-                for f in &u.fields {
-                    walk_field_value(&f.value, used, literals);
-                }
-            }
-            StepType::UpsertN(u) => {
-                for f in &u.fields {
-                    walk_field_value(&f.value, used, literals);
-                }
-            }
-            StepType::UpsertE(u) => {
-                for f in &u.fields {
-                    walk_field_value(&f.value, used, literals);
-                }
-                if let Some(fid) = &u.connection.from_id {
-                    walk_id_type(fid, used, literals);
-                }
-                if let Some(tid) = &u.connection.to_id {
-                    walk_id_type(tid, used, literals);
-                }
-            }
-            StepType::UpsertV(u) => {
-                for f in &u.fields {
-                    walk_field_value(&f.value, used, literals);
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
-fn walk_field_value(fv: &FieldValue, used: &mut HashSet<String>, literals: &mut Vec<(std::ops::Range<usize>, LitType)>) {
-    match &fv.value {
-        FieldValueType::Traversal(t) => walk_traversal(t, used, literals),
-        FieldValueType::Expression(e) => walk_expression(e, used, literals),
-        FieldValueType::Fields(fields) => {
-            for f in fields {
-                walk_field_value(&f.value, used, literals);
-            }
-        }
-        FieldValueType::Literal(v) => {
-            match v {
-                Value::String(_) => literals.push((fv.loc.byte_range(), LitType::String)),
-                Value::Boolean(_) => literals.push((fv.loc.byte_range(), LitType::Boolean)),
-                Value::I8(_) | Value::I16(_) | Value::I32(_) | Value::I64(_) |
-                Value::U8(_) | Value::U16(_) | Value::U32(_) | Value::U64(_) | Value::U128(_) |
-                Value::F32(_) | Value::F64(_) => literals.push((fv.loc.byte_range(), LitType::Number)),
-                _ => {}
-            }
-        }
-        FieldValueType::Identifier(id) => {
-            used.insert(id.clone());
-        }
-        _ => {}
-    }
-}
-
-fn walk_value_type(vt: &ValueType, used: &mut HashSet<String>, literals: &mut Vec<(std::ops::Range<usize>, LitType)>) {
-    match vt {
-        ValueType::Literal { value, loc } => {
-            match value {
-                Value::String(_) => literals.push((loc.byte_range(), LitType::String)),
-                Value::Boolean(_) => literals.push((loc.byte_range(), LitType::Boolean)),
-                Value::I8(_) | Value::I16(_) | Value::I32(_) | Value::I64(_) |
-                Value::U8(_) | Value::U16(_) | Value::U32(_) | Value::U64(_) | Value::U128(_) |
-                Value::F32(_) | Value::F64(_) => literals.push((loc.byte_range(), LitType::Number)),
-                _ => {}
-            }
-        }
-        ValueType::Identifier { value, .. } => {
-            used.insert(value.clone());
-        }
-        ValueType::Object { fields, .. } => {
-            for v in fields.values() {
-                walk_value_type(v, used, literals);
-            }
-        }
-    }
-}
-
-fn walk_id_type(it: &IdType, used: &mut HashSet<String>, literals: &mut Vec<(std::ops::Range<usize>, LitType)>) {
-    match it {
-        IdType::Literal { loc, .. } => {
-            literals.push((loc.byte_range(), LitType::String));
-        }
-        IdType::Identifier { value, .. } => {
-            used.insert(value.clone());
-        }
-        IdType::ByIndex { index, value, .. } => {
-            walk_id_type(index, used, literals);
-            walk_value_type(value, used, literals);
-        }
-    }
-}
-
-fn walk_return_type(ret: &ReturnType, used: &mut HashSet<String>, literals: &mut Vec<(std::ops::Range<usize>, LitType)>) {
-    match ret {
-        ReturnType::Expression(e) => walk_expression(e, used, literals),
-        ReturnType::Array(rets) => {
-            for r in rets {
-                walk_return_type(r, used, literals);
-            }
-        }
-        ReturnType::Object(map) => {
-            for r in map.values() {
-                walk_return_type(r, used, literals);
-            }
-        }
-        _ => {}
-    }
 }

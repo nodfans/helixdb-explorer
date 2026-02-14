@@ -65,7 +65,7 @@ export function Grid(props: GridProps) {
     const offset = props.offset || 0;
     const maxRowNumber = props.data.length - 1 + offset;
     const numDigits = String(Math.max(0, maxRowNumber)).length;
-    const calculatedWidth = Math.min(Math.max(36, numDigits * 9 + 12), 80);
+    const calculatedWidth = Math.min(Math.max(32, numDigits * 8 + 10), 80);
     setRowNumberWidth(calculatedWidth);
   });
 

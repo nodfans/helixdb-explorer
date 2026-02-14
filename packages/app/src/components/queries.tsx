@@ -516,7 +516,7 @@ export const Queries = (props: QueriesProps) => {
                       </div>
                     }
                   >
-                    <div class="flex-1 overflow-auto h-full space-y-5 pl-1.5 pr-1 py-2 scrollbar-thin flex flex-col">
+                    <div class="flex-1 overflow-auto h-full space-y-5 px-0.5 py-2 scrollbar-thin flex flex-col">
                       <For each={Object.entries(multiTableData())}>
                         {([name, rows]) => {
                           const tableCount = () => Object.keys(multiTableData()).length;

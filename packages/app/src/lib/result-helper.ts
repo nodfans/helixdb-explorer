@@ -80,5 +80,7 @@ export function extractTableData(data: any): any[] | null {
   const match = priority.find((p) => multi[p]);
   if (match) return multi[match];
 
-  return multi[keys[0]];
+  // Fallback: pick the first key that isn't "Summary", or just the first key
+  const fallback = keys.find((k) => k !== "Summary") || keys[0];
+  return multi[fallback];
 }

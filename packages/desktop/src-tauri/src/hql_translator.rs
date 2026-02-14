@@ -1,6 +1,10 @@
 // helix_db imports refined 
 use helix_db::protocol::value::Value;
-use crate::mcp_protocol::{ToolArgs, EdgeType, FilterProperties, FilterTraversal, Operator, Order};
+use helix_db::helixc::parser::types::{
+    Traversal, StartNode, StepType, GraphStepType, Expression, ExpressionType, 
+    Object, FieldValue, FieldValueType, IdType, ValueType, BooleanOpType
+};
+use crate::tool_args::{ToolArgs, EdgeType, FilterProperties, FilterTraversal, Operator, Order};
 
 
 
@@ -456,7 +460,7 @@ fn extract_ids_and_props(ids: &[IdType], params: &serde_json::Value) -> Result<(
                 if let Some(val) = params.get(value) {
                     id_strings.push(val.as_str().unwrap_or(&val.to_string()).to_string());
                 } else {
-                    id_strings.push(value.clone());
+                    return Err(format!("Parameter '{}' is required but missing from arguments.", value));
                 }
             }
         }
@@ -506,7 +510,6 @@ fn map_search_vector_to_tool(sv: &helix_db::helixc::parser::types::SearchVector,
 }
 
 fn extract_property_from_traversal(traversal: &Traversal) -> Result<String, String> {
-    // Look for _::{prop} pattern
     if traversal.steps.len() == 1 {
         if let StepType::Object(obj) = &traversal.steps[0].step {
             if obj.fields.len() == 1 {
@@ -515,4 +518,66 @@ fn extract_property_from_traversal(traversal: &Traversal) -> Result<String, Stri
         }
     }
     Err("Only simple property access like _::{prop} is supported here".to_string())
+}
+
+pub fn resolve_traversal<'a>(
+    name: &str, 
+    assignments: &std::collections::HashMap<String, &'a Traversal>
+) -> Result<Option<Traversal>, String> {
+    resolve_traversal_recursive(name, assignments, 0)
+}
+
+fn resolve_traversal_recursive<'a>(
+    name: &str, 
+    assignments: &std::collections::HashMap<String, &'a Traversal>,
+    depth: usize
+) -> Result<Option<Traversal>, String> {
+    if depth > 20 {
+        return Err(format!("Circular dependency or too deep recursion detected at '{}'", name));
+    }
+
+    let t = match assignments.get(name) {
+        Some(t) => *t,
+        None => return Ok(None),
+    };
+
+    let mut resolved = t.clone();
+
+    if let StartNode::Identifier(id) = &resolved.start {
+        let parent_t = resolve_traversal_recursive(id, assignments, depth + 1)?
+            .ok_or_else(|| format!("Variable '{}' not found", id))?;
+        
+        let mut all_steps = parent_t.steps.clone();
+        all_steps.extend(resolved.steps);
+        resolved.start = parent_t.start;
+        resolved.steps = all_steps;
+    }
+
+    Ok(Some(resolved))
+}
+
+pub fn normalize_value(v: serde_json::Value) -> serde_json::Value {
+    match v {
+        serde_json::Value::Array(arr) => {
+            serde_json::Value::Array(arr.into_iter().map(normalize_value).collect())
+        }
+        serde_json::Value::Object(mut map) => {
+            if let Some(serde_json::Value::Object(props)) = map.remove("properties") {                
+                for (k, v) in props {
+                    map.insert(k, v);
+                }
+            }
+            map.remove("out_edges");
+            map.remove("in_edges");
+            map.remove("vectors");
+            map.remove("version");
+            
+            for (_, v) in map.iter_mut() {
+                *v = normalize_value(v.clone());
+            }
+            
+            serde_json::Value::Object(map)
+        }
+        _ => v,
+    }
 }

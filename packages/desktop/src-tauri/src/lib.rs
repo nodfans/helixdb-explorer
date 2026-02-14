@@ -1,6 +1,9 @@
 pub mod hql_translator;
-pub mod mcp_protocol;
+pub mod tool_args;
 pub mod commands;
+pub mod config;
+pub mod hql_analyzer;
+pub mod hql_executor;
 
 use tauri::menu::{Menu, MenuItem, Submenu, PredefinedMenuItem};
 use tauri::{Emitter, Manager};
@@ -176,8 +179,6 @@ pub fn run() {
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
-                // Background cleanup: Clear all localStorage except 'theme' on exit
-                // In Tauri v2, eval is on WebviewManager/WebviewWindow
                 let _ = window.emit("cleanup-on-exit", ());
             }
         })
