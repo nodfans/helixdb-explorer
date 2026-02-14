@@ -52,20 +52,20 @@ export const CodePanel = (props: CodePanelProps) => {
   };
 
   return (
-    <div class="flex-none flex flex-col h-full bg-[var(--bg-sidebar)] border-l border-[var(--border-subtle)]">
+    <div class="flex-none flex flex-col h-full bg-native-sidebar border-l border-native-subtle">
       {/* Top Toolbar */}
-      <header class="h-12 flex-none border-b border-[var(--border-subtle)] bg-[var(--bg-sidebar-vibrant)] flex items-center justify-between px-4">
+      <header class="h-12 flex-none border-b border-native-subtle bg-native-sidebar-vibrant flex items-center justify-between px-4">
         <div class="flex items-center gap-2">
-          <FileCode size={14} class="text-[#007AFF] dark:text-[#0A84FF]" strokeWidth={2} />
-          <span class="text-[12px] font-semibold text-[var(--text-primary)]">HQL Generation</span>
+          <FileCode size={14} class="text-accent" strokeWidth={2} />
+          <span class="text-[12px] font-semibold text-native-primary">HQL Generation</span>
         </div>
 
         <div class="flex items-center gap-2">
           {/* Error Badge */}
           <Show when={props.lastError}>
-            <div class="flex items-center gap-1.5 px-2 py-1 bg-[#FF3B30]/10 dark:bg-[#FF453A]/10 rounded-md">
-              <AlertCircle size={12} class="text-[#FF3B30] dark:text-[#FF453A]" strokeWidth={2} />
-              <span class="text-[10px] font-semibold text-[#FF3B30] dark:text-[#FF453A]">Error</span>
+            <div class="flex items-center gap-1.5 px-2 py-1 bg-error/10 rounded-md">
+              <AlertCircle size={12} class="text-error" strokeWidth={2} />
+              <span class="text-[10px] font-semibold text-error">Error</span>
             </div>
           </Show>
 
@@ -88,7 +88,7 @@ export const CodePanel = (props: CodePanelProps) => {
       </header>
 
       {/* Tab Bar - macOS Style */}
-      <div class="h-10 flex-none border-b border-[var(--border-subtle)] bg-[var(--bg-secondary)]/50 flex items-center px-2 gap-1 relative">
+      <div class="h-10 flex-none border-b border-native-subtle bg-native-sidebar/50 flex items-center px-2 gap-1 relative">
         <Button
           variant="toolbar"
           size="sm"
@@ -135,16 +135,16 @@ export const CodePanel = (props: CodePanelProps) => {
 
           {/* Configuration Popover */}
           <Show when={showConfig()}>
-            <div class="absolute top-full left-0 mt-2 z-50 w-64 bg-[var(--bg-elevated)] dark:bg-native-sidebar-vibrant backdrop-blur-xl rounded-xl shadow-macos-lg border border-[var(--border-strong)]/50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-left">
+            <div class="absolute top-full left-0 mt-2 z-50 w-64 bg-native-elevated dark:bg-native-sidebar-vibrant backdrop-blur-xl rounded-xl shadow-macos-lg border border-native/50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-left">
               <div class="max-h-[calc(100vh-160px)] overflow-y-auto p-3">
                 <div class="flex items-center justify-between mb-3">
-                  <h3 class="text-[12px] font-bold text-[var(--text-primary)]">Generation Options</h3>
-                  <span class="text-[9px] text-[var(--text-tertiary)] bg-[var(--bg-active)] px-1.5 py-0.5 rounded">HQL</span>
+                  <h3 class="text-[12px] font-bold text-native-primary">Generation Options</h3>
+                  <span class="text-[9px] text-native-tertiary bg-native-active px-1.5 py-0.5 rounded">HQL</span>
                 </div>
 
                 {/* Search Section */}
                 <div class="space-y-1.5">
-                  <h4 class="text-[10px] font-bold text-[var(--text-tertiary)] tracking-wider mb-2 uppercase">Search Intelligence</h4>
+                  <h4 class="text-[10px] font-bold text-native-tertiary tracking-wider mb-2 uppercase">Search Intelligence</h4>
                   <div class="grid grid-cols-1 gap-2 pl-1">
                     <ConfigToggle
                       label="Keyword Search"
@@ -167,11 +167,11 @@ export const CodePanel = (props: CodePanelProps) => {
                   </div>
                 </div>
 
-                <div class="h-px bg-[var(--border-subtle)] opacity-30 my-3" />
+                <div class="h-px bg-native-subtle opacity-30 my-3" />
 
                 {/* Graph Insight */}
                 <div class="space-y-1.5">
-                  <h4 class="text-[10px] font-bold text-[var(--text-tertiary)] tracking-wider mb-2 uppercase">Graph Insight</h4>
+                  <h4 class="text-[10px] font-bold text-native-tertiary tracking-wider mb-2 uppercase">Graph Insight</h4>
                   <div class="grid grid-cols-1 gap-2 pl-1">
                     <ConfigToggle
                       label="Network Hop"
@@ -188,11 +188,11 @@ export const CodePanel = (props: CodePanelProps) => {
                   </div>
                 </div>
 
-                <div class="h-px bg-[var(--border-subtle)] opacity-30 my-3" />
+                <div class="h-px bg-native-subtle opacity-30 my-3" />
 
                 {/* Smart Views */}
                 <div class="space-y-1.5">
-                  <h4 class="text-[10px] font-bold text-[var(--text-tertiary)] tracking-wider mb-2 uppercase">Smart Views & Testing</h4>
+                  <h4 class="text-[10px] font-bold text-native-tertiary tracking-wider mb-2 uppercase">Smart Views & Testing</h4>
                   <div class="grid grid-cols-1 gap-2 pl-1">
                     <ConfigToggle
                       label="Deep Detail"
@@ -203,11 +203,11 @@ export const CodePanel = (props: CodePanelProps) => {
                   </div>
                 </div>
 
-                <div class="h-px bg-[var(--border-subtle)] opacity-30 my-3" />
+                <div class="h-px bg-native-subtle opacity-30 my-3" />
 
                 {/* CRUD Section */}
                 <div class="space-y-1.5">
-                  <h4 class="text-[10px] font-bold text-[var(--text-tertiary)] tracking-wider mb-2 uppercase">Data Operations</h4>
+                  <h4 class="text-[10px] font-bold text-native-tertiary tracking-wider mb-2 uppercase">Data Operations</h4>
                   <div class="grid grid-cols-1 gap-2 pl-1">
                     <ConfigToggle
                       label="Basic Queries"
@@ -242,11 +242,11 @@ export const CodePanel = (props: CodePanelProps) => {
                   </div>
                 </div>
 
-                <div class="h-px bg-[var(--border-subtle)] opacity-30 my-3" />
+                <div class="h-px bg-native-subtle opacity-30 my-3" />
 
                 {/* Pathfinding Section */}
                 <div class="space-y-1.5">
-                  <h4 class="text-[10px] font-bold text-[var(--text-tertiary)] tracking-wider mb-2 uppercase">Logic & Paths</h4>
+                  <h4 class="text-[10px] font-bold text-native-tertiary tracking-wider mb-2 uppercase">Logic & Paths</h4>
                   <div class="grid grid-cols-1 gap-2 pl-1">
                     <ConfigToggle
                       label="Shortest Path"
@@ -263,10 +263,10 @@ export const CodePanel = (props: CodePanelProps) => {
                   </div>
                 </div>
 
-                <div class="h-px bg-[var(--border-subtle)] opacity-30 my-3" />
+                <div class="h-px bg-native-subtle opacity-30 my-3" />
 
                 <div class="space-y-1.5">
-                  <h4 class="text-[10px] font-bold text-[var(--text-tertiary)] tracking-wider mb-2 uppercase">Stats & Analytics</h4>
+                  <h4 class="text-[10px] font-bold text-native-tertiary tracking-wider mb-2 uppercase">Stats & Analytics</h4>
                   <div class="grid grid-cols-1 gap-2 pl-1">
                     <ConfigToggle
                       label="Aggregations"
@@ -300,14 +300,14 @@ export const CodePanel = (props: CodePanelProps) => {
           class="h-7 px-3"
         >
           <Show when={copied()} fallback={<Copy size={12} strokeWidth={2} />}>
-            <CheckCircle2 size={12} strokeWidth={2} class="text-[#34C759] dark:text-[#30D158]" />
+            <CheckCircle2 size={12} strokeWidth={2} class="text-status-success" />
           </Show>
           {copied() ? "Copied" : "Copy"}
         </Button>
       </div>
 
       {/* Code Display Area */}
-      <div class="flex-1 overflow-hidden bg-[var(--bg-content)] relative">
+      <div class="flex-1 overflow-hidden bg-native-content relative">
         <HQLEditor code={getActiveCode() || ""} readOnly={true} />
       </div>
     </div>
@@ -317,15 +317,15 @@ export const CodePanel = (props: CodePanelProps) => {
 const ConfigToggle = (props: { label: string; description: string; checked: boolean; onChange: (v: boolean) => void }) => (
   <label class="flex items-start justify-between cursor-pointer group">
     <div class="flex flex-col">
-      <span class="text-[11px] font-medium text-[var(--text-primary)] group-hover:text-[var(--macos-blue)] transition-colors text-left">{props.label}</span>
-      <span class="text-[9px] text-[var(--text-tertiary)] mt-0.5 leading-tight text-left">{props.description}</span>
+      <span class="text-[11px] font-medium text-native-primary group-hover:text-accent transition-colors text-left">{props.label}</span>
+      <span class="text-[9px] text-native-tertiary mt-0.5 leading-tight text-left">{props.description}</span>
     </div>
     <div class="relative mt-0.5 w-3.5 h-3.5 flex items-center justify-center">
       <input
         type="checkbox"
         checked={props.checked}
         onChange={(e) => props.onChange(e.currentTarget.checked)}
-        class="peer absolute inset-0 h-full w-full appearance-none rounded border border-[var(--border-medium)] bg-[var(--bg-elevated)] checked:bg-[var(--macos-blue)] checked:border-[var(--macos-blue)] transition-all cursor-pointer"
+        class="peer absolute inset-0 h-full w-full appearance-none rounded border border-native bg-native-elevated checked:bg-accent checked:border-accent transition-all cursor-pointer"
       />
       <Check size={9} strokeWidth={3} class="z-10 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
     </div>

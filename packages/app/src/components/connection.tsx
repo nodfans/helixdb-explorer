@@ -186,7 +186,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
               </For>
             </div>
 
-            <div class="h-[52px] border-t border-native bg-native-sidebar/30 flex items-center justify-center">
+            <div class="h-[52px] border-t border-native flex items-center justify-center">
               <div class="flex items-center gap-2 text-[11px] text-native-quaternary font-medium">
                 <ShieldCheck size={15} />
                 <span>Helix Explorer Secured</span>

@@ -19,14 +19,9 @@ export function Input(props: InputProps) {
           autocorrect="off"
           autocapitalize="off"
           spellcheck={false}
-          class="w-full h-[28px] pl-9 pr-3 rounded-md text-[13px] outline-none transition-all relative z-0 bg-[var(--macos-input-bg)] border border-[var(--macos-input-border)] text-[var(--macos-text-primary)] focus:border-[var(--macos-input-focus-border)]"
+          class="w-full h-[28px] pl-9 pr-3 rounded-md text-[13px] outline-none transition-all relative z-0 bg-native-elevated border border-native text-native-primary focus:border-accent"
         />
-        <Search
-          size={16}
-          stroke-width={2}
-          class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10"
-          style={{ color: "var(--macos-text-tertiary)" }}
-        />
+        <Search size={16} stroke-width={2} class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 text-native-tertiary" />
       </div>
     );
   }
@@ -38,7 +33,7 @@ export function Input(props: InputProps) {
       autocorrect="off"
       autocapitalize="off"
       spellcheck={false}
-      class={`h-[28px] px-3 rounded-md text-[13px] outline-none transition-all bg-[var(--macos-input-bg)] border border-[var(--macos-input-border)] text-[var(--macos-text-primary)] focus:border-[var(--macos-input-focus-border)] ${local.fullWidth ? "w-full" : ""} ${local.class || ""}`}
+      class={`h-[28px] px-3 rounded-md text-[13px] outline-none transition-all bg-native-elevated border border-native text-native-primary focus:border-accent ${local.fullWidth ? "w-full" : ""} ${local.class || ""}`}
     />
   );
 }
@@ -53,7 +48,7 @@ export function Textarea(props: TextareaProps) {
   return (
     <textarea
       {...others}
-      class={`px-3 py-2 rounded-md text-[13px] outline-none transition-all resize-none bg-[var(--macos-input-bg)] border border-[var(--macos-input-border)] text-[var(--macos-text-primary)] focus:border-[var(--macos-input-focus-border)] font-[var(--font-sans)] ${local.fullWidth ? "w-full" : ""} ${local.class || ""}`}
+      class={`px-3 py-2 rounded-md text-[13px] outline-none transition-all resize-none bg-native-elevated border border-native text-native-primary focus:border-accent font-sans ${local.fullWidth ? "w-full" : ""} ${local.class || ""}`}
     />
   );
 }

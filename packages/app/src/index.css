@@ -1,13 +1,11 @@
 @import "tailwindcss";
 
 /* ========================================
-   Theme System - Unified Design Tokens
+   Theme System - Tailwind v4 Design Tokens
    ======================================== */
 
-:root {
-  /* ========================================
-     1. Constants (Theme-independent)
-     ======================================== */
+@theme {
+  /* Constants */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -16,286 +14,195 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
-
-  /* ========================================
-     2. Light Theme - Semantic Colors
-     ======================================== */
-
-  /* Backgrounds - Navicat style with visual hierarchy */
-  --bg-primary: #eff1f3; /* Slightly warmer gray */
-  --bg-secondary: #e5e7e9;
-  --bg-elevated: #ffffff;
-  --bg-hover: rgba(0, 0, 0, 0.05);
-  --bg-active: rgba(0, 0, 0, 0.1);
-  --bg-selected: #d7e9fb;
-
-  /* Content areas */
-  --bg-content: #ffffff;
-  --bg-sidebar: #f0f0f0;
-  --bg-sidebar-vibrant: rgba(240, 240, 240, 0.9);
-  --bg-workbench-content: #ffffff;
-  --bg-toolbar: #e8e8e8;
+  --shadow-macos-lg: 0 20px 40px rgba(0, 0, 0, 0.2);
 
   /* Typography */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* Design Tokens mapped to existing utilities */
+  --color-native-sidebar: var(--bg-sidebar);
+  --color-native-sidebar-vibrant: var(--bg-sidebar-vibrant);
+  --color-native-content: var(--bg-content);
+  --color-native-elevated: var(--bg-elevated);
+
+  --color-hover: var(--bg-hover);
+  --color-active: var(--bg-active);
+  --color-selected: var(--bg-selected);
+
+  --color-native-primary: var(--text-primary);
+  --color-native-secondary: var(--text-secondary);
+  --color-native-tertiary: var(--text-tertiary);
+  --color-native-quaternary: var(--text-quaternary);
+
+  --color-accent: var(--accent);
+  --color-native: var(--border-color);
+  --color-native-subtle: var(--border-subtle);
+
+  --color-success: var(--status-success);
+  --color-warning: var(--status-warning);
+  --color-error: var(--status-error);
+
+  --shadow-macos-sm: var(--shadow-sm);
+  --shadow-macos-md: var(--shadow-md);
+  --shadow-macos-lg: var(--shadow-lg);
+}
+
+/* ========================================
+   CSS Variables - Theme Definitions
+   ======================================== */
+
+:root {
+  /* Light Theme Defaults */
+  --bg-primary: #eff1f3;
+  --bg-secondary: #e5e7e9;
+  --bg-elevated: #ffffff;
+  --bg-content: #ffffff;
+  --bg-sidebar: #f0f0f0;
+  --bg-sidebar-vibrant: rgba(240, 240, 240, 0.9);
+  --bg-toolbar: #e8e8e8;
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --bg-active: rgba(0, 0, 0, 0.1);
+  --bg-selected: #d7e9fb;
 
   --text-primary: #1a1a1a;
   --text-secondary: #666666;
   --text-tertiary: #888888;
   --text-quaternary: #aaaaaa;
 
-  /* Borders */
   --border-color: rgba(0, 0, 0, 0.12);
   --border-subtle: rgba(0, 0, 0, 0.06);
   --border-medium: rgba(0, 0, 0, 0.15);
   --border-strong: rgba(0, 0, 0, 0.2);
 
-  /* System Colors (Apple HIG) */
   --accent: #007aff;
   --accent-light: #47a1ff;
   --accent-dark: #005bb7;
-  --color-red: #ff3b30;
-  --color-green: #34c759;
-  --color-yellow: #ffcc00;
-  --color-orange: #ff9500;
-  --color-purple: #af52de;
 
-  /* Status */
   --status-success: #34c759;
   --status-warning: #ff9500;
   --status-error: #ff3b30;
 
-  /* Inputs */
   --input-bg: #ffffff;
   --input-border: rgba(0, 0, 0, 0.12);
-  --input-focus-border: var(--accent);
 
-  /* Graph */
-  --graph-bg: #ffffff;
-  --graph-link: rgba(0, 122, 255, 0.15);
-  --graph-particle: #007aff;
-
-  /* Table */
-  --bg-table-row: #ffffff;
-  --bg-table-header: #f5f5f5;
-  --bg-table-selection: #b3d7ff;
-  --border-table: rgba(0, 0, 0, 0.08);
-
-  /* ========================================
-     3. Grid Component Variables
-     ======================================== */
-  --grid-bg: #ffffff;
-  --grid-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --grid-border: rgba(0, 0, 0, 0.1);
-  --grid-header-bg: linear-gradient(to bottom, #f5f5f5 0%, #efefef 100%);
-  --grid-header-text: #666666;
+  /* Grid Variables - Premium Minimalist */
+  --grid-bg: transparent;
+  --grid-header-bg: rgba(0, 0, 0, 0.02);
   --grid-header-border: rgba(0, 0, 0, 0.12);
-  --grid-row-bg: #ffffff;
+  --grid-border: rgba(0, 0, 0, 0.07);
+  --grid-header-text: #6b7280;
+  --grid-row-bg: transparent;
   --grid-row-hover: rgba(0, 0, 0, 0.02);
-  --grid-row-selected: rgba(0, 122, 255, 0.06);
-  --grid-cell-text: #1d1d1f;
-  --grid-cell-secondary: #86868b;
-  --grid-resize-handle: rgba(0, 122, 255, 0.4);
+  --grid-row-selected: rgba(0, 122, 255, 0.1);
+  --grid-cell-text: #111827;
+  --grid-cell-secondary: #9ca3af;
+  --grid-resize-handle: rgba(0, 0, 0, 0.05);
   --grid-resize-active: #007aff;
   --grid-focus-ring: rgba(0, 122, 255, 0.3);
+  --grid-shadow: none;
   --grid-input-bg: #ffffff;
 }
 
-/* ========================================
-   Dark Theme Overrides
-   ======================================== */
+/* Consolidated Dark Theme Logic */
+@custom-selector :--dark-theme [data-theme="dark"], :root:not([data-theme="light"]);
 
-[data-theme="dark"] {
-  /* Backgrounds - Navicat style with visual hierarchy */
-  --bg-primary: #252525;
-  --bg-secondary: #2b2b2b;
-  --bg-elevated: #333333;
-  --bg-hover: rgba(255, 255, 255, 0.07);
-  --bg-active: rgba(255, 255, 255, 0.12);
-  --bg-selected: rgba(10, 132, 255, 0.25);
-
-  /* Content areas */
-  --bg-content: #2a2a2a;
-  --bg-sidebar: #252525;
-  --bg-sidebar-vibrant: rgba(37, 37, 37, 0.9);
-  --bg-workbench-content: #2a2a2a;
-  --bg-toolbar: #333333;
-
-  /* Typography */
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --text-tertiary: #707070;
-  --text-quaternary: #505050;
-
-  /* Borders */
-  --border-color: rgba(255, 255, 255, 0.1);
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-medium: rgba(255, 255, 255, 0.12);
-  --border-strong: rgba(255, 255, 255, 0.18);
-
-  /* System Colors (Dark variants) */
-  --accent: #0a84ff;
-  --color-red: #ff453a;
-  --color-green: #30d158;
-  --color-yellow: #ffd60a;
-  --color-orange: #ff9f0a;
-  --color-purple: #bf5af2;
-
-  /* Status */
-  --status-success: #30d158;
-  --status-warning: #ffd60a;
-  --status-error: #ff453a;
-
-  /* Inputs */
-  --input-bg: #2a2a2a;
-  --input-border: rgba(255, 255, 255, 0.12);
-
-  /* Graph */
-  --graph-bg: #111111;
-  --graph-link: rgba(10, 132, 255, 0.2);
-  --graph-particle: #5ea0ff;
-
-  /* Table */
-  --bg-table-row: #2a2a2a;
-  --bg-table-header: #383838;
-  --bg-table-selection: rgba(10, 132, 255, 0.25);
-  --border-table: rgba(255, 255, 255, 0.1);
-
-  /* Grid Component */
-  --grid-bg: #2a2a2a;
-  --grid-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --grid-border: rgba(255, 255, 255, 0.1);
-  --grid-header-bg: linear-gradient(to bottom, #383838 0%, #333333 100%);
-  --grid-header-text: #a0a0a0;
-  --grid-header-border: rgba(255, 255, 255, 0.12);
-  --grid-row-bg: #2a2a2a;
-  --grid-row-hover: rgba(255, 255, 255, 0.04);
-  --grid-row-selected: rgba(10, 132, 255, 0.15);
-  --grid-cell-text: #f5f5f7;
-  --grid-cell-secondary: #a0a0a0;
-  --grid-resize-handle: rgba(10, 132, 255, 0.5);
-  --grid-resize-active: #0a84ff;
-  --grid-focus-ring: rgba(10, 132, 255, 0.4);
-  --grid-input-bg: #333333;
-}
-
-/* System preference dark mode (when no manual theme is set) */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    /* Backgrounds - Navicat style with visual hierarchy */
     --bg-primary: #252525;
     --bg-secondary: #2b2b2b;
     --bg-elevated: #333333;
+    --bg-content: #2a2a2a;
+    --bg-sidebar: #252525;
+    --bg-sidebar-vibrant: rgba(37, 37, 37, 0.9);
+    --bg-toolbar: #333333;
     --bg-hover: rgba(255, 255, 255, 0.07);
     --bg-active: rgba(255, 255, 255, 0.12);
     --bg-selected: rgba(10, 132, 255, 0.25);
 
-    /* Content areas */
-    --bg-content: #2a2a2a;
-    --bg-sidebar: #252525;
-    --bg-sidebar-vibrant: rgba(37, 37, 37, 0.9);
-    --bg-workbench-content: #2a2a2a;
-    --bg-toolbar: #333333;
-
-    /* Typography */
     --text-primary: #ffffff;
     --text-secondary: #a0a0a0;
     --text-tertiary: #707070;
     --text-quaternary: #505050;
 
-    /* Borders */
     --border-color: rgba(255, 255, 255, 0.1);
     --border-subtle: rgba(255, 255, 255, 0.06);
     --border-medium: rgba(255, 255, 255, 0.12);
     --border-strong: rgba(255, 255, 255, 0.18);
 
-    /* System Colors (Dark variants) */
     --accent: #0a84ff;
-    --color-red: #ed5974;
-    --color-green: #30d158;
-    --color-yellow: #ffd60a;
-    --color-orange: #ff9f0a;
-    --color-purple: #bf5af2;
-
-    /* Status */
     --status-success: #30d158;
     --status-warning: #ffd60a;
     --status-error: #ff453a;
 
-    /* Inputs */
     --input-bg: #2a2a2a;
     --input-border: rgba(255, 255, 255, 0.12);
 
-    /* Graph */
-    --graph-bg: #111111;
-    --graph-link: rgba(10, 132, 255, 0.2);
-    --graph-particle: #5ea0ff;
-
-    /* Table */
-    --bg-table-row: #2a2a2a;
-    --bg-table-header: #383838;
-    --bg-table-selection: rgba(10, 132, 255, 0.25);
-    --border-table: rgba(255, 255, 255, 0.1);
-
-    /* Grid Component */
-    --grid-bg: #2a2a2a;
-    --grid-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    --grid-border: rgba(255, 255, 255, 0.1);
-    --grid-header-bg: linear-gradient(to bottom, #383838 0%, #333333 100%);
-    --grid-header-text: #a0a0a0;
+    /* Grid Variables (Dark) - Premium Minimalist */
+    --grid-bg: transparent;
+    --grid-header-bg: rgba(255, 255, 255, 0.02);
     --grid-header-border: rgba(255, 255, 255, 0.12);
-    --grid-row-bg: #2a2a2a;
-    --grid-row-hover: rgba(255, 255, 255, 0.04);
+    --grid-border: rgba(255, 255, 255, 0.07);
+    --grid-header-text: #888888;
+    --grid-row-bg: transparent;
+    --grid-row-hover: rgba(255, 255, 255, 0.03);
     --grid-row-selected: rgba(10, 132, 255, 0.15);
-    --grid-cell-text: #f5f5f7;
-    --grid-cell-secondary: #a0a0a0;
-    --grid-resize-handle: rgba(10, 132, 255, 0.5);
+    --grid-cell-text: #e5e7eb;
+    --grid-cell-secondary: #6b7280;
+    --grid-resize-handle: rgba(255, 255, 255, 0.05);
     --grid-resize-active: #0a84ff;
     --grid-focus-ring: rgba(10, 132, 255, 0.4);
-    --grid-input-bg: #333333;
+    --grid-shadow: none;
+    --grid-input-bg: #252525;
   }
 }
 
-/* ========================================
-   Legacy Aliases (for backward compatibility)
-   TODO: Gradually migrate components to new names
-   ======================================== */
+[data-theme="dark"] {
+  --bg-primary: #252525;
+  --bg-secondary: #2b2b2b;
+  --bg-elevated: #333333;
+  --bg-content: #2a2a2a;
+  --bg-sidebar: #252525;
+  --bg-sidebar-vibrant: rgba(37, 37, 37, 0.9);
+  --bg-toolbar: #333333;
+  --bg-hover: rgba(255, 255, 255, 0.07);
+  --bg-active: rgba(255, 255, 255, 0.12);
+  --bg-selected: rgba(10, 132, 255, 0.25);
 
-:root {
-  /* macos-* aliases pointing to semantic vars */
-  --macos-window-bg: transparent;
-  --macos-sidebar-bg: var(--bg-sidebar);
-  --macos-content-bg: var(--bg-content);
-  --macos-toolbar-bg: var(--bg-toolbar);
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-tertiary: #707070;
+  --text-quaternary: #505050;
 
-  --macos-text-primary: var(--text-primary);
-  --macos-text-secondary: var(--text-secondary);
-  --macos-text-tertiary: var(--text-tertiary);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-medium: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.18);
 
-  --macos-border-light: var(--border-subtle);
-  --macos-border-medium: var(--border-medium);
-  --macos-border-strong: var(--border-strong);
-  --macos-divider: var(--border-color);
+  --accent: #0a84ff;
+  --status-success: #30d158;
+  --status-warning: #ffd60a;
+  --status-error: #ff453a;
 
-  --macos-hover-bg: var(--bg-hover);
-  --macos-selected-bg: var(--bg-selected);
-  --macos-active-bg: var(--accent);
+  --input-bg: #2a2a2a;
+  --input-border: rgba(255, 255, 255, 0.12);
 
-  --macos-blue: var(--accent);
-  --macos-red: var(--color-red);
-  --macos-green: var(--color-green);
-  --macos-yellow: var(--color-yellow);
-  --macos-orange: var(--color-orange);
-  --macos-purple: var(--color-purple);
-
-  --macos-input-bg: var(--input-bg);
-  --macos-input-border: var(--input-border);
-  --macos-input-focus-border: var(--input-focus-border);
-
-  /* Segment control (if used) */
-  --macos-segment-bg: var(--bg-secondary);
-  --macos-segment-active-bg: var(--bg-primary);
+  /* Grid Variables (Dark Override) - Premium Minimalist */
+  --grid-bg: transparent;
+  --grid-header-bg: rgba(255, 255, 255, 0.02);
+  --grid-header-border: rgba(255, 255, 255, 0.12);
+  --grid-border: rgba(255, 255, 255, 0.07);
+  --grid-header-text: #888888;
+  --grid-row-bg: transparent;
+  --grid-row-hover: rgba(255, 255, 255, 0.03);
+  --grid-row-selected: rgba(10, 132, 255, 0.15);
+  --grid-cell-text: #e5e7eb;
+  --grid-cell-secondary: #6b7280;
+  --grid-resize-handle: rgba(255, 255, 255, 0.05);
+  --grid-resize-active: #0a84ff;
+  --grid-focus-ring: rgba(10, 132, 255, 0.4);
+  --grid-shadow: none;
+  --grid-input-bg: #252525;
 }
 
 /* ========================================
@@ -306,45 +213,37 @@ body {
   margin: 0;
   padding: 0;
   font-family: var(--font-sans);
-  font-size: 13px; /* macOS Standard */
+  font-size: 13px;
   background-color: var(--bg-content);
   color: var(--text-primary);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   letter-spacing: -0.012em;
   transition:
     background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     color 0.3s ease;
 }
 
-/* Interactive Elements */
 button,
 a,
 [role="button"],
 select {
-  cursor: default !important; /* macOS feel */
-  transition:
-    background-color 0.15s ease,
-    opacity 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+  cursor: default !important;
   user-select: none;
   outline: none;
+  transition: all 0.15s ease;
 }
 
 input {
-  transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: all 0.15s ease;
   outline: none;
 }
 
-/* Removed global button:active scale to fix hit-test issues during click */
+/* ========================================
+   Components
+   ======================================== */
 
-/* Premium Button Styles */
 .btn-primary {
   background: linear-gradient(to bottom, var(--accent-light), var(--accent));
   border: 1px solid var(--accent-dark);
@@ -365,151 +264,6 @@ input {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-/* ========================================
-   Utility Classes
-   ======================================== */
-
-@layer utilities {
-  /* Vibrancy */
-  .macos-vibrant-sidebar {
-    background-color: var(--bg-sidebar-vibrant);
-    backdrop-filter: blur(25px) saturate(180%);
-    -webkit-backdrop-filter: blur(25px) saturate(180%);
-  }
-
-  /* Backgrounds */
-  .bg-native-sidebar {
-    background-color: var(--bg-sidebar);
-  }
-  .bg-native-sidebar-vibrant {
-    background-color: var(--bg-sidebar-vibrant);
-    backdrop-filter: blur(25px) saturate(180%);
-    -webkit-backdrop-filter: blur(25px) saturate(180%);
-  }
-  .bg-native-content {
-    background-color: var(--bg-content);
-  }
-  .bg-native-elevated {
-    background-color: var(--bg-elevated);
-  }
-  .bg-hover {
-    background-color: var(--bg-hover);
-  }
-  .bg-active {
-    background-color: var(--bg-active);
-  }
-  .bg-selected {
-    background-color: var(--bg-selected);
-  }
-
-  /* Typography */
-  .text-native-primary {
-    color: var(--text-primary);
-  }
-  .text-native-secondary {
-    color: var(--text-secondary);
-  }
-  .text-native-tertiary {
-    color: var(--text-tertiary);
-  }
-  .text-native-quaternary {
-    color: var(--text-quaternary);
-  }
-  .text-accent {
-    color: var(--accent);
-  }
-
-  /* Borders */
-  .border-native {
-    border-color: var(--border-color);
-  }
-  .border-native-subtle {
-    border-color: var(--border-subtle);
-  }
-
-  /* Shadows */
-  .shadow-macos-sm {
-    box-shadow: var(--shadow-sm);
-  }
-  .shadow-macos-md {
-    box-shadow: var(--shadow-md);
-  }
-}
-
-/* ========================================
-   Scrollbar - macOS Style
-   ======================================== */
-
-.scrollbar-thin::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
-}
-
-::-webkit-scrollbar {
-  width: 11px;
-  height: 11px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--text-tertiary);
-  border-radius: 10px;
-  border: 2px solid transparent;
-  background-clip: content-box;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background-color: var(--text-secondary);
-}
-
-::-webkit-scrollbar-thumb:active {
-  background-color: var(--accent);
-}
-
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-textarea {
-  resize: none;
-}
-
-/* ========================================
-   Animations
-   ======================================== */
-
-.animate-shake {
-  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
-  transform: translate3d(0, 0, 0);
-}
-
-@keyframes shake {
-  40%,
-  60% {
-    transform: translate3d(4px, 0, 0);
-  }
-}
-
-/* Page Transitions */
-.view-enter {
-  animation: view-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-@keyframes view-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Native-style Context Menu */
 .context-menu {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
@@ -525,11 +279,10 @@ textarea {
   padding: 6px 10px;
   border-radius: 4px;
   font-size: 12px;
-  cursor: default;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--text-primary);
 }
 
 .context-menu-item:hover {
@@ -537,8 +290,55 @@ textarea {
   color: white;
 }
 
-.context-menu-separator {
-  height: 1px;
-  background: var(--border-subtle);
-  margin: 4px 0;
+/* ========================================
+   Utilities & Animations
+   ======================================== */
+
+@layer utilities {
+  .macos-vibrant-sidebar {
+    background-color: var(--bg-sidebar-vibrant);
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+  }
+
+  /* Shortcut for common theme backgrounds if needed */
+  .bg-native-sidebar {
+    background-color: var(--bg-sidebar);
+  }
+}
+
+.view-enter {
+  animation: view-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--text-quaternary);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-tertiary);
+}
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--accent);
 }

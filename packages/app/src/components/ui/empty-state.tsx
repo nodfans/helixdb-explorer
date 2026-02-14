@@ -24,7 +24,7 @@ export const EmptyState = (props: EmptyStateProps) => {
         {/* Minimalist glow effect */}
         <div class="absolute inset-0 bg-accent/20 blur-3xl rounded-full scale-150 opacity-0 group-hover:opacity-100 transition-all duration-1000" classList={{ hidden: !isLarge() }} />
         <div class="relative z-10 flex items-center justify-center transition-transform duration-500 group-hover:scale-110">
-          <props.icon size={isLarge() ? 64 : 32} class="text-native-quaternary/25" />
+          <props.icon size={isLarge() ? 64 : 32} class="text-native-quaternary/70 dark:text-native-tertiary/70" />
         </div>
       </div>
 

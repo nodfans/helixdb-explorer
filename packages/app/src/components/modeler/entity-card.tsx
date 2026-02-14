@@ -71,9 +71,9 @@ export const ProEntityCard = (props: ProCardProps) => {
   };
 
   return (
-    <div class="w-full bg-[var(--macos-content-bg)] rounded-xl overflow-hidden shadow-sm border border-[var(--macos-border-light)] transition-all duration-300 hover:shadow-md hover:border-[var(--macos-border-medium)] pro-card-root box-border">
+    <div class="w-full bg-native-content rounded-xl overflow-hidden shadow-sm border border-native-subtle transition-all duration-300 hover:shadow-md hover:border-native pro-card-root box-border">
       {/* Header */}
-      <div class="px-4 py-2 bg-[var(--macos-sidebar-bg)] border-b border-[var(--macos-border-light)] flex flex-wrap items-center justify-between gap-y-2">
+      <div class="px-4 py-2 bg-native-sidebar border-b border-native-subtle flex flex-wrap items-center justify-between gap-y-2">
         <div class="flex items-center gap-2 flex-1 min-w-[100px]">
           <input
             value={props.entity.name}
@@ -81,7 +81,7 @@ export const ProEntityCard = (props: ProCardProps) => {
             autocorrect="off"
             autocapitalize="off"
             autocomplete="off"
-            class="bg-transparent border-none focus:ring-0 text-[13px] font-bold text-[var(--macos-text-primary)] p-0 flex-1 min-w-0 placeholder-[var(--macos-text-tertiary)] outline-none entity-name-input"
+            class="bg-transparent border-none focus:ring-0 text-[13px] font-bold text-native-primary p-0 flex-1 min-w-0 placeholder:text-native-tertiary outline-none entity-name-input"
             placeholder="Entity Name"
             onInput={(e) => {
               const name = e.currentTarget.value;
@@ -101,25 +101,19 @@ export const ProEntityCard = (props: ProCardProps) => {
             <button
               onClick={() => props.onUpdate(props.entity.id, (prev) => ({ isUniqueRelation: !prev.isUniqueRelation }))}
               class={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all border ${
-                props.entity.isUniqueRelation
-                  ? "bg-[var(--macos-blue)]/10 border-[var(--macos-blue)]/30 text-[var(--macos-blue)]"
-                  : "bg-transparent border-[var(--macos-border-medium)] text-[var(--macos-text-tertiary)] hover:border-[var(--macos-border-strong)]"
+                props.entity.isUniqueRelation ? "bg-accent/10 border-accent/30 text-accent" : "bg-transparent border-native text-native-tertiary hover:border-native"
               }`}
               title="Unique Edge"
             >
               Unique
             </button>
           </Show>
-          <button
-            onClick={addField}
-            class="p-1.5 hover:bg-[var(--macos-blue)]/10 active:bg-[var(--macos-blue)]/20 rounded-md text-[var(--macos-text-secondary)] hover:text-[var(--macos-blue)] transition-all"
-            title="Add Field"
-          >
+          <button onClick={addField} class="p-1.5 hover:bg-accent/10 active:bg-accent/20 rounded-md text-native-secondary hover:text-accent transition-all" title="Add Field">
             <Plus size={14} strokeWidth={2.5} />
           </button>
           <button
             onClick={() => props.onDelete(props.entity.id)}
-            class="p-1.5 hover:bg-[var(--macos-red)]/10 active:bg-[var(--macos-red)]/20 rounded-md text-[var(--macos-text-secondary)] hover:text-[var(--macos-red)] transition-all"
+            class="p-1.5 hover:bg-error/10 active:bg-error/20 rounded-md text-native-secondary hover:text-error transition-all"
             title="Delete Entity"
           >
             <Trash2 size={14} strokeWidth={2.5} />
@@ -128,10 +122,10 @@ export const ProEntityCard = (props: ProCardProps) => {
       </div>
 
       <Show when={props.entity.kind === "Edge"}>
-        <div class="px-4 py-2 bg-[var(--macos-content-bg)] border-b border-[var(--macos-border-light)] flex items-center gap-3">
+        <div class="px-4 py-2 bg-native-content border-b border-native-subtle flex items-center gap-3">
           <div class="flex-1 relative group/select">
             <select
-              class="w-full bg-[var(--macos-content-bg)] border border-[var(--macos-border-medium)] rounded-md px-2.5 py-1 text-[11px] text-[var(--macos-text-secondary)] appearance-none outline-none hover:border-[var(--macos-blue)]/40 transition-all cursor-pointer"
+              class="w-full bg-native-content border border-native rounded-md px-2.5 py-1 text-[11px] text-native-secondary appearance-none outline-none hover:border-accent/40 transition-all cursor-pointer"
               value={props.entity.from}
               onChange={(e) =>
                 props.onUpdate(props.entity.id, () => ({
@@ -142,14 +136,14 @@ export const ProEntityCard = (props: ProCardProps) => {
               <option value="">Source...</option>
               <For each={props.nodeNames}>{(name) => <option value={name}>{name}</option>}</For>
             </select>
-            <ChevronDown size={11} class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--macos-text-tertiary)] pointer-events-none opacity-50" />
+            <ChevronDown size={11} class="absolute right-2 top-1/2 -translate-y-1/2 text-native-tertiary pointer-events-none opacity-50" />
           </div>
 
-          <ArrowRight size={12} class="text-[var(--macos-text-tertiary)] opacity-30" />
+          <ArrowRight size={12} class="text-native-tertiary opacity-30" />
 
           <div class="flex-1 relative group/select">
             <select
-              class="w-full bg-[var(--macos-content-bg)] border border-[var(--macos-border-medium)] rounded-md px-2.5 py-1 text-[11px] text-[var(--macos-text-secondary)] appearance-none outline-none hover:border-[var(--macos-blue)]/40 transition-all cursor-pointer"
+              class="w-full bg-native-content border border-native rounded-md px-2.5 py-1 text-[11px] text-native-secondary appearance-none outline-none hover:border-accent/40 transition-all cursor-pointer"
               value={props.entity.to}
               onChange={(e) =>
                 props.onUpdate(props.entity.id, () => ({
@@ -160,18 +154,18 @@ export const ProEntityCard = (props: ProCardProps) => {
               <option value="">Target...</option>
               <For each={props.nodeNames}>{(name) => <option value={name}>{name}</option>}</For>
             </select>
-            <ChevronDown size={11} class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--macos-text-tertiary)] pointer-events-none opacity-50" />
+            <ChevronDown size={11} class="absolute right-2 top-1/2 -translate-y-1/2 text-native-tertiary pointer-events-none opacity-50" />
           </div>
         </div>
       </Show>
 
       <Show when={props.entity.kind === "Vector"}>
-        <div class="px-4 py-2 bg-[var(--macos-content-bg)] border-b border-[var(--macos-border-light)] flex items-center gap-2">
-          <span class="text-[10px] uppercase font-bold text-[var(--macos-text-tertiary)] tracking-tight">Dimensions</span>
+        <div class="px-4 py-2 bg-native-content border-b border-native-subtle flex items-center gap-2">
+          <span class="text-[10px] uppercase font-bold text-native-tertiary tracking-tight">Dimensions</span>
           <input
             type="number"
             value={props.entity.vectorDim || ""}
-            class="w-16 bg-[var(--macos-content-bg)] border border-[var(--macos-border-medium)] rounded px-1.5 py-0.5 text-[11px] font-mono outline-none focus:border-[var(--macos-blue)]/50 transition-colors"
+            class="w-16 bg-native-content border border-native rounded px-1.5 py-0.5 text-[11px] font-mono outline-none focus:border-accent/50 transition-colors dark:[color-scheme:dark]"
             placeholder="Auto"
             onInput={(e) =>
               props.onUpdate(props.entity.id, () => ({
@@ -183,7 +177,7 @@ export const ProEntityCard = (props: ProCardProps) => {
       </Show>
 
       {/* Properties List */}
-      <div class="bg-[var(--macos-content-bg)]">
+      <div class="bg-native-content">
         <Index each={props.entity.properties}>
           {(prop, index) => (
             <PropertyRow
@@ -202,7 +196,7 @@ export const ProEntityCard = (props: ProCardProps) => {
         {/* Simplified Add Property Trigger */}
         <button
           onClick={addField}
-          class="w-full px-4 py-2 flex items-center gap-2 text-[11px] text-[var(--macos-text-tertiary)] hover:text-[var(--macos-blue)] hover:bg-[var(--macos-blue)]/5 transition-all group/add border-t border-transparent hover:border-[var(--macos-blue)]/10"
+          class="w-full px-4 py-2 flex items-center gap-2 text-[11px] text-native-tertiary hover:text-accent hover:bg-accent/5 transition-all group/add border-t border-transparent hover:border-accent/10"
         >
           <Plus size={13} class="opacity-60 group-hover/add:opacity-100" />
           <span class="font-medium">Add attribute</span>
@@ -211,10 +205,10 @@ export const ProEntityCard = (props: ProCardProps) => {
 
       {/* Diagnostics / Error Footer */}
       <Show when={props.diagnostics.length > 0}>
-        <div class="px-4 py-2 bg-[var(--macos-red)]/[0.03] border-t border-[var(--macos-border-light)] space-y-1">
+        <div class="px-4 py-2 bg-error/[0.03] border-t border-native-subtle space-y-1">
           <For each={props.diagnostics}>
             {(d) => (
-              <div class={`text-[10px] font-medium flex items-center gap-2 ${d.level === "error" ? "text-[var(--macos-red)]" : "text-[var(--macos-orange)]"}`}>
+              <div class={`text-[10px] font-medium flex items-center gap-2 ${d.level === "error" ? "text-error" : "text-warning"}`}>
                 <div class="w-1 h-1 rounded-full bg-current" />
                 {d.message}
               </div>

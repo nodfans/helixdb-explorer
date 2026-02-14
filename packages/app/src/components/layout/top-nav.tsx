@@ -57,7 +57,7 @@ const ConnectionButton = (props: { isConnected: boolean; onClick: () => void }) 
           <Plug size={22} class={`transition-all duration-300 ${props.isConnected ? "text-emerald-500 scale-105" : "text-native-tertiary"} group-hover:scale-110`} />
           <div
             class={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border-2 transition-colors duration-500 ${props.isConnected ? "bg-emerald-500" : "bg-status-error"}`}
-            style={{ "border-color": "var(--macos-toolbar-bg)" }}
+            style={{ "border-color": "var(--bg-toolbar)" }}
           />
         </div>
         <span
@@ -90,17 +90,14 @@ const NavButton = (props: { label: string; icon: any; color: string; isActive: b
   );
 };
 
-const Divider = () => <div class="w-px h-8 mx-1 shrink-0" style={{ "background-color": "var(--macos-border-light)" }} />;
+const Divider = () => <div class="w-px h-8 mx-1 shrink-0 bg-native-subtle" />;
 
 export const TopNav = (props: TopNavProps) => {
   return (
     <div
-      class="h-[84px] flex flex-col select-none border-b shrink-0"
+      class="h-[84px] flex flex-col select-none border-b border-native shrink-0 backdrop-blur-[30px] saturate-[180%]"
       style={{
-        "background-color": "var(--macos-toolbar-bg)",
-        "border-color": "var(--macos-border-medium)",
-        "backdrop-filter": "blur(30px) saturate(180%)",
-        "-webkit-backdrop-filter": "blur(30px) saturate(180%)",
+        "background-color": "var(--bg-toolbar)",
       }}
     >
       {/* Title Bar Area (Draggable) */}

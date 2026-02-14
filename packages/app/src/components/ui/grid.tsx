@@ -235,7 +235,7 @@ export function Grid(props: GridProps) {
             class="flex sticky top-0 z-20"
             style={{
               background: "var(--grid-header-bg)",
-              "border-bottom": "0.5px solid var(--grid-header-border)",
+              "border-bottom": "1px solid var(--grid-header-border)",
             }}
           >
             {/* Row number header with resize handle */}
@@ -270,9 +270,10 @@ export function Grid(props: GridProps) {
                     "min-height": "32px",
                     "border-right": "0.5px solid var(--grid-border)",
                     color: sortConfig()?.key === column.key ? "var(--accent)" : "var(--grid-header-text)",
-                    "font-size": "11px",
-                    "font-weight": "700",
-                    "letter-spacing": "0.03em",
+                    "font-size": "10px",
+                    "font-weight": "800",
+                    "letter-spacing": "0.05em",
+                    "text-transform": "uppercase",
                   }}
                   onClick={() => handleHeaderClick(column.key)}
                 >
@@ -327,7 +328,7 @@ export function Grid(props: GridProps) {
                     class="flex transition-colors duration-100"
                     style={{
                       height: `${ROW_HEIGHT}px`,
-                      "border-bottom": "0.5px solid var(--grid-border)",
+                      "border-bottom": "1px solid var(--grid-border)",
                       "background-color": props.selectedRowIndices?.includes(rowIndex()) ? "var(--grid-row-selected)" : "var(--grid-row-bg)",
                       cursor: "pointer",
                     }}
@@ -363,7 +364,7 @@ export function Grid(props: GridProps) {
                       style={{
                         width: `${rowNumberWidth()}px`,
                         height: `${ROW_HEIGHT}px`,
-                        "border-right": "0.5px solid var(--grid-border)",
+                        "border-right": "1px solid var(--grid-border)",
                         color: "var(--grid-cell-secondary)",
                         "font-size": "11px",
                         "font-variant-numeric": "tabular-nums",
@@ -387,7 +388,7 @@ export function Grid(props: GridProps) {
                             style={{
                               width: `${columnWidths()[column.key] || 150}px`,
                               height: `${ROW_HEIGHT}px`,
-                              "border-right": "0.5px solid var(--grid-border)",
+                              "border-right": "1px solid var(--grid-border)",
                               "background-color": isSelected() ? "var(--grid-row-selected)" : "transparent",
                               outline: isSelected() ? "2px solid var(--grid-focus-ring)" : "none",
                               "outline-offset": "-1px",

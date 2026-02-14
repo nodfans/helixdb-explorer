@@ -665,9 +665,8 @@ export const Graph = (props: GraphProps) => {
             {/* Search */}
             <Input variant="search" placeholder="Search nodes..." value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-64 h-7" />
 
-            <div class="w-px h-5" style={{ "background-color": "var(--macos-border-light)" }} />
+            <div class="w-px h-5 bg-native-subtle" />
 
-            {/* Top N & Limit Group */}
             {/* Top N & Limit Group */}
             <div class="flex items-center">
               <Button variant="toolbar" active={rankingMode()} onClick={() => setRankingMode(!rankingMode())} class="flex items-center gap-1.5 rounded-r-none border-r-0 h-7 transition-all">
@@ -675,8 +674,8 @@ export const Graph = (props: GraphProps) => {
               </Button>
 
               <div
-                class={`flex items-center h-7 border border-[var(--macos-border-light)] rounded-r-md transition-all px-1.5 ${
-                  rankingMode() ? "bg-[var(--accent)]/5 border-l-[var(--macos-border-light)]" : "opacity-30 grayscale pointer-events-none bg-transparent"
+                class={`flex items-center h-7 border border-native-subtle rounded-r-md transition-all px-1.5 ${
+                  rankingMode() ? "bg-accent/5 border-l-native-subtle" : "opacity-30 grayscale pointer-events-none bg-transparent"
                 }`}
               >
                 <input
@@ -684,18 +683,18 @@ export const Graph = (props: GraphProps) => {
                   min="1"
                   max="50"
                   step="1"
+                  class="w-8 bg-transparent border-none outline-none text-[11px] font-mono font-bold text-native-primary text-center focus:ring-0 dark:[color-scheme:dark] tabular-nums"
                   value={nodeLimit()}
                   onInput={(e) => {
                     let val = parseInt(e.currentTarget.value) || 1;
                     val = Math.max(1, Math.min(50, val));
                     setNodeLimit(val);
                   }}
-                  class="w-7 bg-transparent text-[11px] font-bold text-native-primary text-center focus:outline-none tabular-nums"
                 />
               </div>
             </div>
 
-            <div class="w-px h-5" style={{ "background-color": "var(--macos-border-light)" }} />
+            <div class="w-px h-5 bg-native-subtle" />
 
             <Button variant="toolbar" active={showLegend()} onClick={() => setShowLegend(!showLegend())} class="flex items-center gap-1.5 h-7 transition-all">
               <Layers size={13} class={showLegend() ? "text-accent" : "text-native-tertiary"} />
@@ -743,11 +742,11 @@ export const Graph = (props: GraphProps) => {
               <span class="font-medium">Refresh</span>
             </Button>
 
-            <div class="w-px h-5" style={{ "background-color": "var(--macos-border-light)" }} />
+            <div class="w-px h-5 bg-native-subtle" />
 
             <button
               onClick={() => setShowDetailPanel(!showDetailPanel())}
-              class="w-7 h-7 flex items-center justify-center rounded-md border border-[var(--macos-border-light)] hover:bg-native-content/50 transition-colors"
+              class="w-7 h-7 flex items-center justify-center rounded-md border border-native-subtle hover:bg-native-content/50 transition-colors"
               title={showDetailPanel() ? "Hide Details" : "Show Details"}
             >
               <ChevronRight size={14} class={`text-native-tertiary transition-transform ${showDetailPanel() ? "rotate-180" : ""}`} />
@@ -791,11 +790,7 @@ export const Graph = (props: GraphProps) => {
                       </div>
                     </div>
 
-                    <div
-                      class={`w-4 h-4 rounded border transition-all flex items-center justify-center ${
-                        hiddenTypes().has(item.type) ? "border-native bg-transparent" : "border-accent bg-accent shadow-[0_0_8px_rgba(var(--macos-accent-rgb),0.3)]"
-                      }`}
-                    >
+                    <div class={`w-4 h-4 rounded border transition-all flex items-center justify-center ${hiddenTypes().has(item.type) ? "border-native bg-transparent" : "border-accent bg-accent"}`}>
                       <Show when={!hiddenTypes().has(item.type)}>
                         <Check size={11} class="text-white" />
                       </Show>
@@ -806,58 +801,49 @@ export const Graph = (props: GraphProps) => {
             </div>
 
             <div class="flex-none p-2 border-t border-native bg-native-content/5">
-              <div class="text-[9px] text-center text-native-quaternary font-medium uppercase tracking-wider">Toggle types to filter view</div>
+              <div class="text-[9px] text-center text-native-quaternary font-medium tracking-wider">Toggle types to filter view</div>
             </div>
           </div>
         </Show>
 
-        {/* Detail Panel */}
         <Show when={showDetailPanel()}>
-          <div class="w-[280px] flex-none border-l border-native overflow-hidden flex flex-col bg-native-sidebar-vibrant">
+          <div class="w-72 flex-none bg-native-sidebar-vibrant backdrop-blur-xl border-l border-native animate-in slide-in-from-right duration-300 flex flex-col shadow-macos-lg">
+            <div class="flex-none p-3 border-b border-native flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-[11px] font-bold text-native-primary tracking-tight">Properties</span>
+              </div>
+            </div>
+
             <Show
               when={selectedNode()}
               fallback={
-                <div class="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                  <div class="w-10 h-10 rounded-full bg-native-content/30 flex items-center justify-center mb-3">
-                    <Network size={28} class="text-native-quaternary" />
+                <div class="flex-1 flex flex-col items-center justify-center p-8 text-center select-none">
+                  <div class="w-12 h-12 rounded-full bg-native-content/10 flex items-center justify-center mb-4">
+                    <Network size={28} class="text-native-tertiary" />
                   </div>
-                  <p class="text-[11px] text-native-tertiary">Select a node to view details</p>
+                  <div class="space-y-1">
+                    <p class="text-[11px] text-native-primary font-bold tracking-tight">No Selection</p>
+                    <p class="text-[10px] text-native-tertiary font-medium max-w-[140px] leading-relaxed mx-auto">Click on a node in the graph to inspect its properties.</p>
+                  </div>
                 </div>
               }
             >
               {(node) => (
-                <div class="flex-1 overflow-y-auto scrollbar-thin">
-                  <div class="p-3">
-                    <div class="text-[9px] font-medium text-native-quaternary uppercase tracking-wide mb-2">Properties</div>
-
-                    <div class="space-y-1">
-                      <For each={Object.entries(node()).filter(([k]) => !["x", "y", "vx", "vy", "index", "__indexColor", "fx", "fy", "val", "color"].includes(k))}>
-                        {([key, value]) => (
-                          <div class="group rounded-md bg-native-content/5 hover:bg-native-content/10 transition-all p-2 border border-transparent hover:border-native-subtle">
-                            <div class="text-[10px] font-normal text-native-tertiary uppercase tracking-wider mb-1 opacity-70 group-hover:opacity-100 transition-opacity">{key}</div>
-                            <div class="text-[11px] font-sans text-native-primary break-all select-text leading-relaxed">
-                              {value === null || value === undefined ? (
-                                <span class="text-native-quaternary italic">null</span>
-                              ) : typeof value === "object" ? (
-                                <pre class="text-[10px] font-mono text-native-tertiary bg-native-content/5 p-1.5 rounded border border-native-subtle mt-1 overflow-x-auto">
-                                  {JSON.stringify(value, null, 2)}
-                                </pre>
-                              ) : (
-                                <span class={typeof value === "number" ? "tabular-nums" : ""}>{String(value)}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </For>
-                    </div>
-                  </div>
+                <div class="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
+                  <For each={Object.entries(node()).filter(([key]) => !["x", "y", "vx", "vy", "fx", "fy", "index", "__indexColor", "val"].includes(key))}>
+                    {([key, value]) => (
+                      <div class="flex flex-col gap-1 border-b border-native-subtle/20 pb-2 last:border-0">
+                        <span class="text-[11px] font-bold text-native-tertiary tracking-wider mb-1">{key}</span>
+                        <div class="text-[10px] text-native-primary font-medium break-all leading-normal">{typeof value === "object" && value !== null ? JSON.stringify(value) : String(value)}</div>
+                      </div>
+                    )}
+                  </For>
                 </div>
               )}
             </Show>
           </div>
         </Show>
 
-        {/* Loading Overlay - Smoother Transition */}
         <div
           class="absolute inset-0 flex items-center justify-center pointer-events-none z-50 transition-all duration-300 ease-in-out"
           style={{
@@ -897,7 +883,7 @@ export const Graph = (props: GraphProps) => {
         <div class="flex items-center gap-3 text-[11px] text-native-tertiary font-medium">
           <Show when={props.isConnected}>
             <span class="tabular-nums">{stats().nodeCount} nodes</span>
-            <div class="w-px h-3" style={{ "background-color": "var(--macos-border-light)" }} />
+            <div class="w-px h-3 bg-native-subtle" />
             <span class="tabular-nums">{stats().edgeCount} edges</span>
           </Show>
         </div>
@@ -909,7 +895,7 @@ export const Graph = (props: GraphProps) => {
               <span class="text-[11px] font-semibold text-blue-500">{(selectedNode() as any).id}</span>
             </div>
 
-            <div class="w-px h-5" style={{ "background-color": "var(--macos-border-light)" }} />
+            <div class="w-px h-5 bg-native-subtle" />
 
             <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
               <Network size={11} class="text-emerald-500" />

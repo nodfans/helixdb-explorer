@@ -333,7 +333,7 @@ export const Queries = (props: QueriesProps) => {
               <For each={filteredEndpoints()}>
                 {(endpoint) => (
                   <button
-                    class="w-full text-left px-3 py-2 hover:bg-native-Sidebar/50 transition-all duration-150 group relative border-l-2 border-transparent hover:border-accent/20"
+                    class="w-full text-left px-3 py-2 hover:bg-native-sidebar/50 transition-all duration-150 group relative border-l-2 border-transparent hover:border-accent/20"
                     classList={{
                       "bg-native-active border-accent": selectedEndpoint()?.name === endpoint.name,
                       "text-native-primary": selectedEndpoint()?.name === endpoint.name,
@@ -406,7 +406,7 @@ export const Queries = (props: QueriesProps) => {
                   </div>
                 </Show>
 
-                <div class="w-px h-3.5 opacity-30 shrink-0" style={{ "background-color": "var(--macos-border-strong)" }} />
+                <div class="w-px h-3.5 bg-native opacity-30 shrink-0" />
 
                 <button
                   disabled={props.isExecuting || !canExecute()}
@@ -434,7 +434,7 @@ export const Queries = (props: QueriesProps) => {
               <div class="flex items-center gap-3">
                 <Show when={rawResult()}>
                   <span class="text-[10px] text-native-tertiary tabular-nums font-medium">{Object.values(multiTableData()).reduce((acc, rows) => acc + rows.length, 0)} results</span>
-                  <div class="w-px h-3.5 opacity-30" style={{ "background-color": "var(--macos-border-light)" }} />
+                  <div class="w-px h-3.5 bg-native-subtle opacity-30" />
                 </Show>
 
                 <div class="relative group/search">

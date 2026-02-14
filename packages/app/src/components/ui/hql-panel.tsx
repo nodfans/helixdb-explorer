@@ -212,7 +212,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
                         </div>
                       </Match>
                       <Match when={true}>
-                        <div class="flex-1 flex flex-col items-center justify-center text-native-quaternary opacity-50">
+                        <div class="flex-1 flex flex-col items-center justify-center text-native-quaternary opacity-50 select-none">
                           <Database size={24} class="mb-2" />
                           <span class="text-[11px]">No query results to display</span>
                         </div>

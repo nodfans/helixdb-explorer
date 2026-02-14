@@ -8,39 +8,12 @@ interface BadgeProps extends ParentProps {
 }
 
 export const Badge = (props: BadgeProps) => {
-  const getVariantStyles = () => {
-    switch (props.variant) {
-      case "success":
-        return {
-          backgroundColor: "rgba(52, 199, 89, 0.15)",
-          color: "var(--macos-green)",
-          borderColor: "rgba(52, 199, 89, 0.3)",
-        };
-      case "warning":
-        return {
-          backgroundColor: "rgba(255, 149, 0, 0.15)",
-          color: "var(--macos-orange)",
-          borderColor: "rgba(255, 149, 0, 0.3)",
-        };
-      case "error":
-        return {
-          backgroundColor: "rgba(255, 59, 48, 0.15)",
-          color: "var(--macos-red)",
-          borderColor: "rgba(255, 59, 48, 0.3)",
-        };
-      case "info":
-        return {
-          backgroundColor: "rgba(0, 122, 255, 0.15)",
-          color: "var(--macos-blue)",
-          borderColor: "rgba(0, 122, 255, 0.3)",
-        };
-      default:
-        return {
-          backgroundColor: "var(--macos-hover-bg)",
-          color: "var(--macos-text-secondary)",
-          borderColor: "var(--macos-border-medium)",
-        };
-    }
+  const variantClasses = {
+    success: "bg-success/15 text-success border-success/30",
+    warning: "bg-warning/15 text-warning border-warning/30",
+    error: "bg-error/15 text-error border-error/30",
+    info: "bg-accent/15 text-accent border-accent/30",
+    neutral: "bg-hover text-native-secondary border-native",
   };
 
   const sizes = {
@@ -49,8 +22,23 @@ export const Badge = (props: BadgeProps) => {
   };
 
   return (
-    <span class={`inline-flex items-center gap-1.5 rounded-full border font-semibold tracking-wide ${sizes[props.size || "sm"]} ${props.class || ""}`} style={getVariantStyles()}>
-      {props.dot && <span class={`w-1.5 h-1.5 rounded-full ${props.variant === "neutral" ? "bg-macos-text-tertiary" : "bg-current"}`} />}
+    <span
+      classList={{
+        "inline-flex items-center gap-1.5 rounded-full border font-semibold tracking-wide": true,
+        [sizes[props.size || "sm"]]: true,
+        [variantClasses[props.variant || "neutral"]]: true,
+        [props.class || ""]: !!props.class,
+      }}
+    >
+      {props.dot && (
+        <span
+          class="w-1.5 h-1.5 rounded-full"
+          classList={{
+            "bg-native-tertiary": props.variant === "neutral",
+            "bg-current": props.variant !== "neutral",
+          }}
+        />
+      )}
       {props.children}
     </span>
   );

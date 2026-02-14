@@ -43,24 +43,24 @@ export const PropertyRow = (props: PropertyRowProps) => {
   const getHqlTypeIcon = (type: HqlType) => {
     switch (type) {
       case "String":
-        return <Type size={12} class="text-[var(--macos-blue)]" />;
+        return <Type size={12} class="text-accent" />;
       case "ID":
         return <Fingerprint size={12} class="text-purple-500" />;
       case "Date":
-        return <Calendar size={12} class="text-[var(--macos-red)]" />;
+        return <Calendar size={12} class="text-error" />;
       case "Boolean":
-        return <Hash size={12} class="text-[var(--macos-orange)]" />;
+        return <Hash size={12} class="text-warning" />;
       default:
-        return <Hash size={12} class="text-[var(--macos-green)]" />;
+        return <Hash size={12} class="text-success" />;
     }
   };
 
   return (
     <div
       ref={rootRef}
-      class="flex flex-col border-b border-[var(--macos-border-light)] last:border-b-0 transition-all duration-200"
+      class="flex flex-col border-b border-native-subtle last:border-b-0 transition-all duration-200"
       classList={{
-        "bg-[var(--macos-hover-bg)]/30": isExpanded(),
+        "bg-hover/30": isExpanded(),
       }}
     >
       {/* Primary Row */}
@@ -76,13 +76,13 @@ export const PropertyRow = (props: PropertyRowProps) => {
           autocorrect="off"
           autocapitalize="off"
           autocomplete="off"
-          class="bg-transparent border-none focus:ring-0 text-[12px] p-0 flex-1 min-w-[60px] placeholder-[var(--macos-text-tertiary)] outline-none"
+          class="bg-transparent border-none focus:ring-0 text-[12px] p-0 flex-1 min-w-[60px] placeholder:text-native-tertiary outline-none"
           placeholder="attribute_name"
           onInput={(e) => props.onUpdate({ name: e.currentTarget.value })}
           onKeyDown={props.onKeyDown}
           classList={{
-            "text-[var(--macos-red)]": props.diagnostics.length > 0,
-            "text-[var(--macos-text-primary)]": true,
+            "text-error": props.diagnostics.length > 0,
+            "text-native-primary": true,
           }}
         />
 
@@ -91,7 +91,7 @@ export const PropertyRow = (props: PropertyRowProps) => {
           {/* Type Selector - Compact dropdown */}
           <div class="relative group/type">
             <select
-              class="bg-transparent border-none text-[10px] font-mono text-[var(--macos-text-tertiary)] hover:text-[var(--macos-text-primary)] appearance-none outline-none cursor-pointer transition-colors pr-3.5 text-right w-[60px]"
+              class="bg-transparent border-none text-[10px] font-mono text-native-tertiary hover:text-native-primary appearance-none outline-none cursor-pointer transition-colors pr-3.5 text-right w-[60px]"
               value={props.property.type}
               onChange={(e) => props.onUpdate({ type: e.currentTarget.value as HqlType })}
             >
@@ -123,16 +123,12 @@ export const PropertyRow = (props: PropertyRowProps) => {
           <div class="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
             <button
               onClick={() => setIsExpanded(!isExpanded())}
-              class={`p-1 rounded hover:bg-[var(--macos-hover-bg)] transition-colors ${isExpanded() ? "text-[var(--macos-blue)] bg-[var(--macos-blue)]/10" : "text-[var(--macos-text-tertiary)]"}`}
+              class={`p-1 rounded hover:bg-hover transition-colors ${isExpanded() ? "text-accent bg-accent/10" : "text-native-tertiary"}`}
               title="Configure field"
             >
               <Settings2 size={13} />
             </button>
-            <button
-              onClick={props.onDelete}
-              class="p-1 rounded hover:bg-[var(--macos-red)]/10 text-[var(--macos-text-tertiary)] hover:text-[var(--macos-red)] transition-colors"
-              title="Remove field"
-            >
+            <button onClick={props.onDelete} class="p-1 rounded hover:bg-error/10 text-native-tertiary hover:text-error transition-colors" title="Remove field">
               <Trash2 size={13} />
             </button>
           </div>
@@ -141,14 +137,14 @@ export const PropertyRow = (props: PropertyRowProps) => {
 
       {/* Secondary/Settings Panel */}
       <Show when={isExpanded()}>
-        <div class="px-3 pb-3 pt-1 space-y-3 bg-[var(--macos-sidebar-bg)]/50 border-t border-[var(--macos-border-light)] animate-in fade-in slide-in-from-top-1 duration-200">
+        <div class="px-3 pb-3 pt-1 space-y-3 bg-native-sidebar/50 border-t border-native-subtle animate-in fade-in slide-in-from-top-1 duration-200">
           <div class="grid grid-cols-2 gap-3">
             {/* Default Value */}
             <div class="space-y-1">
-              <label class="text-[9px] uppercase font-bold tracking-wider text-[var(--macos-text-tertiary)] ml-0.5">Default Value</label>
+              <label class="text-[9px] uppercase font-bold tracking-wider text-native-tertiary ml-0.5">Default Value</label>
               <input
                 value={props.property.defaultValue || ""}
-                class="w-full h-7 bg-[var(--macos-content-bg)] border border-[var(--macos-border-medium)] rounded px-2 text-[11px] font-mono outline-none focus:border-[var(--macos-blue)]/50 transition-colors"
+                class="w-full h-7 bg-native-content border border-native rounded px-2 text-[11px] font-mono outline-none focus:border-accent/50 transition-colors"
                 placeholder="None..."
                 onInput={(e) =>
                   props.onUpdate({
@@ -159,10 +155,10 @@ export const PropertyRow = (props: PropertyRowProps) => {
             </div>
             {/* Description */}
             <div class="space-y-1">
-              <label class="text-[9px] uppercase font-bold tracking-wider text-[var(--macos-text-tertiary)] ml-0.5">Description</label>
+              <label class="text-[9px] uppercase font-bold tracking-wider text-native-tertiary ml-0.5">Description</label>
               <input
                 value={props.property.description || ""}
-                class="w-full h-7 bg-[var(--macos-content-bg)] border border-[var(--macos-border-medium)] rounded px-2 text-[11px] outline-none focus:border-[var(--macos-blue)]/50 transition-colors"
+                class="w-full h-7 bg-native-content border border-native rounded px-2 text-[11px] outline-none focus:border-accent/50 transition-colors"
                 placeholder="Optional description..."
                 onInput={(e) =>
                   props.onUpdate({
@@ -207,12 +203,10 @@ const Toggle = (props: { label: string; active: boolean; onChange: (v: boolean) 
   <button
     onClick={() => props.onChange(!props.active)}
     class={`flex items-center gap-1.5 px-2 py-1 rounded border transition-all duration-200 ${
-      props.active
-        ? "bg-[var(--macos-blue)]/10 border-[var(--macos-blue)]/30 text-[var(--macos-blue)]"
-        : "bg-transparent border-[var(--macos-border-medium)] text-[var(--macos-text-tertiary)] hover:border-[var(--macos-border-strong)]"
+      props.active ? "bg-accent/10 border-accent/30 text-accent" : "bg-transparent border-native text-native-tertiary hover:border-native"
     }`}
   >
-    <div class={`w-2 h-2 rounded-full ${props.active ? "bg-current shadow-[0_0_4px_currentColor]" : "bg-[var(--macos-border-strong)]"}`} />
+    <div class={`w-2 h-2 rounded-full ${props.active ? "bg-current shadow-[0_0_4px_currentColor]" : "bg-native"}`} />
     <span class="text-[10px] font-semibold tracking-tight">{props.label}</span>
   </button>
 );

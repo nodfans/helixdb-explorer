@@ -39,15 +39,15 @@ export function Button(props: ButtonProps) {
         // Destructive - MacOS Style Red
         "bg-[#FF3B30] hover:bg-[#E6352B] active:bg-[#CC2F26] dark:bg-[#FF453A] dark:hover:bg-[#E63E34] dark:active:bg-[#CC372E] text-white border-none shadow-sm": variant() === "destructive",
         // Toolbar
-        "border border-[var(--macos-border-light)] hover:bg-[var(--macos-hover-bg)]": variant() === "toolbar",
-        "bg-[var(--accent)]/15 text-[var(--accent)] border-[var(--accent)]/30": variant() === "toolbar" && local.active,
-        "bg-transparent text-[var(--macos-text-primary)]": variant() === "toolbar" && !local.active,
+        "border border-native-subtle hover:bg-hover": variant() === "toolbar",
+        "bg-accent/15 text-accent border-accent/30": variant() === "toolbar" && local.active,
+        "bg-transparent text-native-primary": variant() === "toolbar" && !local.active,
         // Ghost
-        "border-none hover:bg-[var(--macos-hover-bg)]": variant() === "ghost",
-        "bg-[var(--accent)]/15 text-[var(--accent)]": variant() === "ghost" && local.active,
-        "bg-transparent text-[var(--macos-text-secondary)]": variant() === "ghost" && !local.active,
+        "border-none hover:bg-hover": variant() === "ghost",
+        "bg-accent/15 text-accent": variant() === "ghost" && local.active,
+        "bg-transparent text-native-secondary": variant() === "ghost" && !local.active,
         // Default
-        "bg-transparent text-[var(--macos-text-primary)] border border-[var(--macos-border-medium)] hover:bg-[var(--macos-hover-bg)]": variant() === "default",
+        "bg-transparent text-native-primary border border-native hover:bg-hover": variant() === "default",
         [local.class || ""]: !!local.class,
       }}
       style={typeof local.style === "object" ? local.style : {}}

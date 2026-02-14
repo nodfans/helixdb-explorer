@@ -265,7 +265,7 @@ export const Schema = (props: SchemaProps) => {
           <div class="flex items-center gap-3">
             <Input variant="search" placeholder={`Search ${activeTab()}...`} value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-64 h-7" />
 
-            <div class="w-px h-5" style={{ "background-color": "var(--macos-border-light)" }} />
+            <div class="w-px h-5 bg-native-subtle" />
             <Button variant="toolbar" onClick={() => refetch()} disabled={loading()} class="flex items-center gap-1.5 transition-all">
               <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : ""} text-accent`} />
               <span>Refresh</span>
