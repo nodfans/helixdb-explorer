@@ -1,19 +1,28 @@
 import { onMount, onCleanup, createEffect } from "solid-js";
-import { EditorView, keymap, highlightSpecialChars, drawSelection, dropCursor, lineNumbers, highlightActiveLineGutter, placeholder } from "@codemirror/view";
+import { EditorView, keymap, highlightSpecialChars, drawSelection, dropCursor, lineNumbers, highlightActiveLineGutter, placeholder, hoverTooltip } from "@codemirror/view";
 import { EditorState, Compartment } from "@codemirror/state";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from "@codemirror/commands";
 import { indentOnInput, syntaxHighlighting, bracketMatching, foldGutter, foldKeymap, StreamLanguage, indentUnit } from "@codemirror/language";
 import { autocompletion, completionKeymap, acceptCompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { setDiagnostics, Diagnostic } from "@codemirror/lint";
+import { searchKeymap, search } from "@codemirror/search";
+import { setDiagnostics, Diagnostic, linter, lintGutter } from "@codemirror/lint";
+import { invoke } from "@tauri-apps/api/core";
 import { tags as t } from "@lezer/highlight";
 import { HighlightStyle } from "@codemirror/language";
-import { HQL_COMPLETION_OPTIONS, HQL_TRAVERSALS, HQL_TYPES, ALL_HQL_KEYWORDS } from "../../lib/hql-syntax";
+import { HQL_TRAVERSALS, HQL_TYPES, ALL_HQL_KEYWORDS } from "../../lib/hql-syntax";
 import { useTheme } from "../theme";
+
+interface CompletionItem {
+  label: string;
+  kind: string;
+  detail: string | null;
+}
 
 interface HQLEditorProps {
   code: string;
   onCodeChange?: (code: string) => void;
   onExecute?: (selectedCode?: string) => void;
+  onFormat?: () => void;
   onSelectionChange?: (selectedText: string) => void;
   onGutterWidthChange?: (width: number) => void;
   schema?: {
@@ -26,11 +35,7 @@ interface HQLEditorProps {
   placeholder?: string;
 }
 
-interface HQLState {
-  indent: number;
-  inBlock: boolean;
-  bracketLevel: number;
-}
+interface HQLState {}
 
 const helixTheme = EditorView.theme(
   {
@@ -43,7 +48,7 @@ const helixTheme = EditorView.theme(
     ".cm-content": {
       fontFamily: "var(--font-mono)",
       padding: "10px 0",
-      color: "var(--text-primary)", // Follow app text color
+      color: "var(--text-primary)",
       whiteSpace: "pre !important",
       tabSize: 4,
     },
@@ -59,7 +64,7 @@ const helixTheme = EditorView.theme(
       marginRight: "4px",
     },
     ".cm-activeLine": {
-      backgroundColor: "var(--bg-hover)", // Use app hover color for active line
+      backgroundColor: "var(--bg-hover)",
     },
     ".cm-activeLineGutter": {
       backgroundColor: "transparent",
@@ -72,10 +77,19 @@ const helixTheme = EditorView.theme(
     "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
       backgroundColor: "var(--bg-selected) !important",
     },
+    ".cm-panels-top": {
+      borderBottom: "none",
+    },
     ".cm-panels": {
-      backgroundColor: "var(--bg-sidebar)",
+      backgroundColor: "transparent",
       color: "var(--text-primary)",
       fontWeight: "bold",
+      position: "absolute !important",
+      top: "8px !important",
+      right: "20px !important",
+      left: "auto !important",
+      width: "auto !important",
+      zIndex: 100,
     },
     ".cm-tooltip": {
       border: "1px solid var(--border-native)",
@@ -85,8 +99,102 @@ const helixTheme = EditorView.theme(
       backgroundColor: "var(--bg-active)",
       color: "var(--text-primary)",
     },
-    ".cm-tooltip-lint": {
+
+    ".cm-search [name=replace], .cm-search [name=replaceAll], .cm-search button[name=replace], .cm-search button[name=replaceAll], .cm-search label:has([name=replace]), .cm-search label:has([name=replaceAll]), .cm-search label:has([name=case]), .cm-search label:has([name=re]), .cm-search label:has([name=word])":
+      {
+        display: "none !important",
+      },
+    ".cm-search br": {
       display: "none",
+    },
+    ".cm-search": {
+      padding: "4px 8px !important",
+      display: "flex !important",
+      alignItems: "center !important",
+      gap: "2px",
+      backgroundColor: "var(--bg-elevated) !important",
+      backdropFilter: "blur(8px)",
+      border: "1px solid var(--border-native)",
+      borderRadius: "6px",
+      boxShadow: "0 6px 20px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.05)",
+      fontSize: "11px",
+      whiteSpace: "nowrap",
+    },
+    ".cm-search .cm-textfield": {
+      backgroundColor: "var(--bg-input) !important",
+      border: "1px solid var(--border-subtle) !important",
+      borderRadius: "3px !important",
+      padding: "2px 6px !important",
+      color: "var(--text-primary) !important",
+      outline: "none !important",
+      fontSize: "11px",
+      width: "140px",
+      marginRight: "2px",
+    },
+    ".cm-search .cm-textfield:focus": {
+      borderColor: "var(--accent) !important",
+    },
+    ".cm-search .cm-button, .cm-search button": {
+      backgroundColor: "transparent !important",
+      backgroundImage: "none !important",
+      border: "none !important",
+      borderRadius: "4px !important",
+      color: "var(--text-secondary) !important",
+      padding: "0 !important",
+      cursor: "pointer",
+      display: "flex !important",
+      alignItems: "center !important",
+      justifyContent: "center !important",
+      width: "20px !important",
+      minWidth: "20px !important",
+      height: "20px !important",
+      transition: "background-color 0.1s ease",
+      flexShrink: 0,
+      fontSize: "0 !important",
+      textIndent: "-9999px",
+      overflow: "hidden",
+    },
+    ".cm-search .cm-button:hover, .cm-search button:hover": {
+      backgroundColor: "var(--bg-hover) !important",
+      color: "var(--text-primary) !important",
+    },
+    ".cm-search [name=prev]": {
+      backgroundImage:
+        "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23666666' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m18 15-6-6-6 6'/%3E%3C/svg%3E\") !important",
+      backgroundRepeat: "no-repeat",
+      backgroundPosition: "center",
+    },
+    ".cm-search [name=next]": {
+      backgroundImage:
+        "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23666666' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\") !important",
+      backgroundRepeat: "no-repeat",
+      backgroundPosition: "center",
+      marginRight: "2px",
+    },
+    ".cm-search [name=select]": {
+      display: "none !important",
+    },
+    ".cm-search [name=close]": {
+      position: "relative !important",
+      top: "auto !important",
+      right: "auto !important",
+      backgroundImage:
+        "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23666666' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 6 18'/%3E%3Cpath d='m6 6 12 12'/%3E%3C/svg%3E\") !important",
+      backgroundRepeat: "no-repeat",
+      backgroundPosition: "center",
+      opacity: 0.7,
+    },
+    ".cm-search [name=close]:hover": {
+      opacity: 1,
+      backgroundColor: "var(--bg-hover) !important",
+    },
+    ".cm-searchMatch": {
+      backgroundColor: "rgba(0, 122, 255, 0.12) !important",
+      borderRadius: "2px",
+    },
+    ".cm-searchMatch.cm-searchMatch-selected": {
+      backgroundColor: "rgba(0, 122, 255, 0.35) !important",
+      borderRadius: "2px",
     },
   },
   { dark: false }
@@ -132,10 +240,19 @@ const helixThemeDark = EditorView.theme(
     "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
       backgroundColor: "var(--bg-selected) !important",
     },
+    ".cm-panels-top": {
+      borderBottom: "none",
+    },
     ".cm-panels": {
-      backgroundColor: "var(--bg-sidebar)",
+      backgroundColor: "transparent",
       color: "var(--text-primary)",
       fontWeight: "bold",
+      position: "absolute !important",
+      top: "8px !important",
+      right: "20px !important",
+      left: "auto !important",
+      width: "auto !important",
+      zIndex: 100,
     },
     ".cm-tooltip": {
       border: "1px solid var(--border-native)",
@@ -145,8 +262,104 @@ const helixThemeDark = EditorView.theme(
       backgroundColor: "var(--bg-active)",
       color: "var(--text-primary)",
     },
-    ".cm-tooltip-lint": {
+
+    ".cm-search [name=replace], .cm-search [name=replaceAll], .cm-search button[name=replace], .cm-search button[name=replaceAll], .cm-search label:has([name=replace]), .cm-search label:has([name=replaceAll]), .cm-search label:has([name=case]), .cm-search label:has([name=re]), .cm-search label:has([name=word])":
+      {
+        display: "none !important",
+      },
+    ".cm-search br": {
       display: "none",
+    },
+    ".cm-search": {
+      padding: "4px 8px !important",
+      display: "flex !important",
+      alignItems: "center !important",
+      gap: "2px",
+      backgroundColor: "var(--bg-elevated) !important",
+      backdropFilter: "blur(8px)",
+      border: "1px solid var(--border-native)",
+      borderRadius: "6px",
+      boxShadow: "0 6px 20px rgba(0, 0, 0, 0.4)",
+      fontSize: "11px",
+      whiteSpace: "nowrap",
+    },
+    ".cm-search .cm-textfield": {
+      backgroundColor: "var(--bg-input) !important",
+      border: "1px solid var(--border-subtle) !important",
+      borderRadius: "3px !important",
+      padding: "2px 6px !important",
+      color: "var(--text-primary) !important",
+      outline: "none !important",
+      fontSize: "11px",
+      width: "140px",
+      marginRight: "2px",
+    },
+    ".cm-search .cm-textfield:focus": {
+      borderColor: "var(--accent) !important",
+    },
+    ".cm-search .cm-button, .cm-search button": {
+      backgroundColor: "transparent !important",
+      backgroundImage: "none !important",
+      border: "none !important",
+      borderRadius: "4px !important",
+      color: "var(--text-secondary) !important",
+      padding: "0 !important",
+      cursor: "pointer",
+      display: "flex !important",
+      alignItems: "center !important",
+      justifyContent: "center !important",
+      width: "20px !important",
+      minWidth: "20px !important",
+      height: "20px !important",
+      transition: "background-color 0.1s ease",
+      flexShrink: 0,
+      fontSize: "0 !important",
+      textIndent: "-9999px",
+      overflow: "hidden",
+    },
+    ".cm-search .cm-button:hover, .cm-search button:hover": {
+      backgroundColor: "var(--bg-hover) !important",
+      color: "var(--text-primary) !important",
+    },
+    ".cm-search [name=prev]": {
+      backgroundImage:
+        "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m18 15-6-6-6 6'/%3E%3C/svg%3E\") !important",
+      backgroundRepeat: "no-repeat",
+      backgroundPosition: "center",
+      opacity: 0.8,
+    },
+    ".cm-search [name=next]": {
+      backgroundImage:
+        "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\") !important",
+      backgroundRepeat: "no-repeat",
+      backgroundPosition: "center",
+      opacity: 0.8,
+      marginRight: "2px",
+    },
+    ".cm-search [name=select]": {
+      display: "none !important",
+    },
+    ".cm-search [name=close]": {
+      position: "relative !important",
+      top: "auto !important",
+      right: "auto !important",
+      backgroundImage:
+        "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 6 18'/%3E%3Cpath d='m6 6 12 12'/%3E%3C/svg%3E\") !important",
+      backgroundRepeat: "no-repeat",
+      backgroundPosition: "center",
+      opacity: 0.6,
+    },
+    ".cm-search [name=close]:hover": {
+      opacity: 1,
+      backgroundColor: "var(--bg-hover) !important",
+    },
+    ".cm-searchMatch": {
+      backgroundColor: "rgba(10, 132, 255, 0.15) !important",
+      borderRadius: "2px",
+    },
+    ".cm-searchMatch.cm-searchMatch-selected": {
+      backgroundColor: "rgba(10, 132, 255, 0.45) !important",
+      borderRadius: "2px",
     },
   },
   { dark: true }
@@ -183,9 +396,9 @@ const STEP_TOKENS = ["WHERE", "ORDER", "RANGE", "COUNT", "FIRST", "Node", "Edge"
 
 const hqlLanguage = StreamLanguage.define<HQLState>({
   startState() {
-    return { indent: 0, inBlock: false, bracketLevel: 0 };
+    return {};
   },
-  token(stream, state) {
+  token(stream, _state) {
     if (stream.eatSpace()) return null;
 
     // Comments
@@ -213,15 +426,15 @@ const hqlLanguage = StreamLanguage.define<HQLState>({
 
       // Detect Top-Level Header start
       if (upperWord === "QUERY" || upperWord === "MIGRATION") {
-        state.inBlock = true;
+        // state.inBlock = true; // Removed legacy reasoning
       }
       // Detect Query Tail / Structural Terminators
       else if (upperWord === "RETURN" || upperWord === "ORDER" || upperWord === "WHERE" || upperWord === "FOR") {
         // Only reset if NOT preceded by "::" (which would be a trajectory method like N<U>::WHERE)
         const prefix = stream.string.slice(0, stream.start);
         if (!prefix.trim().endsWith("::")) {
-          state.inBlock = false;
-          state.indent = 0;
+          // state.inBlock = false;
+          // state.indent = 0;
         }
       }
 
@@ -254,36 +467,20 @@ const hqlLanguage = StreamLanguage.define<HQLState>({
 
     // Operators
     if (stream.match("=>")) {
-      if (state.inBlock) state.indent = 4;
       return "operator";
     }
     if (stream.match("::")) return "typeName";
     if (stream.match(/^[:<>-]/)) return "operator";
     const char = stream.next();
+    // Brackets tracking removed as indentation is handled by backend
     if (char === "{" || char === "(" || char === "[") {
-      state.bracketLevel++;
+      // state.bracketLevel++;
     } else if (char === "}" || char === ")" || char === "]") {
-      state.bracketLevel = Math.max(0, state.bracketLevel - 1);
+      // state.bracketLevel = Math.max(0, state.bracketLevel - 1);
     }
     return null;
   },
-  indent(state, textAfter) {
-    let base = state.indent;
 
-    // Check if the current line starts with a closing bracket
-    const closing = /^[}\])]/.test(textAfter.trim());
-    if (closing) {
-      return Math.max(0, base + (state.bracketLevel - 1) * 4);
-    }
-
-    // Check for top-level keywords that reset indentation
-    const structural = /^(RETURN|ORDER|WHERE|FOR)/i.test(textAfter.trim());
-    if (structural) {
-      return 0;
-    }
-
-    return base + state.bracketLevel * 4;
-  },
   languageData: {
     commentTokens: { line: "//" },
     closeBrackets: { brackets: ["(", "[", "{", " ' ", '"'] },
@@ -339,50 +536,66 @@ export const HQLEditor = (props: HQLEditorProps) => {
         indentOnInput(),
         bracketMatching(),
         closeBrackets(),
+        search({ top: true }),
         autocompletion({
           override: [
-            (context) => {
-              let word = context.matchBefore(/\w*/);
+            async (context) => {
+              const word = context.matchBefore(/[\w:]*/); // Match words including ::
               if (!word || (word.from == word.to && !context.explicit)) return null;
 
-              let options = [...HQL_COMPLETION_OPTIONS];
+              // If we are at "::", we want to trigger completion
+              const isTrigger = word.text === "::" || context.explicit;
 
-              // Add schema-based suggestions if available
-              if (props.schema) {
-                const nodes = props.schema.nodes.map((n) => ({
-                  label: n.name,
-                  type: "class",
-                  detail: "Node",
-                }));
-                const edges = props.schema.edges.map((e) => ({
-                  label: e.name,
-                  type: "interface",
-                  detail: "Edge",
-                }));
-                const vectors = props.schema.vectors.map((v) => ({
-                  label: v.name,
-                  type: "namespace",
-                  detail: "Vector",
-                }));
-                options = [...options, ...nodes, ...edges, ...vectors];
+              if (!isTrigger && word.text.length < 1) return null;
+
+              try {
+                const suggestions = await invoke<CompletionItem[]>("get_hql_completion", {
+                  code: context.state.doc.toString(),
+                  cursor: context.pos,
+                  schema: props.schema || null,
+                });
+
+                if (!suggestions || suggestions.length === 0) return null;
+
+                return {
+                  from: word.from,
+                  options: suggestions.map((s) => ({
+                    label: s.label,
+                    type: s.kind,
+                    detail: s.detail || undefined,
+                  })),
+                  // validFor: /^\w*$/, // Let backend decide
+                };
+              } catch (e) {
+                console.error("Autocomplete failed", e);
+                return null;
               }
-
-              return {
-                from: word.from,
-                options: options.filter((o) => o.label.toLowerCase().includes(word!.text.toLowerCase())),
-                validFor: /^\w*$/,
-              };
             },
           ],
         }),
         keymap.of([
+          ...completionKeymap,
+          // Custom Tab: Accept Completion -> Indent Selection -> Insert Spaces
+          {
+            key: "Tab",
+            run: (view) => {
+              if (acceptCompletion(view)) return true;
+              if (!view.state.selection.main.empty) {
+                return indentMore(view);
+              }
+              view.dispatch(view.state.replaceSelection("    "));
+              return true;
+            },
+          },
+          {
+            key: "Shift-Tab",
+            run: indentLess,
+          },
           ...closeBracketsKeymap,
           ...defaultKeymap,
           ...historyKeymap,
           ...foldKeymap,
-          ...completionKeymap,
-          indentWithTab,
-          { key: "Tab", run: acceptCompletion },
+          ...searchKeymap.filter((k) => k.key === "Mod-f" || k.key === "F3" || k.key === "Shift-F3" || k.key === "Mod-g" || k.key === "Shift-Mod-g"),
           {
             key: "Mod-Enter",
             run: () => {
@@ -390,6 +603,16 @@ export const HQLEditor = (props: HQLEditorProps) => {
                 const selection = view?.state.selection.main;
                 const selectedCode = selection && !selection.empty ? view?.state.sliceDoc(selection.from, selection.to) : undefined;
                 props.onExecute(selectedCode);
+                return true;
+              }
+              return false;
+            },
+          },
+          {
+            key: "Shift-Alt-f",
+            run: () => {
+              if (props.onFormat) {
+                props.onFormat();
                 return true;
               }
               return false;
@@ -428,6 +651,28 @@ export const HQLEditor = (props: HQLEditorProps) => {
             }
           },
         }),
+        linter(
+          async (view) => {
+            const code = view.state.doc.toString();
+            if (!code.trim()) return [];
+
+            try {
+              // Debug validation
+              console.log("[HQL Validation] Checking code:", code);
+              const diagnostics = await invoke<Diagnostic[]>("validate_hql", { code });
+              console.log("[HQL Validation] Result:", diagnostics);
+              return diagnostics;
+            } catch (e) {
+              console.error("Validation failed:", e);
+              return [];
+            }
+          },
+          { delay: 500 }
+        ),
+        hoverTooltip((_view, _pos, _side) => {
+          return null; // Let default lint tooltip handle it, just need to enable the extension
+        }),
+        lintGutter(),
       ],
     });
 
@@ -474,8 +719,23 @@ export const HQLEditor = (props: HQLEditorProps) => {
   createEffect(() => {
     const externalCode = props.code;
     if (view && view.state.doc.toString() !== externalCode) {
+      // Save current state
+      const scroll = view.scrollDOM.scrollTop;
+
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: externalCode },
+        // CodeMirror will attempt to map the selection,
+        // which usually works well for formatting.
+      });
+
+      // Restore scroll position
+      view.requestMeasure({
+        read() {
+          return {};
+        },
+        write() {
+          if (view) view.scrollDOM.scrollTop = scroll;
+        },
       });
     }
   });

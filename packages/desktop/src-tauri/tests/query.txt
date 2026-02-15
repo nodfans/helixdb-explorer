@@ -1,139 +1,297 @@
-// PRODUCED BY AUTOMATED GENERATOR - ALIGNED WITHschema.hx
-// VALIDATED AGAINST THE HELIX PARSER GRAMMAR
+QUERY GetUser (user_id: ID) =>
+    user <- N<User>(user_id)
+    RETURN user
 
-// Fetch all nodes of type User
-QUERY GetAllUser() =>
-    res <- N<User>
-    RETURN res
-
-
-// Fetch a specific User by its unique ID
-QUERY GetUserById(target_id: ID) =>
-    res <- N<User>(target_id)
-    RETURN res
+QUERY CreateUser (name: String, age: U8, email: String) =>
+    user <- AddN<User>({
+        name: name,
+        age: age,
+        email: email
+    })
+    RETURN user
 
 
-// Fetch all nodes of type EmailAddress
-QUERY GetAllEmailAddress() =>
-    res <- N<EmailAddress>
-    RETURN res
+QUERY GetDocumentVector (vector_id: ID) =>
+    doc_vector <- V<Document>(vector_id)
+    RETURN doc_vector
+
+QUERY CreateDocumentVector (vector: [F64], content: String) =>
+    doc_vector <- AddV<Document>(vector, {
+        content: content
+    })
+    RETURN doc_vector
+
+QUERY GetUsersWithFollowers () =>
+    users <- N<User>::WHERE(EXISTS(_::In<Follows>))
+    RETURN users
+
+QUERY CreateUser (name: String, age: U8, email: String) =>
+    user <- AddN<User>({
+        name: name,
+        age: age,
+        email: email
+    })
+    RETURN user
+
+QUERY CreateFollow (follower_id: ID, following_id: ID) =>
+    follower <- N<User>(follower_id)
+    following <- N<User>(following_id)
+    AddE<Follows>::From(follower)::To(following)
+    RETURN "Success"
+
+QUERY GetActiveUsersWithFollowers () =>
+    followers <- N<User>::WHERE(
+        !AND( // Negate the AND condition
+            !_::{is_active}::EQ(true), // Negate the EQ condition
+            _::Out<Follows>::COUNT::LT(10)
+        )
+    )
+    RETURN followers
+
+QUERY GetInfluentialUsers () =>
+    users <- N<User>::WHERE(_::In<Follows>::COUNT::GT(100))
+    RETURN users
+
+QUERY CreateUser (name: String, age: U8, email: String) =>
+    user <- AddN<User>({
+        name: name,
+        age: age,
+        email: email
+    })
+    RETURN user
+
+QUERY CreateFollow (follower_id: ID, following_id: ID) =>
+    follower <- N<User>(follower_id)
+    following <- N<User>(following_id)
+    AddE<Follows>::From(follower)::To(following)
+    RETURN "Success"
+
+QUERY GetActiveUsersWithPosts () =>
+    users <- N<User>::WHERE(AND(_::{status}::EQ("active"), _::Out<HasPost>::COUNT::GT(0)))
+    RETURN users
+
+QUERY CreateUser (name: String, age: U8, email: String, status: String) =>
+    user <- AddN<User>({
+        name: name,
+        age: age,
+        email: email,
+        status: status
+    })
+    RETURN user
+
+QUERY CreatePost (user_id: ID, title: String, content: String) =>
+    user <- N<User>(user_id)
+    post <- AddN<Post>({
+        title: title,
+        content: content
+    })
+    AddE<HasPost>::From(user)::To(post)
+    RETURN post
+
+QUERY GetUserDetails () =>
+    users <- N<User>::RANGE(0, 5)
+    RETURN users::{
+        userID: ::ID,
+        followerCount: _::In<Follows>::COUNT
+    }
+
+QUERY CreateUser (name: String, age: U8) =>
+    user <- AddN<User>({
+        name: name,
+        age: age
+    })
+    RETURN user
+
+QUERY CreateFollow (follower_id: ID, following_id: ID) =>
+    follower <- N<User>(follower_id)
+    following <- N<User>(following_id)
+    AddE<Follows>::From(follower)::To(following)
+    RETURN "Success"
+
+QUERY GetPublicUserInfo () =>
+    users <- N<User>::RANGE(0, 10)
+    RETURN users::!{email, location}
+
+QUERY CreateUser (name: String, age: U8, email: String, posts: U32, followers: U32, following: U32, location: String) =>
+    user <- AddN<User>({
+        name: name,
+        age: age,
+        email: email,
+        posts: posts,
+        followers: followers,
+        following: following,
+        location: location
+    })
+    RETURN user
+
+QUERY GetUserFollowing (user_id: ID) =>
+    following <- N<User>(user_id)::Out<Follows>
+    RETURN following
+
+QUERY CreateUser (name: String, handle: String) =>
+    user <- AddN<User>({
+        name: name,
+        handle: handle,
+    })
+    RETURN user
+
+QUERY FollowUser (follower_id: ID, followed_id: ID, since: Date) =>
+    follow_edge <- AddE<Follows>({
+        since: since
+    })::From(follower_id)::To(followed_id)
+    RETURN follow_edge
+
+QUERY UpdateUserStatus (user_updates: [{id: ID, status: String}]) =>
+    FOR {id, status} IN user_updates {
+        user <- N<User>(id)::UPDATE({
+            status: status,
+            last_updated: "2024-11-04"
+        })
+    }
+    RETURN "Updated all users"
+
+QUERY CreateUser (name: String, age: U8, email: String, status: String) =>
+    user <- AddN<User>({
+        name: name,
+        age: age,
+        email: email,
+        status: status,
+        last_updated: "2024-11-01"
+    })
+    RETURN user
+
+QUERY LoadOrdersWithItems (
+    order_data: [{
+        customer: {name: String, email: String},
+        items: [{product: String, quantity: I32, price: F64}]
+    }]
+) =>
+    FOR {customer, items} IN order_data {
+        order_node <- AddN<Order>({
+            customer_name: customer.name,
+            customer_email: customer.email,
+            total_items: 0
+        })
+        FOR {product, quantity, price} IN items {
+            item_node <- AddN<OrderItem>({
+                product_name: product,
+                quantity: quantity,
+                unit_price: price
+            })
+            AddE<Contains>::From(order_node)::To(item_node)
+        }
+    }
+    RETURN "Orders loaded successfully"
+
+QUERY CreateProductsFromCatalog (
+    catalog: [{
+        id: String,
+        name: String,
+        price: F64,
+        internal_code: String,
+        warehouse_location: String
+    }]
+) =>
+    FOR {name, price} IN catalog {
+        product <- AddN<Product>({
+            name: name,
+            price: price,
+            stock: 100
+        })
+    }
+    RETURN "Products created from catalog"
+
+QUERY CreateUserNetwork (user_data: [{name: String, age: U8, interests: String}]) =>
+    // First, create all users
+    FOR {name, age, interests} IN user_data {
+        user <- AddN<User>({
+            name: name,
+            age: age,
+            interests: interests
+        })
+    }
+
+    // Then create connections between all users
+    all_users <- N<User>
+    FOR user1 IN all_users {
+        FOR user2 IN all_users {
+            // Don't create self-connections
+            IF user1::ID != user2::ID THEN {
+                AddE<Knows>::From(user1)::To(user2)
+            }
+        }
+    }
+    RETURN "User network created"
+
+QUERY LoadDocumentStructure (
+    chapters: [{
+        id: I64,
+        title: String,
+        subchapters: [{
+            title: String,
+            content: String,
+            chunks: [{chunk: String, vector: [F64]}]
+        }]
+    }]
+) =>
+    FOR {id, title, subchapters} IN chapters {
+        chapter_node <- AddN<Chapter>({
+            chapter_index: id,
+            title: title
+        })
+
+        FOR {title, content, chunks} IN subchapters {
+            subchapter_node <- AddN<SubChapter>({
+                title: title,
+                content: content
+            })
+            AddE<Contains>::From(chapter_node)::To(subchapter_node)
+
+            FOR {chunk, vector} IN chunks {
+                vec <- AddV<Embedding>(vector)
+                AddE<EmbeddingOf>({chunk: chunk})::From(subchapter_node)::To(vec)
+            }
+        }
+    }
+    RETURN "Document structure loaded"
+
+QUERY NormalizeScores(threshold: F64) =>
+    items <- N::Item
+        ::{
+            raw_score,
+            normalized: DIV(_::{raw_score}, 100.0),
+            above_threshold: _::{raw_score}::GT(threshold)
+        }
+    RETURN items
+
+QUERY CalculateProductPricing(discount_percent: F64, tax_rate: F64) =>
+    products <- N::Product
+        ::{
+            name,
+            original_price: price,
+            discount: MUL(_::{price}, DIV(discount_percent, 100.0)),
+            final_price: SUB(_::{price}, MUL(_::{price}, DIV(discount_percent, 100.0))),
+            with_tax: MUL(SUB(_::{price}, MUL(_::{price}, DIV(discount_percent, 100.0))), ADD(1.0, tax_rate))
+        }
+    RETURN products
+
+QUERY InsertProduct(name: String, price: F64) =>
+    product <- AddN<Product>({ name: name, price: price })
+    RETURN product
 
 
-// Fetch a specific EmailAddress by its unique ID
-QUERY GetEmailAddressById(target_id: ID) =>
-    res <- N<EmailAddress>(target_id)
-    RETURN res
+QUERY CalculateBearings() =>
+    locations <- N::Location
+        ::{
+            name, latitude, longitude,
+            radians_lat: MUL(_::{latitude}, DIV(PI(), 180.0)),
+            radians_lon: MUL(_::{longitude}, DIV(PI(), 180.0)),
+            sin_lat: SIN(MUL(_::{latitude}, DIV(PI(), 180.0))),
+            cos_lat: COS(MUL(_::{latitude}, DIV(PI(), 180.0))),
+            tan_lat: TAN(MUL(_::{latitude}, DIV(PI(), 180.0)))
+        }
+    RETURN locations
 
-
-// Fetch all nodes of type Post
-QUERY GetAllPost() =>
-    res <- N<Post>
-    RETURN res
-
-
-// Fetch a specific Post by its unique ID
-QUERY GetPostById(target_id: ID) =>
-    res <- N<Post>(target_id)
-    RETURN res
-
-
-// Fetch all nodes of type Product
-QUERY GetAllProduct() =>
-    res <- N<Product>
-    RETURN res
-
-
-// Fetch a specific Product by its unique ID
-QUERY GetProductById(target_id: ID) =>
-    res <- N<Product>(target_id)
-    RETURN res
-
-
-// Fetch all nodes of type Organization
-QUERY GetAllOrganization() =>
-    res <- N<Organization>
-    RETURN res
-
-
-// Fetch a specific Organization by its unique ID
-QUERY GetOrganizationById(target_id: ID) =>
-    res <- N<Organization>(target_id)
-    RETURN res
-
-
-// Traverse Outbound edge 'HasEmail' from User to EmailAddress
-QUERY TraverseHasEmail(start_id: ID) =>
-    start <- N<User>(start_id)
-    res <- start::Out<HasEmail>
-    RETURN res
-
-
-// Traverse Inbound edge 'HasEmail' from EmailAddress back to nodes
-QUERY InboundHasEmail(end_id: ID) =>
-    end <- N<EmailAddress>(end_id)
-    res <- end::In<HasEmail>
-    RETURN res
-
-
-// Traverse Outbound edge 'Authored' from User to Post
-QUERY TraverseAuthored(start_id: ID) =>
-    start <- N<User>(start_id)
-    res <- start::Out<Authored>
-    RETURN res
-
-
-// Traverse Inbound edge 'Authored' from Post back to nodes
-QUERY InboundAuthored(end_id: ID) =>
-    end <- N<Post>(end_id)
-    res <- end::In<Authored>
-    RETURN res
-
-
-// Traverse Outbound edge 'Follows' from User to User
-QUERY TraverseFollows(start_id: ID) =>
-    start <- N<User>(start_id)
-    res <- start::Out<Follows>
-    RETURN res
-
-
-// Traverse Inbound edge 'Follows' from User back to nodes
-QUERY InboundFollows(end_id: ID) =>
-    end <- N<User>(end_id)
-    res <- end::In<Follows>
-    RETURN res
-
-
-// Traverse Outbound edge 'Purchased' from User to Product
-QUERY TraversePurchased(start_id: ID) =>
-    start <- N<User>(start_id)
-    res <- start::Out<Purchased>
-    RETURN res
-
-
-// Traverse Inbound edge 'Purchased' from Product back to nodes
-QUERY InboundPurchased(end_id: ID) =>
-    end <- N<Product>(end_id)
-    res <- end::In<Purchased>
-    RETURN res
-
-
-// Traverse Outbound edge 'WorksAt' from User to Organization
-QUERY TraverseWorksAt(start_id: ID) =>
-    start <- N<User>(start_id)
-    res <- start::Out<WorksAt>
-    RETURN res
-
-
-// Traverse Inbound edge 'WorksAt' from Organization back to nodes
-QUERY InboundWorksAt(end_id: ID) =>
-    end <- N<Organization>(end_id)
-    res <- end::In<WorksAt>
-    RETURN res
-
-
-// Complex logic: AND conditions, exclusion, and existence checks
-QUERY FilteredUser(val: I32) =>
-    res <- N<User>::WHERE(AND(_::ID::NEQ("0"), EXISTS(_::Out<HasEmail>)))
-    RETURN res
-
-
+QUERY CreateLocation(name: String, latitude: F64, longitude: F64) =>
+    location <- AddN<Location>({ name: name, latitude: latitude, longitude: longitude })
+    RETURN location

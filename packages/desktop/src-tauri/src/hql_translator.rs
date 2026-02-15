@@ -229,41 +229,29 @@ pub fn map_traversal_to_tools(traversal: &Traversal, params: &serde_json::Value)
 }
 
 fn map_expression_to_filter(expr: &Expression, params: &serde_json::Value) -> Result<FilterTraversal, String> {
-    match &expr.expr {
-        ExpressionType::And(exprs) => {
-            let mut combined_dnf: Vec<Vec<FilterProperties>> = vec![vec![]]; 
+    map_expression_to_filter_internal(expr, params, false)
+}
 
-            for e in exprs {
-                let sub_filter = map_expression_to_filter(e, params)?;
-                if let Some(sub_props) = sub_filter.properties {
-                    let mut new_dnf = Vec::new();
-                    for existing_and in &combined_dnf {
-                        for sub_and in &sub_props {
-                            let mut merged = existing_and.clone();
-                            merged.extend(sub_and.clone());
-                            new_dnf.push(merged);
-                        }
-                    }
-                    combined_dnf = new_dnf;
-                }
+fn map_expression_to_filter_internal(expr: &Expression, params: &serde_json::Value, negated: bool) -> Result<FilterTraversal, String> {
+    match &expr.expr {
+        ExpressionType::Not(inner) => {
+            map_expression_to_filter_internal(inner, params, !negated)
+        }
+        ExpressionType::And(exprs) => {
+            if negated {
+                // Not(And(A, B)) == Or(Not(A), Not(B))
+                process_or_logic(exprs, params, true)
+            } else {
+                process_and_logic(exprs, params, false)
             }
-            Ok(FilterTraversal {
-                properties: Some(combined_dnf),
-                filter_traversals: None, 
-            })
         }
         ExpressionType::Or(exprs) => {
-            let mut combined_dnf = Vec::new();
-            for e in exprs {
-                let sub_filter = map_expression_to_filter(e, params)?;
-                if let Some(sub_props) = sub_filter.properties {
-                    combined_dnf.extend(sub_props);
-                }
+            if negated {
+                // Not(Or(A, B)) == And(Not(A), Not(B))
+                process_and_logic(exprs, params, true)
+            } else {
+                process_or_logic(exprs, params, false)
             }
-            Ok(FilterTraversal {
-                properties: Some(combined_dnf),
-                filter_traversals: None,
-            })
         }
         ExpressionType::Traversal(boxed_traversal) => {
              let traversal = &**boxed_traversal;
@@ -277,7 +265,7 @@ fn map_expression_to_filter(expr: &Expression, params: &serde_json::Value) -> Re
                  return Err("WHERE clause traversal too short".to_string());
              }
 
-             // Try to map as a property comparison first (the common case: _::Object({prop})::BooleanOp(val))
+             // Try to map as a property comparison first (the common case: _::{prop}::Op(val))
              if traversal.steps.len() >= 2 {
                  if let StepType::Object(obj) = &traversal.steps[0].step {
                      if obj.fields.len() == 1 {
@@ -293,11 +281,17 @@ fn map_expression_to_filter(expr: &Expression, params: &serde_json::Value) -> Re
                                  _ => return Err("Unsupported boolean operator in dynamic HQL".to_string()),
                              };
 
+                             let final_operator = if negated {
+                                 invert_operator(operator)
+                             } else {
+                                 operator
+                             };
+
                              return Ok(FilterTraversal {
                                  properties: Some(vec![vec![FilterProperties {
                                      key: prop_key,
                                      value,
-                                     operator: Some(operator),
+                                     operator: Some(final_operator),
                                  }]]),
                                  filter_traversals: None,
                              });
@@ -307,6 +301,10 @@ fn map_expression_to_filter(expr: &Expression, params: &serde_json::Value) -> Re
              }
 
              // Otherwise, treat as a recursive sub-traversal filter (e.g. _::Out("follow"))
+             if negated {
+                 return Err("Negated recursive filter traversal is not currently supported".to_string());
+             }
+
              fn map_steps_to_recursive_filter(steps: &[helix_db::helixc::parser::types::Step], params: &serde_json::Value) -> Result<Option<FilterTraversal>, String> {
                  if steps.is_empty() { return Ok(None); }
                  
@@ -349,6 +347,77 @@ fn map_expression_to_filter(expr: &Expression, params: &serde_json::Value) -> Re
              Ok(filter_traversal.unwrap_or_default())
         }
         _ => Err(format!("Unsupported expression type in WHERE: {:?}", expr.expr)),
+    }
+}
+
+fn process_and_logic(exprs: &[Expression], params: &serde_json::Value, negated: bool) -> Result<FilterTraversal, String> {
+    let mut combined_dnf: Vec<Vec<FilterProperties>> = vec![vec![]]; 
+    let mut combined_traversals = Vec::new();
+
+    for e in exprs {
+        let sub_filter = map_expression_to_filter_internal(e, params, negated)?;
+        
+        // Combine properties (Cross Product for AND logic)
+        if let Some(sub_props) = sub_filter.properties {
+            let mut new_dnf = Vec::new();
+            for existing_and in &combined_dnf {
+                for sub_and in &sub_props {
+                    let mut merged = existing_and.clone();
+                    merged.extend(sub_and.clone());
+                    new_dnf.push(merged);
+                }
+            }
+            combined_dnf = new_dnf;
+        }
+
+        // Combine filter traversals (Union for AND logic - all must match)
+        // Note: ToolArgs don't support "AND" explicitly, but sending multiple filter tools usually implies chaining or intersection depending on implementation.
+        // In this specific translator context, `FilterItems` wraps `FilterTraversal`.
+        // If we have multiple recursive traversals, we ideally want to apply ALL of them.
+        // `FilterTraversal` has `filter_traversals: Option<Vec<ToolArgs>>`.
+        if let Some(sub_travs) = sub_filter.filter_traversals {
+            combined_traversals.extend(sub_travs);
+        }
+    }
+    
+    // If combined_dnf only contains the empty vec (initial state) and we added nothing, keep it.    
+    Ok(FilterTraversal {
+        properties: Some(combined_dnf),
+        filter_traversals: if combined_traversals.is_empty() { None } else { Some(combined_traversals) }, 
+    })
+}
+
+fn process_or_logic(exprs: &[Expression], params: &serde_json::Value, negated: bool) -> Result<FilterTraversal, String> {
+    let mut combined_dnf = Vec::new();
+    let mut combined_traversals = Vec::new();
+
+    for e in exprs {
+        let sub_filter = map_expression_to_filter_internal(e, params, negated)?;
+        if let Some(sub_props) = sub_filter.properties {
+            combined_dnf.extend(sub_props);
+        }
+        if let Some(sub_travs) = sub_filter.filter_traversals {
+            // OR logic for traversals is tricky in this structure.
+            // If we have traversals A or B, we can't easily express that in `filter_traversals` vec which usually implies "all of these".
+            // However, existing implementation didn't strictly handle OR for traversals either (it just concatenated them).
+            // We will mimic existing behavior: concatenate.
+            combined_traversals.extend(sub_travs);
+        }
+    }
+    Ok(FilterTraversal {
+        properties: Some(combined_dnf),
+        filter_traversals: if combined_traversals.is_empty() { None } else { Some(combined_traversals) },
+    })
+}
+
+fn invert_operator(op: Operator) -> Operator {
+    match op {
+        Operator::Eq => Operator::Neq,
+        Operator::Neq => Operator::Eq,
+        Operator::Gt => Operator::Lte,
+        Operator::Gte => Operator::Lt,
+        Operator::Lt => Operator::Gte,
+        Operator::Lte => Operator::Gt,
     }
 }
 

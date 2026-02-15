@@ -90,11 +90,4 @@ export const HQL_MATH = [
 
 export const HQL_NEW_LINE_KEYWORDS = ["RETURN", "RANGE", "ORDER", "WHERE", "UPDATE", "DROP", "FOR"];
 
-export const ALL_HQL_KEYWORDS = [...HQL_STRUCTURAL_KEYWORDS, ...HQL_TRAVERSALS, ...HQL_TYPES, ...HQL_MATH].map((k) => k.toUpperCase());
-
-export const HQL_COMPLETION_OPTIONS = [
-  ...HQL_STRUCTURAL_KEYWORDS.map((k) => ({ label: k, type: "keyword" })),
-  ...HQL_TRAVERSALS.map((k) => ({ label: k, type: "function" })),
-  ...HQL_TYPES.map((k) => ({ label: k, type: "type" })),
-  ...HQL_MATH.map((k) => ({ label: k, type: "function", detail: "math" })),
-];
+export const ALL_HQL_KEYWORDS = [...HQL_STRUCTURAL_KEYWORDS, ...HQL_TRAVERSALS, ...HQL_TYPES, ...HQL_MATH, "Properties"];

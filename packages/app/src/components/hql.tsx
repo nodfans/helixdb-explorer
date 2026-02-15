@@ -4,7 +4,7 @@ import { Play, Plus, X, FileCode, Database, Sparkles, Check, Upload } from "luci
 import { invoke } from "@tauri-apps/api/core";
 import { hqlStore, setHqlStore, type HqlTab } from "../stores/hql";
 import { HQLEditor } from "./ui/hql-editor";
-import { formatHQL } from "../lib/hql-formatter";
+
 import { HelixApi } from "../lib/api";
 import { activeConnection, getConnectionUrl, setConnectionStore, saveConnections } from "../stores/connection";
 import { HqlPanel, SyncConfirmationOverlay } from "./ui/hql-panel";
@@ -265,9 +265,9 @@ export const HQL = (props: HQLProps) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const beautifyCode = () => {
+  const beautifyCode = async () => {
     try {
-      const formattedCode = formatHQL(activeTab().code);
+      const formattedCode = await invoke<string>("format_hql", { code: activeTab().code });
       updateActiveTab({ code: formattedCode });
       setFormatted(true);
       setTimeout(() => setFormatted(false), 800);
@@ -467,6 +467,7 @@ export const HQL = (props: HQLProps) => {
             code={activeTab().code}
             onCodeChange={(code) => updateActiveTab({ code })}
             onExecute={executeHql}
+            onFormat={beautifyCode}
             onSelectionChange={setSelectedText}
             onGutterWidthChange={setGutterWidth}
             diagnostics={activeTab().diagnostics || []}

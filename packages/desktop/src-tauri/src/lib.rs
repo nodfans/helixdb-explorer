@@ -175,7 +175,10 @@ pub fn run() {
             save_connection_config,
             sync_hql_to_project,
             detect_workspace_path,
-            show_grid_context_menu
+            show_grid_context_menu,
+            validate_hql,
+            get_hql_completion,
+            format_hql
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
