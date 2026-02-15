@@ -79,7 +79,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
                     <span class="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Success</span>
                     <Show when={props.activeTab.rawOutput}>
                       <div class="w-[3.5px] h-[3.5px] rounded-full bg-[var(--text-tertiary)] mx-1.5 shrink-0 opacity-60" />
-                      <span class="text-[10px] text-native-quaternary font-mono">
+                      <span class="text-[10px] text-native-tertiary font-mono">
                         {(() => {
                           const multi = props.activeTab.multiTableData;
                           const count = multi ? Object.values(multi).reduce((acc: number, rows: any[]) => acc + rows.length, 0) : 0;
@@ -89,7 +89,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
                     </Show>
                     <Show when={props.activeTab.executionTime}>
                       <div class="w-[3.5px] h-[3.5px] rounded-full bg-[var(--text-tertiary)] mx-1.5 shrink-0 opacity-60" />
-                      <span class="text-[10px] text-native-quaternary font-mono">{props.activeTab.executionTime}ms</span>
+                      <span class="text-[10px] text-native-tertiary font-mono">{props.activeTab.executionTime}ms</span>
                     </Show>
                   </div>
                 </Match>

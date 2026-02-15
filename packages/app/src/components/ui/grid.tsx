@@ -235,7 +235,9 @@ export function Grid(props: GridProps) {
             class="flex sticky top-0 z-20"
             style={{
               background: "var(--grid-header-bg)",
-              "border-bottom": "1px solid var(--grid-header-border)",
+              "border-bottom": "0.5px solid var(--grid-header-border)",
+              "backdrop-filter": "blur(8px)",
+              "-webkit-backdrop-filter": "blur(8px)",
             }}
           >
             {/* Row number header with resize handle */}
@@ -270,10 +272,8 @@ export function Grid(props: GridProps) {
                     "min-height": "32px",
                     "border-right": "0.5px solid var(--grid-border)",
                     color: sortConfig()?.key === column.key ? "var(--accent)" : "var(--grid-header-text)",
-                    "font-size": "10px",
-                    "font-weight": "800",
-                    "letter-spacing": "0.05em",
-                    "text-transform": "uppercase",
+                    "font-size": "11px",
+                    "font-weight": "600",
                   }}
                   onClick={() => handleHeaderClick(column.key)}
                 >

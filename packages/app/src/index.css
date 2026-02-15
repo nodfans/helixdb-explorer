@@ -86,9 +86,13 @@
   --input-bg: #ffffff;
   --input-border: rgba(0, 0, 0, 0.12);
 
+  /* Workbench Variables */
+  --bg-workbench-content: var(--bg-content);
+  --bg-workbench-sidebar: var(--bg-sidebar);
+
   /* Grid Variables - Premium Minimalist */
   --grid-bg: transparent;
-  --grid-header-bg: rgba(0, 0, 0, 0.02);
+  --grid-header-bg: #f9fafb;
   --grid-header-border: rgba(0, 0, 0, 0.12);
   --grid-border: rgba(0, 0, 0, 0.07);
   --grid-header-text: #6b7280;
@@ -138,9 +142,13 @@
     --input-bg: #2a2a2a;
     --input-border: rgba(255, 255, 255, 0.12);
 
+    /* Workbench Variables */
+    --bg-workbench-content: var(--bg-content);
+    --bg-workbench-sidebar: var(--bg-sidebar);
+
     /* Grid Variables (Dark) - Premium Minimalist */
     --grid-bg: transparent;
-    --grid-header-bg: rgba(255, 255, 255, 0.02);
+    --grid-header-bg: #323232;
     --grid-header-border: rgba(255, 255, 255, 0.12);
     --grid-border: rgba(255, 255, 255, 0.07);
     --grid-header-text: #888888;
@@ -187,9 +195,13 @@
   --input-bg: #2a2a2a;
   --input-border: rgba(255, 255, 255, 0.12);
 
+  /* Workbench Variables */
+  --bg-workbench-content: var(--bg-content);
+  --bg-workbench-sidebar: var(--bg-sidebar);
+
   /* Grid Variables (Dark Override) - Premium Minimalist */
   --grid-bg: transparent;
-  --grid-header-bg: rgba(255, 255, 255, 0.02);
+  --grid-header-bg: #323232;
   --grid-header-border: rgba(255, 255, 255, 0.12);
   --grid-border: rgba(255, 255, 255, 0.07);
   --grid-header-text: #888888;
@@ -341,4 +353,8 @@ input {
 }
 ::-webkit-scrollbar-thumb:active {
   background-color: var(--accent);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
