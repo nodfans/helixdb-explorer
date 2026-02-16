@@ -23,6 +23,7 @@ export interface HqlState {
   tabs: HqlTab[];
   activeTabId: string;
   schema: any | null;
+  showResults: boolean;
 }
 
 const defaultTab: HqlTab = {
@@ -46,6 +47,7 @@ const [hqlStore, setHqlStore] = createStore<HqlState>({
   tabs: [defaultTab],
   activeTabId: "default",
   schema: null,
+  showResults: true,
 });
 
 export { hqlStore, setHqlStore };

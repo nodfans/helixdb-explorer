@@ -97,8 +97,50 @@ export const ALL_HQL_KEYWORDS = [...HQL_STRUCTURAL_KEYWORDS, ...HQL_TRAVERSALS, 
 
 // --- Lexer Logic ---
 interface HQLState {}
-const SOURCE_TOKENS = ["N", "E", "V"];
-const STEP_TOKENS = ["WHERE", "ORDER", "RANGE", "COUNT", "FIRST", "Node", "Edge"];
+
+// Create uppercase sets for faster, case-insensitive lookup
+const KEYWORD_SET = new Set(
+  [...HQL_STRUCTURAL_KEYWORDS, "WHERE", "ORDER", "RANGE", "AND", "OR", "GT", "GTE", "LT", "LTE", "EQ", "NEQ", "IS_IN", "CONTAINS", "Asc", "Desc", "ID", "PROPERTIES"].map((s) => s.toUpperCase())
+);
+
+const FUNCTION_SET = new Set(
+  [
+    ...HQL_MATH,
+    "Out",
+    "In",
+    "OutE",
+    "InE",
+    "FromN",
+    "ToN",
+    "FromV",
+    "ToV",
+    "ShortestPath",
+    "ShortestPathDijkstras",
+    "ShortestPathBFS",
+    "ShortestPathAStar",
+    "SearchV",
+    "SearchBM25",
+    "PREFILTER",
+    "RerankRRF",
+    "RerankMMR",
+    "Embed",
+    "AddN",
+    "AddE",
+    "AddV",
+    "BatchAddV",
+    "UpsertN",
+    "UpsertE",
+    "UpsertV",
+    "COUNT",
+    "FIRST",
+    "AGGREGATE_BY",
+    "GROUP_BY",
+  ].map((s) => s.toUpperCase())
+);
+
+const TYPES_SET = new Set(HQL_TYPES.map((s) => s.toUpperCase()));
+const SOURCE_TOKENS_SET = new Set(["N", "E", "V"]);
+const STEP_TOKENS_SET = new Set(["Node", "Edge"]);
 
 export const hqlLanguage = StreamLanguage.define<HQLState>({
   startState() {
@@ -116,21 +158,19 @@ export const hqlLanguage = StreamLanguage.define<HQLState>({
     if (stream.match(/^[a-zA-Z_][\w]*|^\`[^\`]*\`/)) {
       const word = stream.current();
       const upperWord = word.toUpperCase();
+
       if (stream.match(/^\s*:(?!:)/, false)) return "variableName";
       if (upperWord === "TRUE" || upperWord === "FALSE") return "bool";
-      if (ALL_HQL_KEYWORDS.includes(upperWord)) {
-        if (HQL_TRAVERSALS.includes(word)) {
-          if (SOURCE_TOKENS.includes(word)) return "sourceName";
-          if (STEP_TOKENS.includes(word)) return "typeName";
-          return "functionName";
-        }
-        if (HQL_TYPES.includes(word)) return "typeName";
-        return "keyword";
-      }
+
+      if (KEYWORD_SET.has(upperWord)) return "keyword";
+      if (SOURCE_TOKENS_SET.has(upperWord)) return "sourceName";
+      if (TYPES_SET.has(upperWord)) return "typeName";
+      if (STEP_TOKENS_SET.has(upperWord)) return "typeName";
+      if (FUNCTION_SET.has(upperWord)) return "functionName";
+
       const prefix = stream.string.slice(0, stream.start);
       if (/::\s*$/.test(prefix)) {
-        if (HQL_TYPES.includes(word)) return "typeName";
-        return "variableName";
+        return "functionName";
       }
       return "variableName";
     }

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "HelixDB Explorer",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "identifier": "com.helixdb.explorer",
   "build": {
     "beforeDevCommand": "pnpm --filter @helixdb/app dev",

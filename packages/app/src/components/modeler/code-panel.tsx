@@ -302,9 +302,9 @@ export const CodePanel = (props: CodePanelProps) => {
           class="h-7 px-3"
         >
           <Show when={copied()} fallback={<Copy size={12} strokeWidth={2} />}>
-            <CheckCircle2 size={12} strokeWidth={2} class="text-status-success" />
+            <CheckCircle2 size={12} strokeWidth={2} class="text-emerald-500 animate-in fade-in zoom-in duration-200" />
           </Show>
-          {copied() ? "Copied" : "Copy"}
+          <span>{copied() ? "Copied" : "Copy"}</span>
         </Button>
       </div>
 

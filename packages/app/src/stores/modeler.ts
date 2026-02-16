@@ -16,7 +16,7 @@ export interface ModelerState {
 const [modelerStore, setModelerStore] = createStore<ModelerState>({
   entities: [],
   queryConfig: DEFAULT_QUERY_CONFIG,
-  sidebarWidth: 480,
+  sidebarWidth: typeof window !== "undefined" ? Math.floor(window.innerWidth / 2) : 525,
   schemaCode: "",
   queryCode: "",
   isDirty: false,

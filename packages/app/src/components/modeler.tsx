@@ -9,6 +9,7 @@ import { ToolbarLayout } from "./ui/toolbar-layout";
 import { EmptyState } from "./ui/empty-state";
 import { Button } from "./ui/button";
 import { modelerStore, setModelerStore } from "../stores/modeler";
+import { invoke } from "@tauri-apps/api/core";
 
 interface ModelerProps {
   api: HelixApi;
@@ -45,8 +46,15 @@ export const Modeler = (_props: ModelerProps) => {
       }
 
       // 2. Generate
-      const s = HqlCodeGen.generateSchema(modelerStore.entities);
-      const q = HqlCodeGen.generateQueries(modelerStore.entities, modelerStore.queryConfig);
+      let s = HqlCodeGen.generateSchema(modelerStore.entities);
+      let q = HqlCodeGen.generateQueries(modelerStore.entities, modelerStore.queryConfig);
+
+      // 3. Format only queries via backend (keep schema raw/standard)
+      try {
+        q = await invoke<string>("format_hql", { code: q });
+      } catch (err) {
+        console.warn("HQL Formatter failed, using raw queries:", err);
+      }
 
       setModelerStore({
         schemaCode: s,

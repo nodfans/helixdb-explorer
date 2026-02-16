@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createSignal, For, onMount, Show, onCleanup } from "solid-js";
 import { reconcile } from "solid-js/store";
-import { Play, Plus, X, FileCode, Database, Sparkles, Check, Upload } from "lucide-solid";
+import { Play, Plus, X, FileCode, Database, Sparkles, Check, Upload, ChevronDown } from "lucide-solid";
 import { invoke } from "@tauri-apps/api/core";
 import { hqlStore, setHqlStore, type HqlTab } from "../stores/hql";
 import { HQLEditor } from "./ui/hql-editor";
@@ -21,7 +21,6 @@ export const HQL = (props: HQLProps) => {
   const [executing, setExecuting] = createSignal(false);
   const [syncing, setSyncing] = createSignal(false);
   const [resultsHeight, setResultsHeight] = createSignal(300);
-  const [showResults, setShowResults] = createSignal(true);
   const [isResizing, setIsResizing] = createSignal(false);
   const [copied, setCopied] = createSignal(false);
   const [formatted, setFormatted] = createSignal(false);
@@ -140,7 +139,7 @@ export const HQL = (props: HQLProps) => {
 
     if (!codeToProcess.trim()) {
       updateTargetTab({ status: "error", output: "⚠️ Please enter HQL code before executing" });
-      setShowResults(true);
+      setHqlStore("showResults", true);
       return;
     }
 
@@ -150,7 +149,7 @@ export const HQL = (props: HQLProps) => {
         status: "error",
         output: !conn.host ? "❌ No active connection. Please add one in 'Connections' tab." : "❌ Disconnected. Please connect to the database first.",
       });
-      setShowResults(true);
+      setHqlStore("showResults", true);
       if (!props.isConnected) handleConnect();
       return;
     }
@@ -164,7 +163,7 @@ export const HQL = (props: HQLProps) => {
       diagnostics: [],
       viewMode: "table",
     });
-    setShowResults(true);
+    setHqlStore("showResults", true);
 
     const startTime = performance.now();
     try {
@@ -238,7 +237,7 @@ export const HQL = (props: HQLProps) => {
     } catch (err) {
       console.error("Format error:", err);
       updateActiveTab({ status: "error", output: `❌ Format Error: ${err}` });
-      setShowResults(true);
+      setHqlStore("showResults", true);
     }
   };
 
@@ -308,7 +307,7 @@ export const HQL = (props: HQLProps) => {
             const conn = activeConnection();
             if (!conn.host || !props.isConnected) {
               updateActiveTab({ status: "error", syncStatus: "error", output: !conn.host ? "❌ No active connection." : "❌ Disconnected.", viewMode: "log" });
-              setShowResults(true);
+              setHqlStore("showResults", true);
               if (!props.isConnected) handleConnect();
               return;
             }
@@ -323,7 +322,7 @@ export const HQL = (props: HQLProps) => {
                 saveConnections();
               }
               updateActiveTab({ status: "loading", syncStatus: "loading", logs: "⏳ Syncing...", viewMode: "log" });
-              setShowResults(true);
+              setHqlStore("showResults", true);
               const response = await minDelay(invoke<any>("sync_hql_to_project", { code: codeToSync, localPath: workshopPath, force: false }));
               if (response.type === "Success") {
                 updateActiveTab({ status: "success", syncStatus: "success", logs: response.data, viewMode: "log" });
@@ -349,7 +348,7 @@ export const HQL = (props: HQLProps) => {
       </div>
 
       <div class="flex-1 flex flex-col min-h-0 relative">
-        <div class="flex-1 min-h-0 bg-[var(--bg-content)]" style={{ "padding-bottom": showResults() ? `${resultsHeight()}px` : "0" }}>
+        <div class="flex-1 min-h-0 bg-[var(--bg-content)]" style={{ "padding-bottom": hqlStore.showResults ? `${resultsHeight()}px` : "0" }}>
           <HQLEditor
             code={activeTab().code}
             onCodeChange={(code) => updateActiveTab({ code })}
@@ -362,7 +361,7 @@ export const HQL = (props: HQLProps) => {
             schema={hqlStore.schema}
           />
         </div>
-        <Show when={showResults()}>
+        <Show when={hqlStore.showResults}>
           <div class="absolute left-0 right-0 h-px bg-[var(--border-subtle)] group z-50" style={{ bottom: `${resultsHeight()}px` }}>
             <div class="absolute inset-x-0 h-[3px] -top-[1px] cursor-row-resize hover:bg-accent/10 transition-colors" classList={{ "bg-accent/20": isResizing() }} onMouseDown={startResizing} />
           </div>
@@ -374,8 +373,8 @@ export const HQL = (props: HQLProps) => {
           updateActiveTab={updateActiveTab}
           copyOutput={copyOutput}
           copied={copied}
-          showResults={showResults}
-          setShowResults={setShowResults}
+          showResults={() => hqlStore.showResults}
+          setShowResults={(val) => setHqlStore("showResults", val)}
           resultsHeight={resultsHeight}
           isResizing={isResizing}
           startResizing={startResizing}
@@ -385,6 +384,13 @@ export const HQL = (props: HQLProps) => {
           setSyncing={setSyncing}
           logEntry={logEntry}
         />
+        <Show when={!hqlStore.showResults}>
+          <div class="absolute bottom-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ left: `${gutterWidth()}px`, transform: "translateX(-50%)" }}>
+            <button onClick={() => setHqlStore("showResults", true)} class="p-1 hover:bg-black/5 dark:hover:bg-white/2 rounded transition-colors text-native-tertiary group" title="Show Results Panel">
+              <ChevronDown size={14} class="rotate-180 transition-transform duration-200 group-hover:text-accent" />
+            </button>
+          </div>
+        </Show>
       </div>
       <Show when={pendingSync()}>
         <SyncConfirmationOverlay pendingSync={pendingSync} setPendingSync={setPendingSync} setSyncing={setSyncing} logEntry={logEntry} updateActiveTab={updateActiveTab} />
