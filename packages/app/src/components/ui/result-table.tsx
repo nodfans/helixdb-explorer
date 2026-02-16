@@ -71,48 +71,18 @@ export const ResultTable = (props: { data: any[]; onSelect?: (rows: any[]) => vo
     });
   });
 
+  // Convert selected row objects → indices for Grid
   const selectedRowIndices = createMemo(() => {
     const rows = props.selectedRows || [];
     const data = tableData();
-    // Match based on original data reference
     return data.map((item, idx) => (rows.includes(item.__original) ? idx : -1)).filter((idx) => idx !== -1);
   });
 
-  const handleRowSelect = (index: number, e: MouseEvent) => {
+  // Convert indices back → original row objects for parent
+  const handleSelectionChange = (indices: number[]) => {
     const data = tableData();
-    const clickedItem = data[index];
-    if (!clickedItem) return;
-
-    const clickedOriginal = clickedItem.__original;
-
-    if (e.shiftKey && props.selectedRows && props.selectedRows.length > 0) {
-      const lastSelectedOriginal = props.selectedRows[props.selectedRows.length - 1];
-      const lastIndex = data.findIndex((item) => item.__original === lastSelectedOriginal);
-
-      if (lastIndex !== -1) {
-        const start = Math.min(lastIndex, index);
-        const end = Math.max(lastIndex, index);
-        const range = data.slice(start, end + 1).map((item) => item.__original);
-        props.onSelect?.(range);
-        return;
-      }
-    }
-
-    // Toggle logic for single click or Cmd/Ctrl click
-    const isAlreadySelected = (props.selectedRows || []).includes(clickedOriginal);
-    if (e.metaKey || e.ctrlKey) {
-      if (isAlreadySelected) {
-        props.onSelect?.(props.selectedRows?.filter((r) => r !== clickedOriginal) || []);
-      } else {
-        props.onSelect?.([...(props.selectedRows || []), clickedOriginal]);
-      }
-    } else {
-      if (isAlreadySelected && props.selectedRows?.length === 1) {
-        props.onSelect?.([]);
-      } else {
-        props.onSelect?.([clickedOriginal]);
-      }
-    }
+    const originals = indices.map((i) => data[i]?.__original).filter(Boolean);
+    props.onSelect?.(originals);
   };
 
   return (
@@ -121,7 +91,7 @@ export const ResultTable = (props: { data: any[]; onSelect?: (rows: any[]) => vo
         columns={columns()}
         data={tableData()}
         selectedRowIndices={selectedRowIndices()}
-        onRowSelect={handleRowSelect}
+        onSelectionChange={handleSelectionChange}
         class="flex-1 min-h-0 overflow-hidden border-none rounded-none shadow-none"
         offset={props.offset}
       />

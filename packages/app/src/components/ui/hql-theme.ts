@@ -58,12 +58,32 @@ export const helixTheme = EditorView.theme(
       zIndex: 100,
     },
     ".cm-tooltip": {
-      border: "1px solid var(--border-native)",
-      backgroundColor: "var(--bg-sidebar)",
+      border: "none",
+      backgroundColor: "transparent",
+    },
+    ".cm-tooltip-autocomplete": {
+      border: "1px solid rgba(0, 0, 0, 0.06)",
+      backgroundColor: "rgba(255, 255, 255, 0.88)",
+      backdropFilter: "blur(12px)",
+      borderRadius: "8px",
+      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06)",
+      padding: "4px",
+      overflow: "hidden",
+    },
+    ".cm-tooltip-autocomplete > ul": {
+      fontFamily: "var(--font-mono)",
+      fontSize: "12px",
+    },
+    ".cm-tooltip-autocomplete > ul > li": {
+      padding: "4px 8px",
+      borderRadius: "4px",
+      margin: "1px 2px",
+      transition: "background-color 0.1s ease",
     },
     ".cm-tooltip-autocomplete > ul > li[aria-selected]": {
-      backgroundColor: "var(--bg-active)",
-      color: "var(--text-primary)",
+      backgroundColor: "var(--accent)",
+      color: "#fff",
+      borderRadius: "4px",
     },
 
     ".cm-tooltip-lint": {
@@ -261,12 +281,32 @@ export const helixThemeDark = EditorView.theme(
       zIndex: 100,
     },
     ".cm-tooltip": {
-      border: "1px solid var(--border-native)",
-      backgroundColor: "var(--bg-sidebar)",
+      border: "none",
+      backgroundColor: "transparent",
+    },
+    ".cm-tooltip-autocomplete": {
+      border: "1px solid rgba(255, 255, 255, 0.08)",
+      backgroundColor: "rgba(30, 30, 30, 0.85)",
+      backdropFilter: "blur(12px)",
+      borderRadius: "8px",
+      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.12)",
+      padding: "4px",
+      overflow: "hidden",
+    },
+    ".cm-tooltip-autocomplete > ul": {
+      fontFamily: "var(--font-mono)",
+      fontSize: "12px",
+    },
+    ".cm-tooltip-autocomplete > ul > li": {
+      padding: "4px 8px",
+      borderRadius: "4px",
+      margin: "1px 2px",
+      transition: "background-color 0.1s ease",
     },
     ".cm-tooltip-autocomplete > ul > li[aria-selected]": {
-      backgroundColor: "var(--bg-active)",
-      color: "var(--text-primary)",
+      backgroundColor: "var(--accent)",
+      color: "#fff",
+      borderRadius: "4px",
     },
 
     ".cm-tooltip-lint": {

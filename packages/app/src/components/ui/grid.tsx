@@ -14,12 +14,11 @@ interface GridProps {
   columns: GridColumn[];
   data: any[];
   onDataChange?: (newData: any[]) => void;
-  selectedCells?: Set<string>;
-  onCellSelect?: (cellId: string) => void;
   class?: string;
   offset?: number;
+  // Row selection (controlled by parent, indices into props.data)
   selectedRowIndices?: number[];
-  onRowSelect?: (index: number, event: MouseEvent) => void;
+  onSelectionChange?: (indices: number[]) => void;
 }
 
 const ROW_HEIGHT = 30;
@@ -37,8 +36,12 @@ export function Grid(props: GridProps) {
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportHeight, setViewportHeight] = createSignal(0);
 
-  let containerRef: HTMLDivElement | undefined;
+  // Selection anchor for shift-click range selection (original index)
+  const [anchorIndex, setAnchorIndex] = createSignal<number | null>(null);
+  // Hover tracking via signal (sorted index)
+  const [hoveredSortedIndex, setHoveredSortedIndex] = createSignal<number | null>(null);
 
+  let containerRef: HTMLDivElement | undefined;
   let inputRef: HTMLInputElement | undefined;
 
   // Initialize column widths and viewport height
@@ -68,6 +71,8 @@ export function Grid(props: GridProps) {
     const calculatedWidth = Math.min(Math.max(32, numDigits * 8 + 10), 80);
     setRowNumberWidth(calculatedWidth);
   });
+
+  // --- Column resize ---
 
   const handleMouseMove = (e: MouseEvent) => {
     const resCol = resizingColumn();
@@ -104,78 +109,19 @@ export function Grid(props: GridProps) {
     window.removeEventListener("mouseup", handleMouseUp);
   });
 
-  const handleCellDoubleClick = (rowIndex: number, colKey: string, value: any) => {
-    const column = props.columns.find((col) => col.key === colKey);
-    if (column?.editable !== false) {
-      setEditingCell(`${rowIndex}-${colKey}`);
-      setEditValue(String(value || ""));
-      setTimeout(() => inputRef?.focus(), 0);
+  const handleResizeStart = (e: MouseEvent, colKey: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizingColumn(colKey);
+    setResizeStartX(e.clientX);
+    if (colKey === "__row_number__") {
+      setResizeStartWidth(rowNumberWidth());
+    } else {
+      setResizeStartWidth(columnWidths()[colKey] || 150);
     }
   };
 
-  const handleCellSave = (rowIndex: number, colKey: string) => {
-    if (props.onDataChange && editValue() !== props.data[rowIndex][colKey]) {
-      const newData = [...props.data];
-      newData[rowIndex] = { ...newData[rowIndex], [colKey]: editValue() };
-      props.onDataChange(newData);
-    }
-    setEditingCell(null);
-  };
-
-  const handleKeyDown = (e: KeyboardEvent, rowIndex: number, colKey: string) => {
-    if (e.key === "Enter") {
-      handleCellSave(rowIndex, colKey);
-    } else if (e.key === "Escape") {
-      setEditingCell(null);
-    }
-  };
-
-  const sortedData = createMemo(() => {
-    const config = sortConfig();
-    if (!config) return props.data;
-
-    return [...props.data].sort((a, b) => {
-      const aVal = a[config.key];
-      const bVal = b[config.key];
-
-      if (aVal === bVal) return 0;
-      if (aVal === null || aVal === undefined) return 1;
-      if (bVal === null || bVal === undefined) return -1;
-
-      const multiplier = config.direction === "asc" ? 1 : -1;
-
-      if (typeof aVal === "number" && typeof bVal === "number") {
-        return (aVal - bVal) * multiplier;
-      }
-
-      return String(aVal).localeCompare(String(bVal)) * multiplier;
-    });
-  });
-
-  const virtualStore = createMemo(() => {
-    const data = sortedData();
-    const top = scrollTop();
-    const height = viewportHeight();
-
-    const startIndex = Math.max(0, Math.floor(top / ROW_HEIGHT) - BUFFER_ROWS);
-    const endIndex = Math.min(data.length, Math.ceil((top + height) / ROW_HEIGHT) + BUFFER_ROWS);
-
-    const visibleRows = data.slice(startIndex, endIndex).map((row, i) => ({
-      data: row,
-      index: startIndex + i,
-    }));
-
-    return {
-      visibleRows,
-      startIndex,
-      totalHeight: data.length * ROW_HEIGHT,
-      offset: startIndex * ROW_HEIGHT,
-    };
-  });
-
-  const handleScroll = (e: Event) => {
-    setScrollTop((e.currentTarget as HTMLDivElement).scrollTop);
-  };
+  // --- Sorting ---
 
   const handleHeaderClick = (colKey: string) => {
     const current = sortConfig();
@@ -190,35 +136,188 @@ export function Grid(props: GridProps) {
     }
   };
 
-  const handleContextMenu = (e: MouseEvent, row: any, rowIndex: number) => {
-    if (e.button === 2 || (e.button === 0 && e.ctrlKey)) {
-      e.preventDefault();
-      e.stopPropagation();
+  // Sorted data with original index tracking (fixes sort + selection mismatch)
+  const sortedData = createMemo(() => {
+    const config = sortConfig();
+    const indexed = props.data.map((row, i) => ({ row, originalIndex: i }));
+    if (!config) return indexed;
 
-      // If the right-clicked row is part of the selection, copy all selected rows
-      // Otherwise, just copy the single row that was right-clicked
-      let rowsToCopy = [row];
-      if (props.selectedRowIndices?.includes(rowIndex)) {
-        rowsToCopy = props.selectedRowIndices.sort((a, b) => a - b).map((idx) => props.data[idx]);
+    return [...indexed].sort((a, b) => {
+      const aVal = a.row[config.key];
+      const bVal = b.row[config.key];
+      if (aVal === bVal) return 0;
+      if (aVal === null || aVal === undefined) return 1;
+      if (bVal === null || bVal === undefined) return -1;
+      const multiplier = config.direction === "asc" ? 1 : -1;
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return (aVal - bVal) * multiplier;
       }
+      return String(aVal).localeCompare(String(bVal)) * multiplier;
+    });
+  });
 
-      import("@tauri-apps/api/core").then(({ invoke }) => {
-        invoke("show_grid_context_menu", { rows: rowsToCopy, columns: props.columns });
-      });
+  // O(1) selection lookup
+  const selectedSet = createMemo(() => new Set(props.selectedRowIndices || []));
+
+  // Reverse mapping: originalIndex → sortedIndex (for shift-click range)
+  const originalToSortedMap = createMemo(() => {
+    const map = new Map<number, number>();
+    sortedData().forEach((item, sortedIdx) => {
+      map.set(item.originalIndex, sortedIdx);
+    });
+    return map;
+  });
+
+  // --- Virtual scrolling ---
+
+  const virtualStore = createMemo(() => {
+    const data = sortedData();
+    const top = scrollTop();
+    const height = viewportHeight();
+
+    const startIndex = Math.max(0, Math.floor(top / ROW_HEIGHT) - BUFFER_ROWS);
+    const endIndex = Math.min(data.length, Math.ceil((top + height) / ROW_HEIGHT) + BUFFER_ROWS);
+
+    const visibleRows = data.slice(startIndex, endIndex).map((item, i) => ({
+      row: item.row,
+      originalIndex: item.originalIndex,
+      sortedIndex: startIndex + i,
+    }));
+
+    return {
+      visibleRows,
+      startIndex,
+      totalHeight: data.length * ROW_HEIGHT,
+      offset: startIndex * ROW_HEIGHT,
+    };
+  });
+
+  const handleScroll = (e: Event) => {
+    setScrollTop((e.currentTarget as HTMLDivElement).scrollTop);
+  };
+
+  // --- Cell editing ---
+
+  const handleCellDoubleClick = (originalIndex: number, colKey: string, value: any) => {
+    const column = props.columns.find((col) => col.key === colKey);
+    if (column?.editable !== false) {
+      setEditingCell(`${originalIndex}-${colKey}`);
+      setEditValue(String(value || ""));
+      setTimeout(() => inputRef?.focus(), 0);
     }
   };
 
-  const handleResizeStart = (e: MouseEvent, colKey: string) => {
+  const handleCellSave = (originalIndex: number, colKey: string) => {
+    if (props.onDataChange && editValue() !== props.data[originalIndex][colKey]) {
+      const newData = [...props.data];
+      newData[originalIndex] = { ...newData[originalIndex], [colKey]: editValue() };
+      props.onDataChange(newData);
+    }
+    setEditingCell(null);
+  };
+
+  const handleCellKeyDown = (e: KeyboardEvent, originalIndex: number, colKey: string) => {
+    if (e.key === "Enter") {
+      handleCellSave(originalIndex, colKey);
+    } else if (e.key === "Escape") {
+      setEditingCell(null);
+    }
+  };
+
+  // --- Row selection ---
+
+  const handleRowClick = (sortedIndex: number, originalIndex: number, e: MouseEvent) => {
+    if (!props.onSelectionChange) return;
+    const current = props.selectedRowIndices || [];
+
+    if (e.shiftKey && anchorIndex() !== null) {
+      // Range select in visual (sorted) order
+      const anchorSorted = originalToSortedMap().get(anchorIndex()!);
+      if (anchorSorted !== undefined) {
+        const start = Math.min(anchorSorted, sortedIndex);
+        const end = Math.max(anchorSorted, sortedIndex);
+        const rangeOriginals = sortedData()
+          .slice(start, end + 1)
+          .map((x) => x.originalIndex);
+        props.onSelectionChange(rangeOriginals);
+      }
+      // Don't update anchor on shift-click
+    } else if (e.metaKey) {
+      // Cmd+Click: toggle individual row
+      const isSelected = selectedSet().has(originalIndex);
+      if (isSelected) {
+        props.onSelectionChange(current.filter((i) => i !== originalIndex));
+      } else {
+        props.onSelectionChange([...current, originalIndex]);
+      }
+      setAnchorIndex(originalIndex);
+    } else {
+      // Plain click: select single row, or deselect if already sole selection
+      if (current.length === 1 && current[0] === originalIndex) {
+        props.onSelectionChange([]);
+        setAnchorIndex(null);
+      } else {
+        props.onSelectionChange([originalIndex]);
+        setAnchorIndex(originalIndex);
+      }
+    }
+  };
+
+  // --- Context menu (right-click / Ctrl+Click) ---
+
+  const handleContextMenu = (e: MouseEvent, originalIndex: number) => {
     e.preventDefault();
     e.stopPropagation();
-    setResizingColumn(colKey);
-    setResizeStartX(e.clientX);
-    if (colKey === "__row_number__") {
-      setResizeStartWidth(rowNumberWidth());
+
+    let rowsToCopy: any[];
+    if (selectedSet().has(originalIndex)) {
+      // Right-clicked a selected row: copy all selected rows
+      const indices = [...(props.selectedRowIndices || [])].sort((a, b) => a - b);
+      rowsToCopy = indices.map((i) => props.data[i]);
     } else {
-      setResizeStartWidth(columnWidths()[colKey] || 150);
+      // Right-clicked an unselected row: select it and copy just this one
+      props.onSelectionChange?.([originalIndex]);
+      setAnchorIndex(originalIndex);
+      rowsToCopy = [props.data[originalIndex]];
+    }
+
+    import("@tauri-apps/api/core").then(({ invoke }) => {
+      invoke("show_grid_context_menu", { rows: rowsToCopy, columns: props.columns });
+    });
+  };
+
+  // --- Keyboard shortcuts ---
+
+  const handleGridKeyDown = (e: KeyboardEvent) => {
+    if (editingCell()) return;
+
+    // Cmd+C / Ctrl+C: copy selected rows as TSV
+    if ((e.metaKey || e.ctrlKey) && e.key === "c") {
+      const indices = [...(props.selectedRowIndices || [])].sort((a, b) => a - b);
+      if (indices.length === 0) return;
+
+      e.preventDefault();
+      const rows = indices.map((i) => props.data[i]);
+      const lines = rows.map((row) =>
+        props.columns
+          .map((col) => {
+            const val = row[col.key];
+            if (val === null || val === undefined) return "";
+            return String(val);
+          })
+          .join("\t")
+      );
+      navigator.clipboard.writeText(lines.join("\n"));
+    }
+
+    // Cmd+A / Ctrl+A: select all rows
+    if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+      e.preventDefault();
+      props.onSelectionChange?.(props.data.map((_, i) => i));
     }
   };
+
+  // --- Build TSV helper for copy ---
 
   return (
     <div
@@ -226,7 +325,10 @@ export function Grid(props: GridProps) {
       style={{
         "background-color": "var(--grid-bg)",
         "box-shadow": props.class?.includes("shadow-none") ? "none" : "var(--grid-shadow)",
+        outline: "none",
       }}
+      tabIndex={0}
+      onKeyDown={handleGridKeyDown}
     >
       <div ref={containerRef} onScroll={handleScroll} class={`flex-1 min-h-0 scrollbar-thin overscroll-behavior-y-contain ${props.data.length === 0 ? "overflow-hidden" : "overflow-auto"}`}>
         <div class="inline-block min-w-full align-middle relative" style={{ height: `${virtualStore().totalHeight + 32}px` }}>
@@ -240,7 +342,7 @@ export function Grid(props: GridProps) {
               "-webkit-backdrop-filter": "blur(8px)",
             }}
           >
-            {/* Row number header with resize handle */}
+            {/* Row number header */}
             <div
               class="flex-shrink-0 flex items-center justify-center relative group select-none"
               style={{
@@ -308,7 +410,7 @@ export function Grid(props: GridProps) {
             <div class="flex-1 min-h-[32px]" />
           </div>
 
-          {/* Vertical Offset Wrapper */}
+          {/* Virtual rows */}
           <div
             class="min-w-full"
             style={{
@@ -320,8 +422,11 @@ export function Grid(props: GridProps) {
           >
             <For each={virtualStore().visibleRows}>
               {(item) => {
-                const row = item.data;
-                const rowIndex = () => item.index;
+                const row = item.row;
+                const originalIndex = item.originalIndex;
+                const sortedIndex = item.sortedIndex;
+                const isRowSelected = () => selectedSet().has(originalIndex);
+                const isHovered = () => hoveredSortedIndex() === sortedIndex;
 
                 return (
                   <div
@@ -329,34 +434,19 @@ export function Grid(props: GridProps) {
                     style={{
                       height: `${ROW_HEIGHT}px`,
                       "border-bottom": "1px solid var(--grid-border)",
-                      "background-color": props.selectedRowIndices?.includes(rowIndex()) ? "var(--grid-row-selected)" : "var(--grid-row-bg)",
+                      "background-color": isRowSelected() ? "var(--grid-row-selected)" : isHovered() ? "var(--grid-row-hover)" : "var(--grid-row-bg)",
                       cursor: "pointer",
                     }}
-                    onClick={(e) => {
-                      if (!e.shiftKey) {
-                        props.onRowSelect?.(rowIndex(), e);
-                      }
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!props.selectedRowIndices?.includes(rowIndex())) {
-                        e.currentTarget.style.backgroundColor = "var(--grid-row-hover)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!props.selectedRowIndices?.includes(rowIndex())) {
-                        e.currentTarget.style.backgroundColor = "var(--grid-row-bg)";
-                      }
-                    }}
-                    onContextMenu={(e) => handleContextMenu(e, row, rowIndex())}
+                    onClick={(e) => handleRowClick(sortedIndex, originalIndex, e)}
                     onMouseDown={(e) => {
-                      if (e.shiftKey) {
-                        e.preventDefault();
-                        props.onRowSelect?.(rowIndex(), e);
-                      }
-                      if (e.ctrlKey && e.button === 0) {
-                        handleContextMenu(e, row, rowIndex());
-                      }
+                      // Prevent text selection during shift-click
+                      if (e.shiftKey) e.preventDefault();
                     }}
+                    onMouseEnter={() => setHoveredSortedIndex(sortedIndex)}
+                    onMouseLeave={() => {
+                      if (hoveredSortedIndex() === sortedIndex) setHoveredSortedIndex(null);
+                    }}
+                    onContextMenu={(e) => handleContextMenu(e, originalIndex)}
                   >
                     {/* Row number */}
                     <div
@@ -371,15 +461,14 @@ export function Grid(props: GridProps) {
                         "font-family": "var(--font-sans)",
                       }}
                     >
-                      <span class="truncate px-2">{(props.offset || 0) + rowIndex()}</span>
+                      <span class="truncate px-2">{(props.offset || 0) + originalIndex}</span>
                     </div>
 
-                    {/* Cells */}
+                    {/* Data cells */}
                     <For each={props.columns}>
                       {(column) => {
-                        const cellId = () => `${rowIndex()}-${column.key}`;
+                        const cellId = () => `${originalIndex}-${column.key}`;
                         const isEditing = () => editingCell() === cellId();
-                        const isSelected = () => props.selectedCells?.has(cellId());
                         const value = () => row[column.key];
 
                         return (
@@ -389,17 +478,8 @@ export function Grid(props: GridProps) {
                               width: `${columnWidths()[column.key] || 150}px`,
                               height: `${ROW_HEIGHT}px`,
                               "border-right": "1px solid var(--grid-border)",
-                              "background-color": isSelected() ? "var(--grid-row-selected)" : "transparent",
-                              outline: isSelected() ? "2px solid var(--grid-focus-ring)" : "none",
-                              "outline-offset": "-1px",
                             }}
-                            onClick={(e) => {
-                              if (props.onCellSelect) {
-                                e.stopPropagation();
-                                props.onCellSelect(cellId());
-                              }
-                            }}
-                            onDblClick={() => handleCellDoubleClick(rowIndex(), column.key, value())}
+                            onDblClick={() => handleCellDoubleClick(originalIndex, column.key, value())}
                           >
                             <Show
                               when={isEditing()}
@@ -422,8 +502,8 @@ export function Grid(props: GridProps) {
                                 type={column.type === "number" ? "number" : "text"}
                                 value={editValue()}
                                 onInput={(e) => setEditValue(e.currentTarget.value)}
-                                onBlur={() => handleCellSave(rowIndex(), column.key)}
-                                onKeyDown={(e) => handleKeyDown(e, rowIndex(), column.key)}
+                                onBlur={() => handleCellSave(originalIndex, column.key)}
+                                onKeyDown={(e) => handleCellKeyDown(e, originalIndex, column.key)}
                                 class="absolute inset-0 w-full h-full px-1.5 outline-none"
                                 style={{
                                   "background-color": "var(--grid-input-bg)",
