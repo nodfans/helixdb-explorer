@@ -87,37 +87,18 @@ export const helixTheme = EditorView.theme(
     },
 
     ".cm-tooltip-lint": {
-      border: "none !important",
-      backgroundColor: "transparent !important",
-      boxShadow: "none !important",
-      padding: "0 !important",
-      maxWidth: "none",
-      whiteSpace: "nowrap",
-      position: "absolute !important",
-      zIndex: 100,
+      display: "none !important",
     },
 
-    ".cm-diagnostic": {
-      padding: "4px 10px",
-      display: "inline-block",
-      border: "1px solid #e5e7eb",
-      borderLeft: "3px solid #f59e0b",
-      borderRadius: "3px",
-      backgroundColor: "#fefefe",
-      color: "#4b5563",
-      fontSize: "11.5px",
-      fontFamily: "var(--font-sans)",
-      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04)",
-      whiteSpace: "nowrap",
-      position: "relative",
-      top: "4px",
-    },
-
-    ".cm-diagnosticText": {
-      fontFamily: "inherit",
-      lineHeight: "1.4",
-      fontWeight: "normal",
-      whiteSpace: "nowrap",
+    ".cm-diagnostic-inline": {
+      marginLeft: "1em",
+      color: "var(--status-error)",
+      opacity: "0.6",
+      fontStyle: "italic",
+      fontSize: "11px",
+      fontFamily: "var(--font-mono)",
+      userSelect: "none",
+      pointerEvents: "none",
     },
 
     ".cm-lintRange-error": {
@@ -310,38 +291,18 @@ export const helixThemeDark = EditorView.theme(
     },
 
     ".cm-tooltip-lint": {
-      border: "none !important",
-      backgroundColor: "transparent !important",
-      boxShadow: "none !important",
-      padding: "0 !important",
-      maxWidth: "none",
-      whiteSpace: "nowrap",
-      position: "absolute !important",
-      zIndex: 100,
+      display: "none !important",
     },
 
-    ".cm-diagnostic": {
-      padding: "4px 10px",
-      display: "inline-block",
-      border: "1px solid rgba(75, 85, 99, 0.4)",
-      borderLeft: "3px solid #fbbf24",
-      borderRadius: "3px",
-      backgroundColor: "rgba(31, 41, 55, 0.6)",
-      backdropFilter: "blur(8px)",
-      color: "#e5e7eb",
-      fontSize: "11.5px",
-      fontFamily: "var(--font-sans)",
-      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1)",
-      whiteSpace: "nowrap",
-      position: "relative",
-      top: "4px",
-    },
-
-    ".cm-diagnosticText": {
-      fontFamily: "inherit",
-      lineHeight: "1.4",
-      fontWeight: "normal",
-      whiteSpace: "nowrap",
+    ".cm-diagnostic-inline": {
+      marginLeft: "1em",
+      color: "#ff6b6b",
+      opacity: "0.6",
+      fontStyle: "italic",
+      fontSize: "11px",
+      fontFamily: "var(--font-mono)",
+      userSelect: "none",
+      pointerEvents: "none",
     },
 
     ".cm-lintRange-error": {

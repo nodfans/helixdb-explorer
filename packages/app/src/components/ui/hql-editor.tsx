@@ -1,11 +1,83 @@
 import { onMount, onCleanup, createEffect } from "solid-js";
-import { EditorView, keymap, highlightSpecialChars, drawSelection, dropCursor, lineNumbers, highlightActiveLineGutter, placeholder } from "@codemirror/view";
+import {
+  EditorView,
+  keymap,
+  highlightSpecialChars,
+  drawSelection,
+  dropCursor,
+  lineNumbers,
+  highlightActiveLineGutter,
+  placeholder,
+  WidgetType,
+  Decoration,
+  ViewPlugin,
+  ViewUpdate,
+} from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from "@codemirror/commands";
 import { indentOnInput, syntaxHighlighting, bracketMatching, foldGutter, foldKeymap, indentUnit } from "@codemirror/language";
 import { autocompletion, completionKeymap, acceptCompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { searchKeymap, search } from "@codemirror/search";
-import { Diagnostic, linter } from "@codemirror/lint";
+import { Diagnostic, linter, forEachDiagnostic } from "@codemirror/lint";
+
+class DiagnosticInlineWidget extends WidgetType {
+  constructor(readonly message: string) {
+    super();
+  }
+  eq(other: DiagnosticInlineWidget) {
+    return other.message == this.message;
+  }
+  toDOM() {
+    let wrap = document.createElement("span");
+    wrap.className = "cm-diagnostic-inline";
+    wrap.textContent = ` // ${this.message}`;
+    return wrap;
+  }
+  ignoreEvent() {
+    return true;
+  }
+}
+
+const diagnosticInlineAnnotation = ViewPlugin.fromClass(
+  class {
+    decorations: any;
+
+    constructor(view: EditorView) {
+      this.decorations = this.getDecorations(view);
+    }
+
+    update(update: ViewUpdate) {
+      // Update when doc changes, selection changes, or if linter state might have updated
+      if (update.docChanged || update.selectionSet || update.viewportChanged) {
+        this.decorations = this.getDecorations(update.view);
+      }
+    }
+
+    getDecorations(view: EditorView) {
+      let widgets: any[] = [];
+      let sel = view.state.selection.main;
+      if (!sel.empty) return Decoration.none;
+
+      let line = view.state.doc.lineAt(sel.head);
+      forEachDiagnostic(view.state, (d, from, to) => {
+        // If the diagnostic overlaps with the current line, show the widget at the end of the line
+        if (from <= line.to && to >= line.from) {
+          widgets.push(
+            Decoration.widget({
+              widget: new DiagnosticInlineWidget(d.message),
+              side: 1,
+            }).range(line.to)
+          );
+        }
+      });
+
+      return Decoration.set(widgets, true);
+    }
+  },
+  {
+    decorations: (v) => v.decorations,
+  }
+);
 import { invoke } from "@tauri-apps/api/core";
 import { useTheme } from "./theme";
 import { helixTheme, helixThemeDark, helixHighlightStyle, helixHighlightStyleDark, themeConfig, highlightConfig } from "./hql-theme";
@@ -68,6 +140,7 @@ export const HQLEditor = (props: HQLEditorProps) => {
         indentOnInput(),
         bracketMatching(),
         closeBrackets(),
+        diagnosticInlineAnnotation,
         search({ top: true }),
         autocompletion({
           override: [
