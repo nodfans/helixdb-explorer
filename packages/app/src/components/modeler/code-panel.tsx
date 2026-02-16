@@ -4,6 +4,8 @@ import { QueryGenerationConfig } from "../../lib/codegen";
 import { HQLEditor } from "../ui/hql-editor";
 import { Button } from "../ui/button";
 
+import { hqlLanguage } from "../../lib/hql-syntax";
+
 interface CodePanelProps {
   schemaCode: string;
   queryCode: string;
@@ -308,7 +310,7 @@ export const CodePanel = (props: CodePanelProps) => {
 
       {/* Code Display Area */}
       <div class="flex-1 overflow-hidden bg-native-content relative">
-        <HQLEditor code={getActiveCode() || ""} readOnly={true} />
+        <HQLEditor code={getActiveCode() || ""} readOnly={true} language={hqlLanguage} />
       </div>
     </div>
   );

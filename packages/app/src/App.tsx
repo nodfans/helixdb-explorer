@@ -6,7 +6,7 @@ import { Schema } from "./components/schema";
 import { Queries } from "./components/queries";
 import { Graph } from "./components/graph";
 import { HQL } from "./components/hql";
-import { ThemeSettings, initTheme } from "./components/theme";
+import { ThemeSettings, initTheme } from "./components/ui/theme";
 import { Connection } from "./components/connection";
 import { createConnection } from "./hooks/connection";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
@@ -14,7 +14,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { EmptyState } from "./components/ui/empty-state";
 import { Button } from "./components/ui/button";
-import { AlertCircle, Database, Network, Zap } from "lucide-solid";
+import { AlertCircle, Database, Network, Zap, SquareCode } from "lucide-solid";
 
 function App() {
   const connection = createConnection();
@@ -160,7 +160,7 @@ function App() {
             </Show>
           </div>
 
-          <Show when={!connection.isConnected() && ["schema", "queries", "graph"].includes(currentView())}>
+          <Show when={!connection.isConnected() && ["schema", "queries", "graph", "hql"].includes(currentView())}>
             <div class="absolute inset-0 flex items-center justify-center bg-native-content z-[100]">
               <Show when={currentView() === "schema"}>
                 <EmptyState icon={Database} title="Database Schema" description="Connect to your HelixDB instance to explore schema structure.">
@@ -178,6 +178,13 @@ function App() {
               </Show>
               <Show when={currentView() === "graph"}>
                 <EmptyState icon={Network} title="Graph Explorer" description="Visualize your database as an interactive network. Start by connecting to an instance.">
+                  <Button variant="primary" size="lg" onClick={connection.openSettings}>
+                    Connect Now
+                  </Button>
+                </EmptyState>
+              </Show>
+              <Show when={currentView() === "hql"}>
+                <EmptyState icon={SquareCode} title="HQL Editor" description="Write and execute Helix Query Language statements against your database.">
                   <Button variant="primary" size="lg" onClick={connection.openSettings}>
                     Connect Now
                   </Button>

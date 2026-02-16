@@ -9,7 +9,9 @@ import { HelixApi } from "../lib/api";
 import { activeConnection, getConnectionUrl, setConnectionStore, saveConnections } from "../stores/connection";
 import { HqlPanel, SyncConfirmationOverlay } from "./ui/hql-panel";
 import { extractTableData, extractMultiTableData } from "../lib/result-helper";
+import { hqlLanguage } from "../lib/hql-syntax";
 
+// --- HQL Page Component ---
 export interface HQLProps {
   isConnected: boolean;
   onConnect: () => void;
@@ -25,16 +27,7 @@ export const HQL = (props: HQLProps) => {
   const [formatted, setFormatted] = createSignal(false);
   const [gutterWidth, setGutterWidth] = createSignal(40);
   const [selectedText, setSelectedText] = createSignal("");
-  const [pendingSync, setPendingSync] = createSignal<{
-    items: Array<{
-      query_name: string;
-      old_code: string;
-      new_code: string;
-      sync_type: string;
-    }>;
-    workshopPath: string;
-    fullCode: string;
-  } | null>(null);
+  const [pendingSync, setPendingSync] = createSignal<any>(null);
 
   const logEntry = (msg: string) => {
     const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
@@ -48,7 +41,6 @@ export const HQL = (props: HQLProps) => {
   const activeTab = createMemo(() => hqlStore.tabs.find((t) => t.id === hqlStore.activeTabId) || hqlStore.tabs[0]);
 
   onMount(async () => {
-    // Initialize Schema for Auto-completion (only if we have a connection)
     const active = activeConnection();
     if (active && active.host) {
       const api = new HelixApi(getConnectionUrl(active), null);
@@ -61,7 +53,6 @@ export const HQL = (props: HQLProps) => {
     }
   });
 
-  // Clear results when switching from disconnected to connected
   createEffect((prevConnected) => {
     if (props.isConnected && prevConnected === false) {
       clearResults();
@@ -74,23 +65,19 @@ export const HQL = (props: HQLProps) => {
     setIsResizing(true);
     const startY = e.clientY;
     const startHeight = resultsHeight();
-
     const handleMouseMove = (moveEvent: MouseEvent) => {
       moveEvent.preventDefault();
       const deltaY = startY - moveEvent.clientY;
       const newHeight = Math.max(100, Math.min(startHeight + deltaY, window.innerHeight * 0.8));
       setResultsHeight(newHeight);
     };
-
     const stopResizing = () => {
       setIsResizing(false);
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", stopResizing);
     };
-
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", stopResizing);
-
     onCleanup(stopResizing);
   };
 
@@ -114,17 +101,15 @@ export const HQL = (props: HQLProps) => {
   const closeTab = (e: MouseEvent, id: string) => {
     e.stopPropagation();
     if (hqlStore.tabs.length === 1) return;
-
     const newTabs = hqlStore.tabs.filter((t) => t.id !== id);
     setHqlStore("tabs", newTabs);
-
     if (activeTab().id === id) {
       setHqlStore("activeTabId", newTabs[newTabs.length - 1].id);
     }
   };
 
   const updateActiveTab = (updates: Partial<HqlTab>) => {
-    setHqlStore("tabs", (t) => t.id === activeTab().id, updates);
+    setHqlStore("tabs", (t) => t.id === hqlStore.activeTabId, updates);
   };
 
   const clearResults = () => {
@@ -147,7 +132,6 @@ export const HQL = (props: HQLProps) => {
   const executeHql = async (codeOverride?: string) => {
     const targetTabId = hqlStore.activeTabId;
     const currentTab = hqlStore.tabs.find((t) => t.id === targetTabId) || activeTab();
-
     const codeToProcess = selectedText().trim() || codeOverride || currentTab.code;
 
     const updateTargetTab = (updates: Partial<HqlTab>) => {
@@ -155,10 +139,7 @@ export const HQL = (props: HQLProps) => {
     };
 
     if (!codeToProcess.trim()) {
-      updateTargetTab({
-        status: "error",
-        output: "⚠️ Please enter HQL code before executing",
-      });
+      updateTargetTab({ status: "error", output: "⚠️ Please enter HQL code before executing" });
       setShowResults(true);
       return;
     }
@@ -187,7 +168,6 @@ export const HQL = (props: HQLProps) => {
 
     const startTime = performance.now();
     try {
-      // "What you select is what you get" - Send exactly what's requested to the backend
       const result: any = await invoke("execute_dynamic_hql", {
         url: getConnectionUrl(activeConnection()),
         code: codeToProcess,
@@ -196,7 +176,6 @@ export const HQL = (props: HQLProps) => {
 
       const endTime = performance.now();
       const duration = Math.round(endTime - startTime);
-
       const tableData = extractTableData(result);
       const isTable = tableData !== null && tableData.length > 0;
 
@@ -213,17 +192,14 @@ export const HQL = (props: HQLProps) => {
       });
     } catch (err: any) {
       let errorMsg = err.toString();
-
       if (errorMsg.includes("connection")) {
-        errorMsg = `Connection Error: Couldn't connect to ${getConnectionUrl(activeConnection())}. Make sure your Helix instance is running. (Original: ${err})`;
+        errorMsg = `Connection Error: Couldn't connect to ${getConnectionUrl(activeConnection())}. (Original: ${err})`;
       } else {
         errorMsg = `Execution Failed: ${err}`;
       }
 
-      // Parse error for line number
       let diagnostics: any[] = [];
       const lineMatch = errorMsg.match(/line\s+(\d+)/i) || errorMsg.match(/At: \((\d+)/i) || errorMsg.match(/-->\s+(\d+):/);
-
       if (lineMatch) {
         try {
           const lineOneBased = parseInt(lineMatch[1]);
@@ -235,24 +211,12 @@ export const HQL = (props: HQLProps) => {
                 from += lines[i].length + 1;
               }
               const lineContent = lines[lineOneBased - 1];
-              diagnostics.push({
-                from: from,
-                to: from + lineContent.length,
-                severity: "error",
-                message: errorMsg,
-              });
+              diagnostics.push({ from: from, to: from + lineContent.length, severity: "error", message: errorMsg });
             }
           }
         } catch (e) {}
       }
-
-      updateTargetTab({
-        status: "error",
-        queryStatus: "error",
-        output: `❌ ${errorMsg}`,
-        diagnostics,
-        viewMode: "table",
-      });
+      updateTargetTab({ status: "error", queryStatus: "error", output: `❌ ${errorMsg}`, diagnostics, viewMode: "table" });
     } finally {
       setExecuting(false);
     }
@@ -273,37 +237,28 @@ export const HQL = (props: HQLProps) => {
       setTimeout(() => setFormatted(false), 800);
     } catch (err) {
       console.error("Format error:", err);
-      // Show error in output
-      updateActiveTab({
-        status: "error",
-        output: `❌ Format Error: ${err}`,
-      });
+      updateActiveTab({ status: "error", output: `❌ Format Error: ${err}` });
       setShowResults(true);
     }
   };
 
   return (
     <div class="flex-1 flex flex-col bg-native-content min-h-0 min-w-0 overflow-hidden" classList={{ "cursor-row-resize": isResizing() }}>
-      {/* Tab Bar */}
       <div class="flex items-center h-9 bg-native-sidebar-vibrant/40 border-b border-native px-5 gap-1.5 overflow-x-auto scrollbar-hide shrink-0">
         <For each={hqlStore.tabs}>
           {(tab) => (
             <div
               onClick={() => setHqlStore("activeTabId", tab.id)}
-              class={`
-            group relative flex items-center gap-1.5 px-2.5 h-[26px] text-[11px] font-medium rounded-md cursor-pointer transition-all select-none min-w-[100px] max-w-[180px] border
-            ${
-              tab.id === activeTab().id
-                ? "bg-[var(--bg-elevated)] text-[var(--text-primary)] border-[var(--border-subtle)] shadow-sm"
-                : "bg-transparent text-[var(--text-tertiary)] border-transparent hover:bg-[var(--bg-hover)] hover:text-[var(--text-secondary)]"
-            }
-          `}
+              class={`group relative flex items-center gap-1.5 px-2.5 h-[26px] text-[11px] font-medium rounded-md cursor-pointer transition-all select-none min-w-[100px] max-w-[180px] border ${
+                tab.id === hqlStore.activeTabId
+                  ? "bg-[var(--bg-elevated)] text-[var(--text-primary)] border-[var(--border-subtle)] shadow-sm"
+                  : "bg-transparent text-[var(--text-tertiary)] border-transparent hover:bg-[var(--bg-hover)] hover:text-[var(--text-secondary)]"
+              }`}
             >
               <div class="flex-shrink-0">
-                <FileCode size={13} strokeWidth={2.5} class={tab.id === activeTab().id ? "text-accent" : "text-native-quaternary"} />
+                <FileCode size={13} strokeWidth={2.5} class={tab.id === hqlStore.activeTabId ? "text-accent" : "text-native-quaternary"} />
               </div>
               <span class="truncate pr-4 text-[12px]">{tab.name}</span>
-
               <Show when={hqlStore.tabs.length > 1}>
                 <button
                   onClick={(e) => closeTab(e, tab.id)}
@@ -315,18 +270,15 @@ export const HQL = (props: HQLProps) => {
             </div>
           )}
         </For>
-
-        <button onClick={addTab} class="p-1 px-1.5 text-native-tertiary hover:text-accent hover:bg-native-content transition-all rounded-md" title="New Query Tab">
+        <button onClick={addTab} class="p-1 px-1.5 text-native-tertiary hover:text-accent hover:bg-native-content transition-all rounded-md">
           <Plus size={14} />
         </button>
       </div>
 
-      {/* Toolbar */}
       <div class="h-9 border-b border-native bg-native-sidebar-vibrant/40 flex items-center px-5 gap-2 shrink-0">
         <div
           onClick={handleConnect}
           class="flex items-center h-[26px] bg-[var(--bg-input)] border border-native rounded-md px-2 gap-2 hover:border-native-active transition-colors min-w-[160px] max-w-[240px] group cursor-default select-none"
-          title="Switch Connection"
         >
           <div class="flex items-center justify-center w-4 h-4 bg-accent/10 rounded p-0.5">
             <Database size={11} strokeWidth={2.5} class="text-accent" />
@@ -335,17 +287,12 @@ export const HQL = (props: HQLProps) => {
             {activeConnection().host}:{activeConnection().port}
           </span>
         </div>
-
         <div class="w-px h-3.5 bg-[var(--border-subtle)]" />
-
-        {/* Format Button - Icon Only */}
         <button onClick={beautifyCode} class="h-7 w-7 p-0 flex items-center justify-center rounded-md transition-colors" title="Format Query">
           <Show when={formatted()} fallback={<Sparkles size={16} class="text-purple-500" strokeWidth={2} />}>
             <Check size={16} class="text-emerald-500 animate-in fade-in zoom-in duration-200" strokeWidth={2} />
           </Show>
         </button>
-
-        {/* Run Button - Icon Only */}
         <button
           onClick={() => executeHql()}
           disabled={executing() || !activeTab().code.trim()}
@@ -356,93 +303,36 @@ export const HQL = (props: HQLProps) => {
             <div class="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
           </Show>
         </button>
-
-        {/* Sync Button - Icon Only */}
         <button
           onClick={async () => {
             const conn = activeConnection();
-
             if (!conn.host || !props.isConnected) {
-              updateActiveTab({
-                status: "error",
-                syncStatus: "error",
-                output: !conn.host ? "❌ No active connection. Please add one in 'Connections' tab." : "❌ Disconnected. Please connect to the database first.",
-                viewMode: "log",
-              });
+              updateActiveTab({ status: "error", syncStatus: "error", output: !conn.host ? "❌ No active connection." : "❌ Disconnected.", viewMode: "log" });
               setShowResults(true);
               if (!props.isConnected) handleConnect();
               return;
             }
-
             const codeToSync = selectedText() || activeTab().code;
             setPendingSync(null);
             setSyncing(true);
             try {
               let workshopPath = conn.localPath;
-
               if (!workshopPath) {
-                updateActiveTab({ status: "loading", output: "⏳ No workspace path configured. Attempting auto-detection via Docker..." });
-                setShowResults(true);
-
-                try {
-                  workshopPath = await invoke<string>("detect_workspace_path");
-
-                  setConnectionStore("connections", (c) => c.id === conn.id, { localPath: workshopPath });
-                  saveConnections();
-
-                  updateActiveTab({
-                    output: `✅ Auto-detected workspace: ${workshopPath}\nProceeding with sync...`,
-                  });
-                } catch (detectErr) {
-                  const errorMsg = `❌ No Local Workspace Path configured.\n\nAuto-detection failed: ${detectErr}\n\nPlease set it manually in 'Connections' settings.`;
-                  logEntry(errorMsg);
-                  updateActiveTab({
-                    status: "error",
-                    syncStatus: "error",
-                    viewMode: "log",
-                  });
-                  return;
-                }
+                workshopPath = await invoke<string>("detect_workspace_path");
+                setConnectionStore("connections", (c) => c.id === conn.id, { localPath: workshopPath });
+                saveConnections();
               }
-
-              updateActiveTab({ status: "loading", syncStatus: "loading", logs: "⏳ Syncing to project...", viewMode: "log" });
+              updateActiveTab({ status: "loading", syncStatus: "loading", logs: "⏳ Syncing...", viewMode: "log" });
               setShowResults(true);
-
-              try {
-                const response = await minDelay(
-                  invoke<any>("sync_hql_to_project", {
-                    code: codeToSync,
-                    localPath: workshopPath,
-                    force: false,
-                  })
-                );
-
-                if (response.type === "Success") {
-                  updateActiveTab({
-                    status: "success",
-                    syncStatus: "success",
-                    logs: response.data,
-                    viewMode: "log",
-                  });
-                } else {
-                  // Pending
-                  const items = response.data;
-                  logEntry(`[Sync] Detected ${items.length} queries that need confirmation.`);
-                  setPendingSync({
-                    items, // List of {query_name, old_code, new_code, sync_type}
-                    workshopPath,
-                    fullCode: codeToSync,
-                  });
-                  updateActiveTab({ status: "idle", viewMode: "log" });
-                }
-              } catch (err: any) {
-                const errorMsg = `❌ Sync Failed: ${err}`;
-                logEntry(errorMsg);
-                updateActiveTab({ status: "idle", syncStatus: "error", viewMode: "log" });
+              const response = await minDelay(invoke<any>("sync_hql_to_project", { code: codeToSync, localPath: workshopPath, force: false }));
+              if (response.type === "Success") {
+                updateActiveTab({ status: "success", syncStatus: "success", logs: response.data, viewMode: "log" });
+              } else {
+                setPendingSync({ items: response.data, workshopPath, fullCode: codeToSync });
+                updateActiveTab({ status: "idle", viewMode: "log" });
               }
             } catch (err: any) {
-              const errorMsg = `❌ Unexpected Error: ${err}`;
-              logEntry(errorMsg);
+              logEntry(`❌ Sync Failed: ${err}`);
               updateActiveTab({ status: "idle", syncStatus: "error", viewMode: "log" });
             } finally {
               setSyncing(false);
@@ -450,18 +340,15 @@ export const HQL = (props: HQLProps) => {
           }}
           disabled={!activeTab().code.trim() || syncing()}
           class="h-7 w-7 p-0 flex items-center justify-center rounded-md transition-colors disabled:opacity-40"
-          title={activeConnection().localPath ? `Sync to ${activeConnection().localPath}` : "Auto-detect Workspace & Sync"}
         >
-          <Show when={syncing()} fallback={<Upload size={16} class={activeConnection().localPath ? "text-[#007AFF] dark:text-[#0A84FF]" : "text-native-quaternary"} strokeWidth={2} />}>
+          <Show when={syncing()} fallback={<Upload size={16} class={activeConnection().localPath ? "text-accent" : "text-native-quaternary"} strokeWidth={2} />}>
             <div class="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
           </Show>
         </button>
-
         <div class="flex-1" />
       </div>
 
       <div class="flex-1 flex flex-col min-h-0 relative">
-        {/* Editor Container */}
         <div class="flex-1 min-h-0 bg-[var(--bg-content)]" style={{ "padding-bottom": showResults() ? `${resultsHeight()}px` : "0" }}>
           <HQLEditor
             code={activeTab().code}
@@ -471,21 +358,15 @@ export const HQL = (props: HQLProps) => {
             onSelectionChange={setSelectedText}
             onGutterWidthChange={setGutterWidth}
             diagnostics={activeTab().diagnostics || []}
+            language={hqlLanguage}
+            schema={hqlStore.schema}
           />
         </div>
-
-        {/* Results Resizer - macOS style */}
         <Show when={showResults()}>
           <div class="absolute left-0 right-0 h-px bg-[var(--border-subtle)] group z-50" style={{ bottom: `${resultsHeight()}px` }}>
-            <div
-              class="absolute inset-x-0 h-[3px] -top-[1px] cursor-row-resize hover:bg-[#007AFF]/10 dark:hover:bg-[#0A84FF]/10 transition-colors"
-              classList={{ "bg-[#007AFF]/20 dark:bg-[#0A84FF]/20": isResizing() }}
-              onMouseDown={startResizing}
-            />
+            <div class="absolute inset-x-0 h-[3px] -top-[1px] cursor-row-resize hover:bg-accent/10 transition-colors" classList={{ "bg-accent/20": isResizing() }} onMouseDown={startResizing} />
           </div>
         </Show>
-
-        {/* Results Panel */}
         <HqlPanel
           activeTab={activeTab()}
           isConnected={props.isConnected}
@@ -505,11 +386,11 @@ export const HQL = (props: HQLProps) => {
           logEntry={logEntry}
         />
       </div>
-
-      {/* Sync Confirmation Overlay - Global Mount */}
       <Show when={pendingSync()}>
         <SyncConfirmationOverlay pendingSync={pendingSync} setPendingSync={setPendingSync} setSyncing={setSyncing} logEntry={logEntry} updateActiveTab={updateActiveTab} />
       </Show>
     </div>
   );
 };
+
+export { HQL as default };

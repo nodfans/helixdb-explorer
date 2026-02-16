@@ -198,13 +198,7 @@ export const Queries = (props: QueriesProps) => {
       setRawResult(reconcile(res));
       setResult(JSON.stringify(res, null, 2));
 
-      const hasArray = Array.isArray(res) || (typeof res === "object" && res !== null && Object.values(res).some((v) => Array.isArray(v)));
-
-      if (hasArray) {
-        setViewMode("table");
-      } else {
-        setViewMode("json");
-      }
+      setViewMode("table");
 
       if (Array.isArray(res) && res.length > 0) {
         setSelectedRows([res[0]]);
