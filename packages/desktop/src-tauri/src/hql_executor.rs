@@ -18,7 +18,27 @@ pub async fn execute_pipeline(
     let has_subsequent_steps = tools.len() > 1;
 
     if !id_filters.is_empty() && has_subsequent_steps {
-        // TWO-PASS EXECUTION
+        // ==================================================================================
+        // WORKAROUND: Two-Pass Execution for ID Filtering
+        // ==================================================================================
+        // CURRENT LIMITATION:
+        // The helix-db MCP protocol (`tools.rs` / `ToolArgs`) currently lacks a direct way
+        // to filter by ID (e.g., `NFromId` or `FilterById` tool does not exist).
+        // It only supports `NFromType`.
+        //
+        // CURRENT IMPLEMENTATION:
+        // 1. Pass 1: Fetch ALL nodes of the given type (`NFromType`).
+        //    - RISK: This pulls the entire table into client memory. Dangerous for large datasets!
+        // 2. Client-side Filter: Find the specific node by ID in the result set.
+        // 3. Extract Properties: promoting non-ID properties to a new `FilterItems` tool.
+        //    - RISK: Correctness issue. If multiple nodes share the same non-ID properties
+        //      but have different IDs, this second pass might match the wrong nodes.
+        // 4. Pass 2: Re-run the query chain using `FilterItems` instead of ID.
+        //
+        // TODO(upstream): 
+        // Implement `NFromId` or `FilterById` in `helix-db`'s `mcp.rs` and `tools.rs`.
+        // Once available, replace this entire block with a single `FilterById` tool call.
+        // ==================================================================================
         let start_tool = &tools[0];
         let remaining_tools = &tools[1..];
 
@@ -89,6 +109,32 @@ pub async fn execute_pipeline(
         } else {
             Ok(result)
         }
+    }
+}
+
+pub async fn execute_search_tool(
+    client: &reqwest::Client,
+    url: &str,
+    connection_id: &str,
+    tool: &ToolArgs
+) -> Result<serde_json::Value, String> {
+    let (endpoint, body) = match tool {
+        ToolArgs::SearchKeyword { query, limit, label } => ("search_keyword", serde_json::json!({ "connection_id": connection_id, "data": { "query": query, "limit": limit, "label": label } })),
+        ToolArgs::SearchVec { vector, k, min_score, cutoff } => ("search_vector", serde_json::json!({ "connection_id": connection_id, "data": { "vector": vector, "k": k, "min_score": min_score, "cutoff": cutoff } })),
+        ToolArgs::SearchVecText { query, label, k } => ("search_vector_text", serde_json::json!({ "connection_id": connection_id, "data": { "query": query, "label": label, "k": k } })),
+        _ => return Err("Not a search tool".to_string()),
+    };
+
+    let resp = client.post(format!("{}/mcp/{}", url, endpoint))
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Search request failed: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("Failed to parse search results: {}", e))
+    } else {
+        Err(format!("Search error ({}): {}", resp.status(), resp.text().await.unwrap_or_default()))
     }
 }
 

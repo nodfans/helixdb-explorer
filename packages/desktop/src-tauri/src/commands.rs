@@ -99,15 +99,33 @@ pub async fn execute_query(url: String, query_name: String, args: serde_json::Va
     }
 }
 
+fn expression_to_json(expr: &helix_db::helixc::parser::types::Expression) -> Option<serde_json::Value> {
+    match &expr.expr {
+        helix_db::helixc::parser::types::ExpressionType::StringLiteral(s) => Some(serde_json::Value::String(s.clone())),
+        helix_db::helixc::parser::types::ExpressionType::IntegerLiteral(i) => Some(serde_json::Value::Number((*i).into())),
+        helix_db::helixc::parser::types::ExpressionType::FloatLiteral(f) => serde_json::Number::from_f64(*f).map(serde_json::Value::Number),
+        helix_db::helixc::parser::types::ExpressionType::BooleanLiteral(b) => Some(serde_json::Value::Bool(*b)),
+        helix_db::helixc::parser::types::ExpressionType::ArrayLiteral(arr) => {
+            let values: Vec<serde_json::Value> = arr.iter().filter_map(expression_to_json).collect();
+            Some(serde_json::Value::Array(values))
+        },
+        _ => None,
+    }
+}
+
+use crate::hql_processor;
+
 #[tauri::command]
 pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+    let code = hql_processor::preprocess_hql(&code);
+
     fn try_parse(code: &str) -> Result<helix_db::helixc::parser::types::Source, String> {
         let content = write_to_temp_file(vec![code]);
         HelixParser::parse_source(&content).map_err(|e| format!("{:?}", e))
     }
 
     let source = if code.trim().to_uppercase().starts_with("QUERY") {
-        try_parse(&code).map_err(|e| format!("Failed to parse Query: {}", e))?
+        try_parse(&code).map_err(|e| format!("Failed to parse Query: {}\nCode: '{}'", e, code))?
     } else {
         match try_parse(&code) {
             Ok(s) => s,
@@ -127,11 +145,18 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
     let mut params_val = params.unwrap_or(serde_json::json!({}));
 
     let mut variable_assignments = std::collections::HashMap::<String, &helix_db::helixc::parser::types::Traversal>::new();
+    let mut variable_search_tools = std::collections::HashMap::<String, crate::tool_args::ToolArgs>::new();
     let mut return_vars = Vec::<String>::new();
 
     for stmt in &query.statements {
         match &stmt.statement {
             StatementType::Assignment(assign) => {
+                if let Some(val) = expression_to_json(&assign.value) {
+                    if let serde_json::Value::Object(map) = &mut params_val {
+                        map.insert(assign.variable.clone(), val);
+                    }
+                }
+
                 match &assign.value.expr {
                     ExpressionType::Traversal(t) => {
                         variable_assignments.insert(assign.variable.clone(), &**t);
@@ -158,16 +183,46 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
                             map.insert(assign.variable.clone(), serde_json::Value::Bool(*b));
                         }
                     },
+                    ExpressionType::AddNode(_) | ExpressionType::AddEdge(_) | ExpressionType::AddVector(_) => {
+                        return Err("Explorer Mode is Read-Only: The underlying MCP protocol does not support writing data. For more details, refer to https://docs.helix-db.com/guides/mcp-guide. To modify data (Add/Update/Delete), please use Migrations or the HTTP API.".to_string());
+                    },
+                    ExpressionType::BM25Search(bm25) => {
+                        let tool = crate::hql_translator::map_bm25_to_tool(bm25).map_err(|e| e.to_string())?;
+                        variable_search_tools.insert(assign.variable.clone(), tool);
+                    },
+                    ExpressionType::SearchVector(sv) => {
+                        let tool = crate::hql_translator::map_search_vector_to_tool(sv, &params_val).map_err(|e| e.to_string())?;
+                        variable_search_tools.insert(assign.variable.clone(), tool);
+                    },
                     _ => {}
                 }
             },
             StatementType::Expression(expr) => {
-                // Bare traversal -> implicit return if no explicit RETURN exists
-                if let ExpressionType::Traversal(t) = &expr.expr {
-                     variable_assignments.insert("_implicit_".to_string(), &**t);
+                match &expr.expr {
+                    ExpressionType::Traversal(t) => {
+                         variable_assignments.insert("_implicit_".to_string(), &**t);
+                    },
+                    ExpressionType::AddNode(_) | ExpressionType::AddEdge(_) | ExpressionType::AddVector(_) => {
+                        return Err("Explorer Mode is Read-Only: The underlying MCP protocol does not support writing data. For more details, refer to https://docs.helix-db.com/guides/mcp-guide. To modify data (Add/Update/Delete), please use Migrations or the HTTP API.".to_string());
+                    },
+                    ExpressionType::BM25Search(bm25) => {
+                        let tool = crate::hql_translator::map_bm25_to_tool(bm25).map_err(|e| e.to_string())?;
+                        variable_search_tools.insert("_implicit_".to_string(), tool);
+                        // Also mark as implicit return
+                        return_vars.push("_implicit_".to_string());
+                    },
+                    ExpressionType::SearchVector(sv) => {
+                        let tool = crate::hql_translator::map_search_vector_to_tool(sv, &params_val).map_err(|e| e.to_string())?;
+                        variable_search_tools.insert("_implicit_".to_string(), tool);
+                        // Also mark as implicit return
+                        return_vars.push("_implicit_".to_string());
+                    },
+                    _ => {}
                 }
             }
-            _ => {}
+            StatementType::Drop(_) | StatementType::ForLoop(_) => {
+                return Err("Explorer Mode is Read-Only: The underlying MCP protocol does not support writing data or complex control flow. For more details, refer to https://docs.helix-db.com/guides/mcp-guide. To modify data (Add/Update/Delete), please use Migrations or the HTTP API.".to_string());
+            }
         }
     }
 
@@ -194,7 +249,9 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
     } else if let Some(_implicit) = variable_assignments.get("_implicit_") {
         // No explicit return, but we have a bare expression traversal -> return it
         return_vars.push("_implicit_".to_string());
-    } else if return_vars.is_empty() && !variable_assignments.is_empty() {
+    } else if variable_search_tools.contains_key("_implicit_") {
+        return_vars.push("_implicit_".to_string());
+    } else if return_vars.is_empty() && (!variable_assignments.is_empty() || !variable_search_tools.is_empty()) {
         // Fallback: if no return and no bare expression, but we have assignments, return the last assignment for REPL feel
         if let Some(last_stmt) = query.statements.last() {
              if let StatementType::Assignment(assign) = &last_stmt.statement {
@@ -243,10 +300,20 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
     }
 
     for var_name in return_vars {
-        let traversal = match crate::hql_translator::resolve_traversal(&var_name, &variable_assignments)? {
-            Some(t) => t,
-            None => continue,
+        let search_tool = variable_search_tools.get(&var_name);
+        
+        let traversal = if search_tool.is_none() {
+             match crate::hql_translator::resolve_traversal(&var_name, &variable_assignments)? {
+                Some(t) => Some(t),
+                None => None,
+             }
+        } else {
+             None
         };
+
+        if search_tool.is_none() && traversal.is_none() {
+            continue;
+        }
 
         // Init connection per variable to ensure isolation
         let init_resp = client.post(format!("{}/mcp/init", url))
@@ -264,8 +331,15 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
         let connection_id: String = serde_json::from_str(&init_body)
             .map_err(|e| format!("Failed to parse connection_id from '{}': {}", init_body, e))?;
 
-        // Execute individual traversal pipeline
-        let result = crate::hql_executor::execute_pipeline(&client, &url, &connection_id, &traversal, &params_val).await?;
+        // Execute individual traversal pipeline OR search tool
+        let result = if let Some(tool) = search_tool {
+             crate::hql_executor::execute_search_tool(&client, &url, &connection_id, tool).await?
+        } else if let Some(t) = traversal {
+             crate::hql_executor::execute_pipeline(&client, &url, &connection_id, &t, &params_val).await?
+        } else {
+             // Should not happen given logic above
+             serde_json::Value::Null
+        };
         
         // Single implicit return Optimization: if it's the ONLY return, return it raw
         if var_name == "_implicit_" && final_map.is_empty() {
@@ -594,6 +668,7 @@ fn original_message_contains(original: &str, pattern: &str) -> bool {
 
 #[tauri::command]
 pub async fn validate_hql(code: String) -> Result<Vec<Diagnostic>, String> {
+    let code = hql_processor::preprocess_hql(&code);
     let content = write_to_temp_file(vec![&code]);
     
 
@@ -677,7 +752,7 @@ pub fn get_hql_completion(code: String, cursor: usize, schema: Option<SchemaSumm
         "N", "E", "V", 
         "Out", "In", "OutE", "InE", "FromN", "ToN", "FromV", "ToV",
         "ShortestPath", "ShortestPathDijkstras", "ShortestPathBFS", "ShortestPathAStar",
-        "SearchV", "SearchBM25", "PREFILTER", "RerankRRF", "RerankMMR", "Embed",
+        "PREFILTER", "RerankRRF", "RerankMMR", "Embed",
         "AddN", "AddE", "AddV", "BatchAddV", "UpsertN", "UpsertE", "UpsertV",
         "WHERE", "ORDER", "RANGE", "COUNT", "FIRST", "AGGREGATE_BY", "GROUP_BY", "ID",
         "AND", "OR", "GT", "GTE", "LT", "LTE", "EQ", "NEQ", "IS_IN", "CONTAINS",
@@ -703,24 +778,27 @@ pub fn get_hql_completion(code: String, cursor: usize, schema: Option<SchemaSumm
     let trimmed_prefix = prefix.trim_end();
     
     // Helper to extract schema items
-    let mut schema_items = Vec::new();
+    let mut schema_nodes = Vec::new();
+    let mut schema_edges = Vec::new();
+    let mut schema_vectors = Vec::new();
+
     if let Some(s) = schema {
         for n in s.nodes {
-            schema_items.push(CompletionItem {
+            schema_nodes.push(CompletionItem {
                 label: n.name,
                 kind: "class".to_string(), // Node -> class color
                 detail: Some("Node".to_string()),
             });
         }
         for e in s.edges {
-            schema_items.push(CompletionItem {
+            schema_edges.push(CompletionItem {
                 label: e.name,
                 kind: "interface".to_string(), // Edge -> interface color
                 detail: Some("Edge".to_string()),
             });
         }
         for v in s.vectors {
-            schema_items.push(CompletionItem {
+            schema_vectors.push(CompletionItem {
                 label: v.name,
                 kind: "namespace".to_string(), // Vector -> namespace color
                 detail: Some("Vector".to_string()),
@@ -728,7 +806,19 @@ pub fn get_hql_completion(code: String, cursor: usize, schema: Option<SchemaSumm
         }
     }
 
-    // Case 1: Type Hinting (::) or Casting
+    // Context Detection Logic
+    
+    // 1. Inside Search Generics: SearchV<| or SearchBM25<|
+    // Regex to check if we are inside <...> of a Search function
+    // We look for "Search(V|BM25)\s*<\s*$"
+    let re_search_generic = regex::Regex::new(r"Search(V|BM25)\s*<\s*$").unwrap();
+    if re_search_generic.is_match(trimmed_prefix) {
+        // Suggest Nodes (most common) and maybe Vectors/Edges depending on context
+        // Usually Search operations return Nodes
+        return schema_nodes;
+    }
+
+    // 2. Type Hinting (::) or Casting
     if trimmed_prefix.ends_with("::") {
         let mut items: Vec<CompletionItem> = types.into_iter().map(|t| CompletionItem {
             label: t.to_string(),
@@ -736,15 +826,23 @@ pub fn get_hql_completion(code: String, cursor: usize, schema: Option<SchemaSumm
             detail: Some("Type".to_string()),
         }).collect();
         // Also suggest Nodes (for casting like ::User)
-        items.extend(schema_items);
+        items.extend(schema_nodes.clone());
         return items;
     }
     
-    // Case 2: Node Constructor N(...) or Edge E(...)
-    // A heuristic: if we see "N(", "E(", "V(", "AddN(", etc. recently
-    // We can use a regex to look backwards? 
-    // Or just be generous and always suggest schema items if not typing a keyword.
+    // 3. Traversal Start: N(| or E(| or V(|
+    let re_traversal_start = regex::Regex::new(r"(N|E|V|AddN|AddE|AddV|UpsertN|UpsertE|UpsertV)\s*\(\s*$").unwrap();
+    if re_traversal_start.is_match(trimmed_prefix) {
+         // Suggest schema items appropriate for the traversal
+         // For simplicity, suggest all schema items (Nodes, Edges, Vectors)
+         let mut items = Vec::new();
+         items.extend(schema_nodes.clone());
+         items.extend(schema_edges.clone());
+         items.extend(schema_vectors.clone());
+         return items;
+    }
     
+    // Default: Suggest everything
     let mut items = Vec::new();
 
     // Add Keywords
@@ -765,6 +863,18 @@ pub fn get_hql_completion(code: String, cursor: usize, schema: Option<SchemaSumm
         });
     }
 
+    // Add Search Functions
+    items.push(CompletionItem {
+        label: "SearchBM25".to_string(),
+        kind: "function".to_string(),
+        detail: Some("SearchBM25<T>(query, limit)".to_string()),
+    });
+    items.push(CompletionItem {
+        label: "SearchV".to_string(),
+        kind: "function".to_string(),
+        detail: Some("SearchV<T>(vector, k)".to_string()),
+    });
+
     // Add Math
     for m in math_funcs {
         items.push(CompletionItem {
@@ -783,8 +893,10 @@ pub fn get_hql_completion(code: String, cursor: usize, schema: Option<SchemaSumm
         });
     }
 
-    // Add Schema Items (Nodes, Edges, Vectors)
-    items.extend(schema_items);
+    // Add Schema Items
+    items.extend(schema_nodes);
+    items.extend(schema_edges);
+    items.extend(schema_vectors);
 
     items
 }

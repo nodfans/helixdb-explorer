@@ -485,7 +485,7 @@ export function Grid(props: GridProps) {
                               when={isEditing()}
                               fallback={
                                 <div
-                                  class="px-1.5 w-full truncate"
+                                  class="px-1.5 w-full whitespace-nowrap overflow-x-auto"
                                   style={{
                                     color: "var(--grid-cell-text)",
                                     "font-size": "12px",

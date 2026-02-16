@@ -221,6 +221,18 @@ pub fn map_traversal_to_tools(traversal: &Traversal, params: &serde_json::Value)
                 let filter = map_object_to_filter(obj, params)?;
                 tools.push(ToolArgs::FilterItems { filter });
             }
+            StepType::Update(_) | StepType::Upsert(_) | StepType::UpsertN(_) | StepType::UpsertE(_) | StepType::UpsertV(_) | StepType::AddEdge(_) => {
+                let step_name = match &step.step {
+                    StepType::Update(_) => "Update",
+                    StepType::Upsert(_) => "Upsert",
+                    StepType::UpsertN(_) => "UpsertN",
+                    StepType::UpsertE(_) => "UpsertE",
+                    StepType::UpsertV(_) => "UpsertV",
+                    StepType::AddEdge(_) => "AddEdge",
+                    _ => "Mutation",
+                };
+                return Err(format!("Explorer Mode is Read-Only: The step '{}' attempts to modify data, which is not supported by the MCP protocol. See https://docs.helix-db.com/guides/mcp-guide", step_name));
+            }
             _ => return Err(format!("Unsupported step type at index {}: {:?}", i, step.step)),
         }
     }
@@ -233,6 +245,26 @@ fn map_expression_to_filter(expr: &Expression, params: &serde_json::Value) -> Re
 }
 
 fn map_expression_to_filter_internal(expr: &Expression, params: &serde_json::Value, negated: bool) -> Result<FilterTraversal, String> {
+    // ==================================================================================
+    // LOGIC: Negated Queries Support
+    // ==================================================================================
+    // This function handles `NOT` operations by pushing the negation down to the leaves
+    // (De Morgan's laws) or inverting the operator for simple property comparisons.
+    //
+    // SUPPORTED:
+    // - `!AND(A, B)` -> `OR(!A, !B)`
+    // - `!OR(A, B)` -> `AND(!A, !B)`
+    // - `!_::{prop}::EQ(val)` -> `_::{prop}::NEQ(val)` (Operator Inversion)
+    //
+    // UNSUPPORTED / LIMITATION:
+    // - Negated recursive traversals, e.g., `!_::Out("friend")`
+    //   The backend MCP protocol `FilterTraversal` does not support a "Not" flag for
+    //   nested traversals. We cannot express "Where(NOT(Traverse(...)))".
+    //   Attempting this will return an error below.
+    //
+    // TODO(upstream):
+    // Add `negated: bool` field to `ToolArgs` or `FilterTraversal` in `helix-db`.
+    // ==================================================================================
     match &expr.expr {
         ExpressionType::Not(inner) => {
             map_expression_to_filter_internal(inner, params, !negated)
@@ -537,7 +569,7 @@ fn extract_ids_and_props(ids: &[IdType], params: &serde_json::Value) -> Result<(
     Ok((id_strings, props))
 }
 
-fn map_search_vector_to_tool(sv: &helix_db::helixc::parser::types::SearchVector, params: &serde_json::Value) -> Result<ToolArgs, String> {
+pub fn map_search_vector_to_tool(sv: &helix_db::helixc::parser::types::SearchVector, params: &serde_json::Value) -> Result<ToolArgs, String> {
     use helix_db::helixc::parser::types::{VectorData, EvaluatesToString, EvaluatesToNumberType};
     
     let label = sv.vector_type.clone().unwrap_or_default();
@@ -573,6 +605,32 @@ fn map_search_vector_to_tool(sv: &helix_db::helixc::parser::types::SearchVector,
                 label,
                 k,
             })
+        }
+        Some(VectorData::Identifier(s)) => {
+            // Case: SearchV<T>(vector_variable, k)
+            if let Some(val) = params.get(s) {
+                // Expecting array of numbers
+                if let Some(arr) = val.as_array() {
+                    let mut vec_data = Vec::new();
+                    for v in arr {
+                        if let Some(n) = v.as_f64() {
+                            vec_data.push(n);
+                        } else {
+                            return Err(format!("Variable '{}' contains non-number elements", s));
+                        }
+                    }
+                    Ok(ToolArgs::SearchVec {
+                        vector: vec_data,
+                        k,
+                        min_score: None,
+                        cutoff: None,
+                    })
+                } else {
+                    Err(format!("Variable '{}' is not an array", s))
+                }
+            } else {
+                Err(format!("Variable '{}' not found in parameters", s))
+            }
         }
         _ => Err("Unsupported vector search data".to_string()),
     }

@@ -4,6 +4,7 @@ pub mod commands;
 pub mod config;
 pub mod hql_analyzer;
 pub mod hql_executor;
+pub mod hql_processor;
 
 use tauri::menu::{Menu, MenuItem, Submenu, PredefinedMenuItem};
 use tauri::{Emitter, Manager};
