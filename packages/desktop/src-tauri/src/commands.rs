@@ -901,15 +901,312 @@ pub fn get_hql_completion(code: String, cursor: usize, schema: Option<SchemaSumm
     items
 }
 
-#[tauri::command]
-pub fn format_hql(code: String) -> Result<String, String> {
-    let mut processed = String::new();
-    let mut iter = code.chars().peekable();
+
+// ============================================
+// Constant & Keyword
+// ============================================
+const MAX_SINGLE_LINE_LENGTH: usize = 120;
+const EXPAND_THRESHOLD: usize = 40;
+
+const INDENT: &str = "    ";
+const BLOCK_KEYWORDS: &[&str] = &["WHERE", "UPDATE", "MIGRATION", "THEN", "ELSE", "=>"];
+const TERMINATOR_KEYWORDS: &[&str] = &["RETURN", "QUERY", "MIGRATION", "UPDATE", "INSERT", "DELETE"];
+const TRAVERSAL_ENDERS: &[&str] = &["N", "E", ">", ":", "WHERE", "AND", "OR", "NOT", "EQ", "GT", "LT"];
+
+fn ends_with_any(text: &str, keywords: &[&str]) -> bool {
+    keywords.iter().any(|kw| text.ends_with(kw))
+}
+
+fn is_terminator_keyword(word: &str) -> bool {
+    TERMINATOR_KEYWORDS.contains(&word)
+}
+
+fn trim_trailing_spaces(s: &mut String) {
+    while s.ends_with(' ') {
+        s.pop();
+    }
+}
+
+#[derive(Debug)]
+struct BracketAnalysis {
+    content_len: usize,
+    comma_count: usize,
+    has_local_newline: bool,
+    has_comment: bool,
+}
+
+impl BracketAnalysis {
+    fn analyze<I>(iter: &mut I, open_char: char) -> Self
+    where
+        I: Iterator<Item = char> + Clone,
+    {
+        let mut content_len = 0;
+        let mut has_local_newline = false;
+        let mut has_comment = false;
+        let mut nesting = 0;
+        let mut comma_count = 0;
+        
+        let close_char = match open_char {
+            '{' => '}',
+            '(' => ')',
+            '[' => ']',
+            _ => return Self::default(),
+        };
+        
+        let mut in_string = false;
+        let mut quote_char = ' ';
+        let mut escaped = false;
+
+        let mut look_content = iter.clone();
+        
+        loop {
+            let cc = match look_content.next() {
+                Some(c) => c,
+                None => break,
+            };
+
+            if in_string {
+                content_len += 1;
+                if escaped {
+                    escaped = false;
+                } else if cc == '\\' {
+                    escaped = true;
+                } else if cc == quote_char {
+                    in_string = false;
+                }
+                continue;
+            }
+
+            if cc == '"' || cc == '\'' || cc == '`' {
+                in_string = true;
+                quote_char = cc;
+                content_len += 1;
+                continue;
+            }
+
+            if cc == close_char && nesting == 0 {
+                break;
+            } else if cc == open_char {
+                nesting += 1;
+                content_len += 2;
+            } else if cc == close_char {
+                if nesting > 0 {
+                    nesting -= 1;
+                }
+                content_len += 2;
+            } else if cc == ',' && nesting == 0 {
+                comma_count += 1;
+                content_len += 1;
+            } else if cc == '\n' {
+                if nesting == 0 {
+                    has_local_newline = true;
+                }
+            } else if cc == '/' {
+                if look_content.clone().next() == Some('/') {
+                    has_comment = true;
+                    break;
+                }
+                content_len += 1;
+            } else if cc == '#' {
+                has_comment = true;
+                break;
+            } else {
+                content_len += 1;
+                if content_len > MAX_SINGLE_LINE_LENGTH {
+                    break;
+                }
+            }
+        }
+        
+        Self {
+            content_len,
+            comma_count,
+            has_local_newline,
+            has_comment,
+        }
+    }
+    
+    fn should_expand(
+        &self,
+        is_query_params: bool,
+        is_query_body: bool,
+        is_property_escape: bool,
+    ) -> bool {
+        if self.has_comment {
+            return true;
+        }
+        
+        if is_query_body {
+            return true;
+        }
+        
+        if self.content_len > MAX_SINGLE_LINE_LENGTH {
+            return true;
+        }
+        
+        if !is_property_escape && self.has_local_newline && self.content_len > EXPAND_THRESHOLD {
+            return true;
+        }
+        
+        if !is_query_params && self.comma_count > 0 && self.content_len > EXPAND_THRESHOLD {
+            return true;
+        }
+        
+        false
+    }
+}
+
+impl Default for BracketAnalysis {
+    fn default() -> Self {
+        Self {
+            content_len: 0,
+            comma_count: 0,
+            has_local_newline: false,
+            has_comment: false,
+        }
+    }
+}
+
+fn peek_next_non_whitespace<I>(iter: &mut I) -> char
+where
+    I: Iterator<Item = char> + Clone,
+{
+    let mut look = iter.clone();
+    while let Some(nc) = look.next() {
+        if !nc.is_whitespace() {
+            return nc;
+        }
+    }
+    ' '
+}
+
+fn peek_word<I>(iter: &mut I) -> String
+where
+    I: Iterator<Item = char> + Clone,
+{
+    let mut look = iter.clone();
+    let mut word = String::new();
+    
+    while let Some(nc) = look.next() {
+        if !nc.is_whitespace() {
+            if nc.is_alphabetic() {
+                word.push(nc);
+                break;
+            }
+            return String::new();
+        }
+    }
+    
+    while let Some(nc) = look.clone().next() {
+        if nc.is_alphanumeric() || nc == '_' {
+            word.push(nc);
+            look.next();
+        } else {
+            break;
+        }
+    }
+    
+    word
+}
+
+fn is_multi_step_chain<I>(
+    iter: &mut I,
+    in_multi: bool,
+    is_in_expression: bool,
+) -> bool
+where
+    I: Iterator<Item = char> + Clone,
+{
+    if in_multi || is_in_expression {
+        return in_multi;
+    }
+    
+    let mut look = iter.clone();
+    let mut nesting = 0;
+    let mut double_colon_count = 0;
+    let mut total_length = 0;
+    
     let mut in_string = false;
     let mut quote_char = ' ';
     let mut escaped = false;
+    
+    while let Some(nc) = look.next() {
+        total_length += 1;
+
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if nc == '\\' {
+                escaped = true;
+            } else if nc == quote_char {
+                in_string = false;
+            }
+            continue;
+        }
+
+        if nc == '"' || nc == '\'' || nc == '`' {
+            in_string = true;
+            quote_char = nc;
+            continue;
+        }
+        
+        match nc {
+            '{' | '(' | '[' => nesting += 1,
+            '}' | ')' | ']' => {
+                if nesting == 0 {
+                    break;
+                }
+                nesting -= 1;
+            }
+            ':' if nesting == 0 => {
+                if look.clone().next() == Some(':') {
+                    double_colon_count += 1;
+                    look.next(); // consume second :
+                    total_length += 1;
+                }
+            }
+            ';' if nesting == 0 => break,
+            c if c.is_alphabetic() && nesting == 0 => {
+                let mut word = String::new();
+                word.push(c);
+                while let Some(ic) = look.clone().next() {
+                    if ic.is_alphanumeric() || ic == '_' {
+                        word.push(ic);
+                        look.next();
+                        total_length += 1;
+                    } else {
+                        break;
+                    }
+                }
+                if is_terminator_keyword(&word) {
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    
+    if double_colon_count == 1 && total_length < 60 {
+        return false;
+    }
+    
+    double_colon_count > 0
+}
+
+#[tauri::command]
+pub fn format_hql(code: String) -> Result<String, String> {
+    let mut processed = String::new();
+    let mut item_iter = code.chars().peekable();
+    let iter = &mut item_iter;
+    
+    let mut in_string = false;
+    let mut quote_char = ' ';
+    let mut escaped = false;
+    
     let mut expand_stack = Vec::new();
     let mut tight_stack = Vec::new();
+    let mut traversal_expand_stack = vec![false];
+    let mut bracket_stack = Vec::new();
 
     while let Some(c) = iter.next() {
         if in_string {
@@ -935,99 +1232,85 @@ pub fn format_hql(code: String) -> Result<String, String> {
             processed.push(c);
             processed.push(iter.next().unwrap());
             while let Some(&nc) = iter.peek() {
-                if nc == '\n' { break; }
+                if nc == '\n' {
+                    break;
+                }
                 processed.push(iter.next().unwrap());
             }
             continue;
         }
+        
         if c == '#' {
             processed.push(c);
             while let Some(&nc) = iter.peek() {
-                if nc == '\n' { break; }
+                if nc == '\n' {
+                    break;
+                }
                 processed.push(iter.next().unwrap());
             }
             continue;
         }
 
         match c {
+            ';' => {
+                if let Some(top) = traversal_expand_stack.first_mut() {
+                    *top = false;
+                }
+                processed.push(';');
+                processed.push('\n');
+            }
+            
             '=' => {
+                if let Some(top) = traversal_expand_stack.first_mut() {
+                    *top = false;
+                }
+                
                 if iter.peek() == Some(&'>') {
                     iter.next(); // consume '>'
-                    while processed.ends_with(' ') { processed.pop(); }
+                    trim_trailing_spaces(&mut processed);
                     processed.push_str(" =>");
                     
-                    let mut look = iter.clone();
-                    let mut follows_brace = false;
-                    while let Some(nc) = look.next() {
-                        if nc == '{' { follows_brace = true; break; }
-                        if !nc.is_whitespace() { break; }
-                    }
-                    if !follows_brace {
-                        processed.push('\n');
-                    } else {
+                    let next_non_ws = peek_next_non_whitespace(iter);
+                    if next_non_ws == '{' {
                         processed.push(' ');
+                    } else {
+                        processed.push('\n');
                     }
                 } else {
                     processed.push(c);
                 }
             }
+            
             '{' | '(' | '[' => {
-                while processed.ends_with(' ') { processed.pop(); }
+                trim_trailing_spaces(&mut processed);
                 
-                let mut look = iter.clone();
-                let mut next_non_ws = ' ';
-                while let Some(nc) = look.next() {
-                    if !nc.is_whitespace() {
-                         next_non_ws = nc;
-                         break;
-                    }
-                }
+                let next_non_ws = peek_next_non_whitespace(iter);
                 
-                let mut look_content = iter.clone();
-                let mut content_len = 0;
-                let mut has_local_newline = false;
-                let mut nesting = 0;
-                let open_char = c;
-                let close_char = match c {
-                    '{' => '}',
-                    '(' => ')',
-                    '[' => ']',
-                    _ => unreachable!(),
-                };
-                
-                loop {
-                    match look_content.next() {
-                        Some(cc) if cc == close_char && nesting == 0 => break,
-                        Some(cc) if cc == open_char => { nesting += 1; content_len += 2; }
-                        Some(cc) if cc == close_char => { nesting -= 1; content_len += 2; }
-                        Some('\n') => {
-                            if nesting == 0 { has_local_newline = true; }
-                        }
-                        Some('/') if look_content.peek() == Some(&'/') => { 
-                            if nesting == 0 { has_local_newline = true; }
-                            break; 
-                        }
-                        Some(_) => {
-                            content_len += 1;
-                            if content_len > 120 { break; }
-                        }
-                        None => break,
-                    }
-                }
+                let analysis = BracketAnalysis::analyze(iter, c);
                 
                 let p_trimmed = processed.trim_end();
-                let is_traversal = p_trimmed.ends_with('N') || p_trimmed.ends_with('E') || p_trimmed.ends_with('>') || p_trimmed.ends_with(':') || p_trimmed.ends_with("WHERE") || p_trimmed.ends_with("AND") || p_trimmed.ends_with("OR") || p_trimmed.ends_with("NOT") || p_trimmed.ends_with("EQ") || p_trimmed.ends_with("GT") || p_trimmed.ends_with("LT");
+                let is_traversal = ends_with_any(p_trimmed, TRAVERSAL_ENDERS);
                 let is_query_params = c == '(' && expand_stack.is_empty() && !is_traversal && !p_trimmed.is_empty();
-                
-                let is_block_keyword = p_trimmed.ends_with("WHERE") || p_trimmed.ends_with("UPDATE") || p_trimmed.ends_with("MIGRATION") || p_trimmed.ends_with("THEN") || p_trimmed.ends_with("ELSE") || p_trimmed.ends_with("=>");
+                let is_block_keyword = ends_with_any(p_trimmed, BLOCK_KEYWORDS);
                 let is_query_body = c == '{' && is_block_keyword;
-                
                 let is_property_escape = c == '{' && p_trimmed.ends_with("::");
-                let should_expand = !is_property_escape && (is_query_body || (has_local_newline && content_len > 40) || (c == '{' && content_len > 40));
+
+                let should_expand = analysis.should_expand(
+                    is_query_params,
+                    is_query_body,
+                    is_property_escape,
+                );
                 
-                if !processed.is_empty() && !processed.ends_with('\n') && !processed.ends_with(' ')
-                   && !processed.ends_with('(') && !processed.ends_with('[') && !processed.ends_with('{') && !processed.ends_with('<') && !processed.ends_with("::") {
-                    if c == '{' || c == '[' || is_query_params {
+                if !processed.is_empty()
+                    && !processed.ends_with('\n')
+                    && !processed.ends_with(' ')
+                    && !processed.ends_with('(')
+                    && !processed.ends_with('[')
+                    && !processed.ends_with('{')
+                    && !processed.ends_with('<')
+                    && !processed.ends_with("::")
+                {
+                    if c == '{' || c == '[' {
                         processed.push(' ');
                     }
                 }
@@ -1035,10 +1318,11 @@ pub fn format_hql(code: String) -> Result<String, String> {
                 processed.push(c);
                 expand_stack.push(should_expand);
                 tight_stack.push(is_property_escape);
+                traversal_expand_stack.push(false);
+                bracket_stack.push(c);
 
                 if should_expand {
                     if (c == '(' || c == '[') && next_non_ws == '{' {
-                        // Don't push newline if we are starting a ({ or [{ joint
                     } else {
                         processed.push('\n');
                     }
@@ -1046,28 +1330,34 @@ pub fn format_hql(code: String) -> Result<String, String> {
                     processed.push(' ');
                 }
             }
+            
             '}' | ')' | ']' => {
-                while processed.ends_with(' ') { processed.pop(); }
+                trim_trailing_spaces(&mut processed);
                 let is_tight = tight_stack.pop().unwrap_or(false);
+                traversal_expand_stack.pop();
+                bracket_stack.pop();
+                
                 if let Some(should_expand) = expand_stack.pop() {
                     if should_expand {
                         if !processed.ends_with('\n') {
-                             if (c == ')' || c == ']') && processed.ends_with('}') {
-                                 // Close block )} or ]} joint - no newline
-                             } else {
-                                 processed.push('\n');
-                             }
+                            if (c == ')' || c == ']') && processed.ends_with('}') {
+                            } else {
+                                processed.push('\n');
+                            }
                         }
                         processed.push(c);
                         
                         let mut keep_on_line = false;
                         let mut look_ahead = iter.clone();
                         while let Some(nc) = look_ahead.next() {
-                            if nc == ')' || nc == ',' || nc == ']' || nc == ';' || nc == '.' || nc == ':' || nc == '>' || nc == '=' {
+                            if nc == ')' || nc == ',' || nc == ']' || nc == ';' 
+                                || nc == '.' || nc == ':' || nc == '>' || nc == '=' {
                                 keep_on_line = true;
                                 break;
                             }
-                            if !nc.is_whitespace() { break; }
+                            if !nc.is_whitespace() {
+                                break;
+                            }
                         }
                         
                         if !keep_on_line {
@@ -1075,7 +1365,7 @@ pub fn format_hql(code: String) -> Result<String, String> {
                         }
                     } else {
                         if c == '}' && !processed.ends_with('{') && !is_tight {
-                             processed.push(' ');
+                            processed.push(' ');
                         }
                         processed.push(c);
                     }
@@ -1083,45 +1373,142 @@ pub fn format_hql(code: String) -> Result<String, String> {
                     processed.push(c);
                 }
             }
+            
             ',' => {
                 processed.push(',');
                 if expand_stack.last() == Some(&true) {
-                    processed.push('\n');
+                    let next_non_ws = peek_next_non_whitespace(iter);
+                    if next_non_ws == '{' || next_non_ws == '(' || next_non_ws == '[' {
+                        processed.push(' ');
+                    } else {
+                        processed.push('\n');
+                    }
                 } else {
                     processed.push(' ');
                 }
             }
+            
             ':' => {
-                processed.push(':');
                 if iter.peek() == Some(&':') {
-                    processed.push(iter.next().unwrap());
+                    iter.next(); // consume second :
+                    
+                    let in_multi = *traversal_expand_stack.last().unwrap_or(&false);
+                    let is_in_expression = bracket_stack.iter().any(|&b| b == '(' || b == '[');
+                    
+                    let is_multi_step = is_multi_step_chain(iter, in_multi, is_in_expression);
+
+                    if is_multi_step {
+                        if let Some(top) = traversal_expand_stack.last_mut() {
+                            *top = true;
+                        }
+                        if !processed.ends_with('\n') {
+                            trim_trailing_spaces(&mut processed);
+                            processed.push('\n');
+                        }
+                    } else {
+                        // Collapse mode
+                        trim_trailing_spaces(&mut processed);
+                        if processed.ends_with('\n') {
+                            while processed.ends_with(' ') || processed.ends_with('\n') {
+                                processed.pop();
+                            }
+                        }
+                        let p_trimmed = processed.trim_end();
+                        if p_trimmed.ends_with("<-") || p_trimmed.ends_with('=') || p_trimmed.ends_with("RETURN") {
+                            processed.push(' ');
+                        }
+                    }
+                    processed.push_str("::");
                 } else {
-                    processed.push(' ');
-                }
-            }
-            ';' => {
-                processed.push(';');
-                processed.push('\n');
-            }
-            '\n' => {
-                let mut look = iter.clone();
-                let mut next_non_ws = ' ';
-                while let Some(nc) = look.next() {
-                    if !nc.is_whitespace() {
-                         next_non_ws = nc;
-                         break;
+                    processed.push(':');
+                    if iter.peek() != Some(&' ') && iter.peek() != Some(&':') {
+                        processed.push(' ');
                     }
                 }
+            }
+                        
+            '\n' => {
+                let next_non_ws = peek_next_non_whitespace(iter);
                 
-                if ((processed.ends_with('(') || processed.ends_with('[')) && next_non_ws == '{') || (processed.ends_with('}') && (next_non_ws == ')' || next_non_ws == ']')) {
-                    // Skip newline for joints
+                if next_non_ws == ':' {
+                    let mut look_colon = iter.clone();
+                    while let Some(nc) = look_colon.next() {
+                        if nc == ':' {
+                            break;
+                        }
+                    }
+                    if look_colon.peek() == Some(&':') {
+                        let mut look_chain = look_colon.clone();
+                        look_chain.next(); // skip second :
+                        let mut nesting = 0;
+                        let mut is_multi = false;
+                        
+                        while let Some(nc) = look_chain.next() {
+                            match nc {
+                                '{' | '(' | '[' => nesting += 1,
+                                '}' | ')' | ']' => {
+                                    if nesting == 0 {
+                                        break;
+                                    }
+                                    nesting -= 1;
+                                }
+                                ':' if nesting == 0 && look_chain.peek() == Some(&':') => {
+                                    is_multi = true;
+                                    break;
+                                }
+                                ';' if nesting == 0 => break,
+                                c if c.is_alphabetic() && nesting == 0 => {
+                                    let word = peek_word(&mut look_chain);
+                                    if is_terminator_keyword(&word) {
+                                        break;
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        
+                        if !is_multi && traversal_expand_stack.last() == Some(&false) {
+                            if !processed.ends_with(' ') && !processed.is_empty() {
+                                processed.push(' ');
+                            }
+                            continue;
+                        }
+                    }
+                } else if next_non_ws == 'R' {
+                    let word = peek_word(iter);
+                    if word == "RETURN" {
+                        if !processed.ends_with('\n') && !processed.is_empty() {
+                            processed.push('\n');
+                        }
+                        continue;
+                    }
+                }
+
+                let is_joint = ((processed.ends_with('(') || processed.ends_with('[')) 
+                                && (next_non_ws == '{'))
+                            || (processed.ends_with('}') 
+                                && (next_non_ws == ')' || next_non_ws == ']'));
+
+                if is_joint {
+                } else if expand_stack.last() == Some(&false) {
+                    if !processed.ends_with(' ')
+                        && !processed.ends_with('(')
+                        && !processed.ends_with('[')
+                        && !processed.ends_with('{')
+                    {
+                        processed.push(' ');
+                    }
                 } else if !processed.ends_with('\n') && !processed.is_empty() {
                     processed.push('\n');
                 }
             }
+            
             _ => {
                 if c.is_whitespace() {
-                    if !processed.is_empty() && !processed.ends_with('\n') && !processed.ends_with(' ') {
+                    if !processed.is_empty()
+                        && !processed.ends_with('\n')
+                        && !processed.ends_with(' ')
+                    {
                         processed.push(' ');
                     }
                 } else {
@@ -1138,49 +1525,83 @@ fn format_hql_lines(code: String) -> String {
     let mut output: Vec<String> = Vec::new();
     let lines = code.lines();
     let mut indent_level = 0;
-    let indent_str = "    ";
     let mut comment_buffer: Vec<String> = Vec::new();
 
+    let mut in_string_block = false;
+    let mut quote_char_block = ' ';
+
     for line in lines {
-        let trimmed = line.trim();
-        
-        if trimmed.is_empty() {
-             comment_buffer.push(String::new());
-             continue;
+        if in_string_block {
+            let mut escaped = false;
+            let mut current_idx = 0;
+            let chars: Vec<char> = line.chars().collect();
+            
+            while current_idx < chars.len() {
+                let c = chars[current_idx];
+                if escaped {
+                    escaped = false;
+                } else if c == '\\' {
+                    escaped = true;
+                } else if c == quote_char_block {
+                    in_string_block = false;
+                }
+                current_idx += 1;
+            }
+            
+            output.push(line.to_string());
+            continue;
         }
 
+        let trimmed = line.trim();
+        
+        // Empty line
+        if trimmed.is_empty() {
+            comment_buffer.push(String::new());
+            continue;
+        }
+        // Comments
         if trimmed.starts_with("//") || trimmed.starts_with("#") {
             comment_buffer.push(trimmed.to_string());
             continue;
         }
-
-        // Adjust indent based on content (Dedent)
+        // Dedent check (only if not inside string)
         if trimmed.starts_with('}') || trimmed.starts_with(']') || trimmed.starts_with(')') {
-            if indent_level > 0 { indent_level -= 1; }
+            if indent_level > 0 {
+                indent_level -= 1;
+            }
         }
-        
-        // Check for top-level keywords that reset indentation
+        // Top level reset
         if trimmed.starts_with("QUERY") || trimmed.starts_with("MIGRATION") {
             indent_level = 0;
             
-            // Ensure empty line before new block (if not already buffered)
-            let has_buffered_newline = comment_buffer.first().map(|s| s.is_empty()).unwrap_or(false);
+            let needs_newline = !output.is_empty() 
+                && !output.last().unwrap_or(&String::new()).is_empty();
             
-            if !has_buffered_newline {
-                let needs_newline = if let Some(last) = output.last() {
-                    !last.is_empty()
-                } else {
-                    false
-                };
+            if needs_newline {
+                let buffer_has_leading_empty = comment_buffer
+                    .first()
+                    .map(|s| s.is_empty())
+                    .unwrap_or(false);
                 
-                if needs_newline {
-                    output.push(String::new());
+                if !buffer_has_leading_empty {
+                    if comment_buffer.is_empty() {
+                        output.push(String::new());
+                    } else {
+                        comment_buffer.insert(0, String::new());
+                    }
                 }
             }
+        }        
+        if trimmed.starts_with("RETURN") {
+            indent_level = 1;
         }
-        
-        // Flush Buffer with current indent
-        let current_indent = indent_str.repeat(indent_level);
+        // Calculate indent
+        let mut actual_indent = indent_level;
+        if trimmed.starts_with("::") {
+            actual_indent += 1;
+        }
+        // Flush comments
+        let current_indent = INDENT.repeat(actual_indent);
         for comment in comment_buffer.drain(..) {
             if comment.is_empty() {
                 output.push(String::new());
@@ -1189,31 +1610,112 @@ fn format_hql_lines(code: String) -> String {
             }
         }
 
-        // Print Current Line
         output.push(format!("{}{}", current_indent, trimmed));
 
-        // Increase indent if line ends with opening bracket or `=>`
-        // Ignore trailing comments for this check
-        let effective_code = if let Some(idx) = trimmed.find("//") {
-            &trimmed[..idx]
-        } else if let Some(idx) = trimmed.find('#') {
-            &trimmed[..idx]
-        } else {
-            trimmed
-        }.trim();
+        let mut escaped = false;
+        let mut i = 0;
+        let serialized_chars: Vec<char> = trimmed.chars().collect();
+        
+        while i < serialized_chars.len() {
+            let c = serialized_chars[i];
+            
+            if in_string_block {
+                if escaped {
+                    escaped = false;
+                } else if c == '\\' {
+                    escaped = true;
+                } else if c == quote_char_block {
+                    in_string_block = false;
+                }
+            } else {
+                if c == '"' || c == '\'' || c == '`' {
+                    in_string_block = true;
+                    quote_char_block = c;
+                } else {
+                }
+            }
+            i += 1;
+        }
 
-        if effective_code.ends_with('{') || effective_code.ends_with('[') || effective_code.ends_with('(') || effective_code.ends_with("=>") {
-            indent_level += 1;
+        // If after scanning the line we are NOT in a string, we check for indentation increment
+        if !in_string_block {
+            let effective_code = if let Some(idx) = trimmed.find("//") {
+                &trimmed[..idx]
+            } else if let Some(idx) = trimmed.find('#') {
+                &trimmed[..idx]
+            } else {
+                trimmed
+            }
+            .trim();
+
+            if effective_code.ends_with('{')
+                || effective_code.ends_with('[')
+                || effective_code.ends_with('(')
+                || effective_code.ends_with("=>")
+            {
+            }
+            
+            let mut scanner_in_string = false;
+            let mut scanner_quote = ' ';
+            let mut scanner_escaped = false;
+            
+            let mut last_char = ' ';
+            let mut last_char_in_string = false;
+            
+            let effective_chars: Vec<char> = effective_code.chars().collect();
+            for c in effective_chars {
+                 if scanner_in_string {
+                    if scanner_escaped {
+                        scanner_escaped = false;
+                    } else if c == '\\' {
+                        scanner_escaped = true;
+                    } else if c == scanner_quote {
+                        scanner_in_string = false;
+                    }
+                    last_char_in_string = true;
+                    last_char = c;
+                 } else {
+                    if c == '"' || c == '\'' || c == '`' {
+                        scanner_in_string = true;
+                        scanner_quote = c;
+                        last_char_in_string = true;
+                        last_char = c;
+                    } else {
+                        if !c.is_whitespace() {
+                            last_char = c;
+                            last_char_in_string = false;
+                        }
+                    }
+                 }
+            }
+            
+            if !last_char_in_string {
+                if last_char == '{' || last_char == '[' || last_char == '(' {
+                     if trimmed.starts_with("::") {
+                        indent_level = actual_indent + 1;
+                    } else {
+                         indent_level += 1;
+                    }
+                }
+                // Handle "=>" output case
+                if effective_code.ends_with("=>") && !last_char_in_string { // Safe approximation
+                     if trimmed.starts_with("::") {
+                        indent_level = actual_indent + 1;
+                    } else {
+                         indent_level += 1;
+                    }
+                }
+            }
         }
     }
     
-    // Flush remaining comments (e.g. at end of file)
-    let current_indent = indent_str.repeat(indent_level);
+    // Output remaining comments
+    let current_indent = INDENT.repeat(indent_level);
     for comment in comment_buffer {
         if comment.is_empty() {
             output.push(String::new());
         } else {
-             output.push(format!("{}{}", current_indent, comment));
+            output.push(format!("{}{}", current_indent, comment));
         }
     }
     
