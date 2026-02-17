@@ -5,7 +5,7 @@ use rand::{Rng, thread_rng};
 use rand::distributions::Alphanumeric;
 use std::env;
 
-const RECORD_COUNT: usize = 1000; // 手动控制数量的 const
+const RECORD_COUNT: usize = 500;
 const HELIX_URL: &str = "http://127.0.0.1:6969";
 
 fn generate_random_string(len: usize) -> String {

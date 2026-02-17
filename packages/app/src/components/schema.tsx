@@ -187,15 +187,26 @@ export const Schema = (props: SchemaProps) => {
   const [searchQuery, setSearchQuery] = createSignal("");
   const [expandedCards, setExpandedCards] = createSignal<Record<string, boolean>>({});
 
-  // Responsive column count
-  const [colCount, setColCount] = createSignal(window.innerWidth >= 1024 ? 3 : window.innerWidth >= 768 ? 2 : 1);
+  // Responsive column count — driven by container width via ResizeObserver,
+  // so it correctly handles sidebars and other layout shifts.
+  let gridContainerRef: HTMLDivElement | undefined;
+  const [colCount, setColCount] = createSignal(3);
+
+  const calcCols = (width: number) => {
+    if (width >= 1400) return 5;
+    if (width >= 1100) return 4;
+    if (width >= 768) return 3;
+    if (width >= 480) return 2;
+    return 1;
+  };
 
   onMount(() => {
-    const handleResize = () => {
-      setColCount(window.innerWidth >= 1024 ? 3 : window.innerWidth >= 768 ? 2 : 1);
-    };
-    window.addEventListener("resize", handleResize);
-    onCleanup(() => window.removeEventListener("resize", handleResize));
+    if (!gridContainerRef) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setColCount(calcCols(entry.contentRect.width));
+    });
+    ro.observe(gridContainerRef);
+    onCleanup(() => ro.disconnect());
   });
 
   const distributeItems = (items: any[]) => {
@@ -326,7 +337,8 @@ export const Schema = (props: SchemaProps) => {
         </div>
       </div>
 
-      <div class="flex-1 overflow-y-auto px-5 py-5 scrollbar-thin">
+      {/* ref 绑在这里，ResizeObserver 监听的是这个容器的实际宽度 */}
+      <div ref={gridContainerRef} class="flex-1 overflow-y-auto px-5 py-5 scrollbar-thin">
         <Show when={!loading() && error()}>
           <div class="bg-status-error/10 border border-status-error/20 text-status-error px-4 py-3 rounded-lg flex items-center gap-3">
             <div class="w-6 h-6 rounded-full bg-status-error/10 flex items-center justify-center text-[12px] font-bold">!</div>
@@ -346,12 +358,7 @@ export const Schema = (props: SchemaProps) => {
         >
           <div>
             <Show when={activeTab() === "nodes"}>
-              <div
-                class="grid gap-3 items-start"
-                style={{
-                  "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))`,
-                }}
-              >
+              <div class="grid gap-3 items-start" style={{ "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))` }}>
                 <Show when={filteredNodes().length > 0}>
                   <For each={distributeItems(filteredNodes())}>
                     {(columnItems) => (
@@ -368,13 +375,9 @@ export const Schema = (props: SchemaProps) => {
                 </Show>
               </div>
             </Show>
+
             <Show when={activeTab() === "relationships"}>
-              <div
-                class="grid gap-3 items-start"
-                style={{
-                  "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))`,
-                }}
-              >
+              <div class="grid gap-3 items-start" style={{ "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))` }}>
                 <Show when={filteredEdges().length > 0}>
                   <For each={distributeItems(filteredEdges())}>
                     {(columnItems) => (
@@ -391,13 +394,9 @@ export const Schema = (props: SchemaProps) => {
                 </Show>
               </div>
             </Show>
+
             <Show when={activeTab() === "vectors"}>
-              <div
-                class="grid gap-3 items-start"
-                style={{
-                  "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))`,
-                }}
-              >
+              <div class="grid gap-3 items-start" style={{ "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))` }}>
                 <For each={distributeItems(filteredVectors())}>
                   {(columnItems) => (
                     <div class="flex flex-col gap-3">

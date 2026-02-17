@@ -29,14 +29,14 @@ pub fn map_reqwest_error(e: reqwest::Error, prefix: &str) -> String {
 }
 
 #[tauri::command]
-pub fn helix_request(
+pub async fn helix_request(
     method: String,
     url: String,
     headers: std::collections::HashMap<String, String>,
     body: Option<String>,
 ) -> Result<String, String> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(10)) // Reduced timeout for debugging
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60)) // Increased timeout for large operations
         .no_proxy()
         .build()
         .map_err(|e| format!("Client build error: {}", e))?;
@@ -59,10 +59,10 @@ pub fn helix_request(
         req = req.body(b);
     }
 
-    let resp = req.send().map_err(|e| map_reqwest_error(e, "Request error"))?;
+    let resp = req.send().await.map_err(|e| map_reqwest_error(e, "Request error"))?;
 
     let status = resp.status();
-    let text = resp.text().unwrap_or_default();
+    let text = resp.text().await.unwrap_or_default();
     
     if status.is_success() {
         Ok(text)
@@ -266,7 +266,7 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
 
     let client = reqwest::Client::builder()
         .no_proxy()
-        .timeout(std::time::Duration::from_secs(30))
+        .timeout(std::time::Duration::from_secs(60))
         .build()
         .map_err(|e| format!("Failed to build client: {}", e))?;
 

@@ -1,7 +1,7 @@
 import { createSignal, createEffect, createMemo, onCleanup, onMount, Show, For } from "solid-js";
 import { HelixApi } from "../lib/api";
 import ForceGraphFactory from "force-graph";
-import { Database, Network, RefreshCw, ChevronRight, X, Sparkles, Maximize, Layers, Check } from "lucide-solid";
+import { Network, RefreshCw, ChevronRight, X, Sparkles, Maximize, Layers, Check, AlertTriangle } from "lucide-solid";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ToolbarLayout } from "./ui/toolbar-layout";
@@ -43,6 +43,10 @@ const TYPE_COLORS: Record<string, string> = {
   Entity: "#10b981", // emerald
   default: "#94a3b8", // gray
 };
+
+// Performance Thresholds
+const MAX_SAFE_EDGES = 5000;
+const MAX_HARD_EDGES = 10000;
 
 // Generate color from hash for unknown types - aurora palette
 const hashColor = (str: string): string => {
@@ -97,7 +101,7 @@ export const Graph = (props: GraphProps) => {
   const [hoveredNodeId, setHoveredNodeId] = createSignal<string | null>(null);
 
   // Track previous showDetailPanel state to avoid unnecessary resize
-  let prevShowDetailPanel = true;
+  let prevShowDetailPanel = false;
 
   // Timer handles for cleanup
   const timers: number[] = [];
@@ -109,12 +113,13 @@ export const Graph = (props: GraphProps) => {
   };
 
   const [nodeLimit, setNodeLimit] = createSignal(5);
-  const [showDetailPanel, setShowDetailPanel] = createSignal(true);
+  const [showDetailPanel, setShowDetailPanel] = createSignal(false);
   const [searchQuery, setSearchQuery] = createSignal("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = createSignal("");
   const [rankingMode, setRankingMode] = createSignal(false);
   const [hiddenTypes, setHiddenTypes] = createSignal<Set<string>>(new Set());
   const [showLegend, setShowLegend] = createSignal(false);
+  const [showPerformanceWarning, setShowPerformanceWarning] = createSignal(false);
 
   // Debounce search query
   createEffect(() => {
@@ -218,8 +223,6 @@ export const Graph = (props: GraphProps) => {
       const nodeMap = new Map<string, GraphNode>();
       allNodes().forEach((n) => nodeMap.set(n.id, n));
 
-      // In full mode, we show all connected nodes or everything?
-      // Following previous pattern: show nodes that have edges or are in allNodes
       nodesToDisplay = allNodes().map((n) => ({
         ...n,
         color: getNodeColor(n),
@@ -258,18 +261,40 @@ export const Graph = (props: GraphProps) => {
     totalEdges: allEdges().length,
   }));
 
+  // Dynamic loading delay based on visible edge count AFTER the triggering fn() runs.
+  // warmupTicks(50) + d3AlphaDecay(0.05) settle fast on small graphs.
+  // 0 edges → 80ms,  1000 → 144ms,  5000 → 400ms,  ≥5000 → capped at 450ms.
+  const getLoadingDelay = () => {
+    const edgeCount = graphData().links.length;
+    return Math.min(80 + (edgeCount / 5000) * 320, 450);
+  };
+
   // Load basic data from API
   const loadData = async () => {
     setLoading(true);
     setError(null);
+    setShowPerformanceWarning(false);
     try {
-      const data = await props.api.fetchNodesAndEdges();
+      const response = await props.api.fetchNodesAndEdges();
+      const data = response.data;
+
+      // 1. Hard Limit Check (Block loading if too dense)
+      if (data.edges.length > MAX_HARD_EDGES) {
+        throw new Error(
+          `Data too dense (${data.edges.length.toLocaleString()} edges). Please reduce Record Count or apply filters to stay under ${MAX_HARD_EDGES.toLocaleString()} edges for a stable experience.`
+        );
+      }
+
+      // 2. Soft Limit Check (Warn user)
+      if (data.edges.length > MAX_SAFE_EDGES) {
+        setShowPerformanceWarning(true);
+      }
 
       // Capture existing positions before loading new data
       const existingNodeMap = new Map<string, GraphNode>();
-      allNodes().forEach((n) => existingNodeMap.set(n.id, n));
+      allNodes().forEach((n: GraphNode) => existingNodeMap.set(n.id, n));
 
-      const nodes: GraphNode[] = data.data.nodes.map((n) => {
+      const nodes: GraphNode[] = data.nodes.map((n: any) => {
         // Fallback-rich name resolution
         const name = resolveNodeName(n);
         const typeFallback = n.label || n.type || "Entity";
@@ -299,7 +324,7 @@ export const Graph = (props: GraphProps) => {
         };
       });
 
-      const edges: GraphEdge[] = data.data.edges.map((e) => {
+      const edges: GraphEdge[] = data.edges.map((e: any) => {
         // Robust source/target detection
         const source = e.from_node || e.from || e.source;
         const target = e.to_node || e.to || e.target;
@@ -317,8 +342,6 @@ export const Graph = (props: GraphProps) => {
     } catch (err: any) {
       console.error("Failed to load graph data:", err);
       setError(err.message || "Failed to load graph data");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -358,7 +381,7 @@ export const Graph = (props: GraphProps) => {
     const isSelected = selectedNode()?.id === node.id;
     const { mode } = getRenderMode(globalScale, allNodes().length);
 
-    const color = (node as any).color || "#a5b4fc"; // Use the color property added in graphData memo
+    const color = (node as any).color || "#a5b4fc";
 
     // Node size based on hover/selection - explicit and non-cumulative
     const BASE_NODE_SIZE = 7;
@@ -382,11 +405,7 @@ export const Graph = (props: GraphProps) => {
     // Node Core
     ctx.beginPath();
     ctx.arc(node.x!, node.y!, size, 0, 2 * Math.PI);
-
-    // Core color
     ctx.fillStyle = color;
-
-    // Shadow bloom center
     ctx.shadowBlur = isHovered ? 20 : isSelected ? 15 : 8;
     ctx.shadowColor = color;
     ctx.fill();
@@ -416,7 +435,6 @@ export const Graph = (props: GraphProps) => {
       const labelX = node.x! + size + 8;
       const labelY = node.y! + 4;
 
-      // Subtle backdrop for text contrast
       ctx.fillStyle = "rgba(9, 9, 11, 0.7)";
       ctx.fillRect(labelX - paddingX, labelY - fontSize, textWidth + paddingX * 2, fontSize + paddingY * 2);
 
@@ -434,19 +452,14 @@ export const Graph = (props: GraphProps) => {
       const ForceGraph = ForceGraphFactory();
       graphInstance = ForceGraph(containerRef);
 
-      // Set dimensions
       graphInstance.width(containerRef.clientWidth);
       graphInstance.height(containerRef.clientHeight);
-
-      // Background - deep space
       graphInstance.backgroundColor("#09090b");
 
-      // Custom node rendering
       graphInstance.nodeCanvasObject((node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
         drawNode(node, ctx, globalScale);
       });
 
-      // Hit area for interaction - Circle based
       graphInstance.nodePointerAreaPaint((node: any, color: string, ctx: CanvasRenderingContext2D) => {
         ctx.beginPath();
         ctx.arc(node.x, node.y, 14, 0, 2 * Math.PI);
@@ -454,10 +467,8 @@ export const Graph = (props: GraphProps) => {
         ctx.fill();
       });
 
-      // Disable default tooltip (nodeLabel) to avoid duplicate hover effect
       graphInstance.nodeLabel(() => "");
 
-      // Events
       graphInstance.onNodeHover((node: any) => {
         setHoveredNodeId(node ? node.id : null);
         containerRef!.style.cursor = node ? "grab" : "default";
@@ -465,75 +476,61 @@ export const Graph = (props: GraphProps) => {
 
       graphInstance.onNodeClick((node: any) => {
         setSelectedNode(node);
-        // Lazy fetch details on click if not already enriched
+        setShowDetailPanel(true);
         if (node.id) {
           fetchNodeDetails(node.id);
         }
       });
 
-      // Enable node dragging!
       graphInstance.enableNodeDrag(true);
       graphInstance.onNodeDrag((_node: any) => {
         containerRef!.style.cursor = "grabbing";
       });
       graphInstance.onNodeDragEnd((node: any) => {
         containerRef!.style.cursor = "grab";
-        // Persistent positioning: fix the node where it's dropped
         node.fx = node.x;
         node.fy = node.y;
       });
 
-      // Link styling - subtle and consistent
-      graphInstance.linkColor(() => "rgba(59, 130, 246, 0.25)"); // subtle blue
+      graphInstance.linkColor(() => "rgba(59, 130, 246, 0.25)");
       graphInstance.linkWidth(1.5);
       graphInstance.linkDirectionalArrowLength(6);
       graphInstance.linkDirectionalArrowRelPos(1);
 
-      // Particles flowing on links connected to selected/hovered node
       graphInstance.linkDirectionalParticles((link: any) => {
         const hovered = hoveredNodeId();
         const selected = selectedNode();
         const sourceId = typeof link.source === "object" ? link.source.id : link.source;
         const targetId = typeof link.target === "object" ? link.target.id : link.target;
 
-        // Show particles on hovered node's links
-        if (hovered && (sourceId === hovered || targetId === hovered)) {
-          return 4;
-        }
-        // Show particles on selected node's links
-        if (selected && (sourceId === selected.id || targetId === selected.id)) {
-          return 3;
-        }
+        if (hovered && (sourceId === hovered || targetId === hovered)) return 4;
+        if (selected && (sourceId === selected.id || targetId === selected.id)) return 3;
         return 0;
       });
       graphInstance.linkDirectionalParticleWidth(5);
-      graphInstance.linkDirectionalParticleSpeed(0.006); // Slower, smoother flow
-      graphInstance.linkDirectionalParticleColor(() => "#3b82f6"); // matched blue
+      graphInstance.linkDirectionalParticleSpeed(0.006);
+      graphInstance.linkDirectionalParticleColor(() => "#3b82f6");
 
-      // Physics - Loose deck feeling that fans out
-      graphInstance.d3AlphaDecay(0.02);
+      // Physics - warmupTicks(50) + d3AlphaDecay(0.05) kept in sync with getLoadingDelay()
+      graphInstance.d3AlphaDecay(0.05);
       graphInstance.d3VelocityDecay(0.3);
-      graphInstance.warmupTicks(100); // Pre-settle a bit
+      graphInstance.warmupTicks(50);
       graphInstance.cooldownTicks(100);
 
-      // Forces to create the fan-out effect
-      graphInstance.d3Force("charge").strength(-120); // Stronger repulsion for fan-out
-      graphInstance.d3Force("link").distance(80).strength(1); // Link strength
-      graphInstance.d3Force("center").strength(0.05); // Centering
-      graphInstance.d3Force("collide", () => 30); // Prevent overlapping
+      graphInstance.d3Force("charge").strength(-120);
+      graphInstance.d3Force("link").distance(80).strength(1);
+      graphInstance.d3Force("center").strength(0.05);
+      graphInstance.d3Force("collide", () => 30);
 
-      // Disable auto-alpha reheat on data changes to prevent jumpiness
       graphInstance.dagMode(null);
 
-      // Set data
       updateGraphData();
 
-      // Better default scale - Zoom to Fit
       const zoomTimeout = setTimeout(() => {
         if (graphInstance && allNodes().length > 0) {
           graphInstance.zoomToFit(800, 80);
         }
-      }, 300); // Slightly longer delay to allow physics to breathe
+      }, 300);
       timers.push(zoomTimeout as any);
     } catch (err) {
       console.error("Failed to initialize graph:", err);
@@ -556,15 +553,12 @@ export const Graph = (props: GraphProps) => {
     const data = graphData();
     if (!graphInstance) return;
 
-    // Check if the set size changed to decide on reheat
     const currentData = graphInstance.graphData();
     const countChanged = data.nodes.length !== currentData.nodes.length || data.links.length !== currentData.links.length;
 
-    // Standard data update (non-destructive if references match)
     graphInstance.graphData(data);
 
     if (countChanged || (data.nodes.length > 0 && currentData.nodes.length === 0)) {
-      // Reheat on structural changes OR when recovering from empty state
       graphInstance.d3ReheatSimulation();
     }
   });
@@ -584,9 +578,15 @@ export const Graph = (props: GraphProps) => {
   // Load data when connected (reactive to connection state changes)
   createEffect(() => {
     if (props.isConnected) {
+      setLoading(true);
+      setShowPerformanceWarning(false);
       loadData().then(() => {
         initGraph();
         handleResize();
+        // getLoadingDelay() reads the freshly-loaded edge count
+        requestAnimationFrame(() => {
+          setTimeout(() => setLoading(false), getLoadingDelay());
+        });
       });
     }
   });
@@ -610,56 +610,63 @@ export const Graph = (props: GraphProps) => {
   });
 
   // Effect: force redraw when selection or hover changes
-  // force-graph doesn't auto-redraw when external state changes, so we trigger it manually
   createEffect(() => {
-    // Track these signals to trigger the effect
     const selected = selectedNode();
     const hovered = hoveredNodeId();
 
     if (graphInstance) {
-      // Re-apply particle settings when selection/hover changes
       graphInstance.linkDirectionalParticles((link: any) => {
         const sourceId = typeof link.source === "object" ? link.source.id : link.source;
         const targetId = typeof link.target === "object" ? link.target.id : link.target;
 
-        // Show particles on hovered node's links
-        if (hovered && (sourceId === hovered || targetId === hovered)) {
-          return 6;
-        }
-        // Show particles on selected node's links
-        if (selected && (sourceId === selected.id || targetId === selected.id)) {
-          return 5;
-        }
+        if (hovered && (sourceId === hovered || targetId === hovered)) return 6;
+        if (selected && (sourceId === selected.id || targetId === selected.id)) return 5;
         return 0;
       });
 
-      // Force a canvas refresh using a micro zoom nudge
       const currentZoom = graphInstance.zoom();
       graphInstance.zoom(currentZoom * 1.0000001, 0);
     }
   });
 
+  // Wrap any state change that triggers warmupTicks with a loading overlay.
+  // fn() runs first so graphData() re-evaluates before getLoadingDelay() is called,
+  // meaning the delay reflects the NEW edge count, not the old one.
+  const withGraphLoading = (fn: () => void) => {
+    setLoading(true);
+    fn();
+    requestAnimationFrame(() => {
+      setTimeout(() => setLoading(false), getLoadingDelay());
+    });
+  };
+
   const toggleHiddenType = (type: string) => {
-    const hidden = new Set(hiddenTypes());
-    if (hidden.has(type)) {
-      hidden.delete(type);
-    } else {
-      hidden.add(type);
-    }
-    setHiddenTypes(hidden);
+    withGraphLoading(() => {
+      const hidden = new Set(hiddenTypes());
+      if (hidden.has(type)) {
+        hidden.delete(type);
+      } else {
+        hidden.add(type);
+      }
+      setHiddenTypes(hidden);
+    });
   };
 
   const refresh = () => {
+    setLoading(true);
     setHoveredNodeId(null);
     setSelectedNode(null);
-    loadData();
+    loadData().then(() => {
+      requestAnimationFrame(() => {
+        setTimeout(() => setLoading(false), getLoadingDelay());
+      });
+    });
   };
 
   return (
     <div class="flex flex-col h-full w-full bg-graph text-native-primary overflow-hidden">
       {/* Header & Controls */}
       <div class="flex-none">
-        {/* Main Toolbar */}
         <ToolbarLayout class="justify-between">
           <div class="flex items-center gap-3">
             {/* Search */}
@@ -669,7 +676,12 @@ export const Graph = (props: GraphProps) => {
 
             {/* Top N & Limit Group */}
             <div class="flex items-center">
-              <Button variant="toolbar" active={rankingMode()} onClick={() => setRankingMode(!rankingMode())} class="flex items-center gap-1.5 rounded-r-none border-r-0 h-7 transition-all">
+              <Button
+                variant="toolbar"
+                active={rankingMode()}
+                onClick={() => withGraphLoading(() => setRankingMode(!rankingMode()))}
+                class="flex items-center gap-1.5 rounded-r-none border-r-0 h-7 transition-all"
+              >
                 <span class="font-medium text-[11px]">Top N</span>
               </Button>
 
@@ -688,7 +700,7 @@ export const Graph = (props: GraphProps) => {
                   onInput={(e) => {
                     let val = parseInt(e.currentTarget.value) || 1;
                     val = Math.max(1, Math.min(50, val));
-                    setNodeLimit(val);
+                    withGraphLoading(() => setNodeLimit(val));
                   }}
                 />
               </div>
@@ -700,24 +712,6 @@ export const Graph = (props: GraphProps) => {
               <Layers size={13} class={showLegend() ? "text-accent" : "text-native-tertiary"} />
               <span class="font-medium text-[11px]">Legend</span>
             </Button>
-          </div>
-
-          {/* Center: Stats (Desktop Only) */}
-          <div class="hidden xl:flex items-center gap-2">
-            <div class="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/8 border border-emerald-500/10">
-              <Database size={11} class="text-emerald-500" />
-              <span class="text-[10px] font-semibold text-native-secondary tabular-nums">{stats().nodeCount}</span>
-            </div>
-            <div class="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/8 border border-blue-500/10">
-              <Network size={11} class="text-blue-500" />
-              <span class="text-[10px] font-semibold text-native-secondary tabular-nums">{stats().edgeCount}</span>
-            </div>
-            <Show when={loading() && props.isConnected}>
-              <div class="flex items-center gap-1.5 ml-2 text-native-tertiary">
-                <RefreshCw size={11} class="animate-spin" />
-                <span class="text-[10px] font-medium">Syncing...</span>
-              </div>
-            </Show>
           </div>
 
           {/* Right: Actions */}
@@ -848,8 +842,8 @@ export const Graph = (props: GraphProps) => {
           class="absolute inset-0 flex items-center justify-center pointer-events-none z-50 transition-all duration-300 ease-in-out"
           style={{
             opacity: loading() ? 1 : 0,
-            "backdrop-filter": loading() ? "blur(4px)" : "blur(0px)",
-            "background-color": loading() ? "rgba(9, 9, 11, 0.4)" : "rgba(9, 9, 11, 0)",
+            "backdrop-filter": loading() ? "blur(8px)" : "blur(0px)",
+            "background-color": loading() ? "rgba(9, 9, 11, 1)" : "rgba(9, 9, 11, 0)",
           }}
         >
           <div class="flex flex-col items-center gap-3 scale-90 transition-transform duration-300" style={{ transform: loading() ? "scale(1)" : "scale(0.95)" }}>
@@ -857,7 +851,15 @@ export const Graph = (props: GraphProps) => {
               <div class="w-10 h-10 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
               <Sparkles size={16} class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-accent" />
             </div>
-            <span class="text-[11px] font-medium text-native-secondary tracking-tight">Updating graph...</span>
+            <div class="flex flex-col items-center gap-1">
+              <span class="text-[11px] font-medium text-native-secondary tracking-tight">Updating graph...</span>
+              <Show when={showPerformanceWarning()}>
+                <div class="flex items-center gap-1.5 mt-1 px-2 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-md animate-pulse">
+                  <AlertTriangle size={12} class="text-yellow-500" />
+                  <span class="text-[10px] font-bold text-yellow-500 uppercase tracking-tighter">Performance Warning: Large Data</span>
+                </div>
+              </Show>
+            </div>
           </div>
         </div>
 
