@@ -272,7 +272,7 @@ export const HQLEditor = (props: HQLEditorProps) => {
               return [];
             }
           },
-          { delay: 500 }
+          { delay: 400 }
         ),
       ],
     });

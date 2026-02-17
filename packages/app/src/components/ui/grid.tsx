@@ -30,6 +30,7 @@ export function Grid(props: GridProps) {
   const [columnWidths, setColumnWidths] = createSignal<Record<string, number>>({});
   const [rowNumberWidth, setRowNumberWidth] = createSignal(50);
   const [resizingColumn, setResizingColumn] = createSignal<string | null>(null);
+  const [isRowNumberResized, setIsRowNumberResized] = createSignal(false);
   const [resizeStartX, setResizeStartX] = createSignal(0);
   const [resizeStartWidth, setResizeStartWidth] = createSignal(0);
   const [sortConfig, setSortConfig] = createSignal<{ key: string; direction: "asc" | "desc" } | null>(null);
@@ -65,10 +66,13 @@ export function Grid(props: GridProps) {
 
   // Calculate row number width based on data length
   createEffect(() => {
+    if (isRowNumberResized()) return;
     const offset = props.offset || 0;
     const maxRowNumber = props.data.length - 1 + offset;
     const numDigits = String(Math.max(0, maxRowNumber)).length;
-    const calculatedWidth = Math.min(Math.max(32, numDigits * 8 + 10), 80);
+    // Use a more generous multiplier (9) and base padding (20)
+    // and increase max width to 120 to accommodate larger offsets.
+    const calculatedWidth = Math.min(Math.max(48, numDigits * 9 + 20), 120);
     setRowNumberWidth(calculatedWidth);
   });
 
@@ -77,6 +81,7 @@ export function Grid(props: GridProps) {
   const handleMouseMove = (e: MouseEvent) => {
     const resCol = resizingColumn();
     if (resCol === "__row_number__") {
+      setIsRowNumberResized(true);
       const diff = e.clientX - resizeStartX();
       const newWidth = Math.max(40, resizeStartWidth() + diff);
       setRowNumberWidth(newWidth);
@@ -485,7 +490,7 @@ export function Grid(props: GridProps) {
                               when={isEditing()}
                               fallback={
                                 <div
-                                  class="px-1.5 w-full whitespace-nowrap overflow-x-auto"
+                                  class="px-1.5 w-full whitespace-nowrap overflow-x-auto grid-cell-scrollbar"
                                   style={{
                                     color: "var(--grid-cell-text)",
                                     "font-size": "12px",

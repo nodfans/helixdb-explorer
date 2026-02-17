@@ -76,7 +76,7 @@ export const PropertyRow = (props: PropertyRowProps) => {
           autocorrect="off"
           autocapitalize="off"
           autocomplete="off"
-          class="bg-transparent border-none focus:ring-0 text-[12px] p-0 flex-1 min-w-[60px] placeholder:text-native-tertiary outline-none"
+          class="bg-transparent border-none focus:ring-0 text-[12px] p-0 flex-1 min-w-[30px] placeholder:text-native-tertiary outline-none"
           placeholder="attribute_name"
           onInput={(e) => props.onUpdate({ name: e.currentTarget.value })}
           onKeyDown={props.onKeyDown}
@@ -87,7 +87,7 @@ export const PropertyRow = (props: PropertyRowProps) => {
         />
 
         {/* Unified Metadata & Actions Group - Dynamic space */}
-        <div class="flex-none flex items-center gap-3 ml-2">
+        <div class="flex-none flex items-center gap-3 ml-2 shrink-0">
           {/* Type Selector - Compact dropdown */}
           <div class="relative group/type">
             <select
@@ -101,7 +101,7 @@ export const PropertyRow = (props: PropertyRowProps) => {
           </div>
 
           {/* Badges Column - Flexible display */}
-          <div class="hidden sm:flex items-center justify-end gap-1.5">
+          <div class="hidden sm:flex items-center justify-end gap-1.5 shrink-0">
             <Show when={props.property.isUnique}>
               <Badge size="xs" variant="warning" class="w-4 h-4 !p-0 flex items-center justify-center text-[9px] font-bold">
                 U
@@ -120,7 +120,7 @@ export const PropertyRow = (props: PropertyRowProps) => {
           </div>
 
           {/* Actions Column */}
-          <div class="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+          <div class="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity shrink-0">
             <button
               onClick={() => setIsExpanded(!isExpanded())}
               class={`p-1 rounded hover:bg-hover transition-colors ${isExpanded() ? "text-accent bg-accent/10" : "text-native-tertiary"}`}

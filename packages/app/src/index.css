@@ -355,6 +355,23 @@ input {
   background-color: var(--accent);
 }
 
+/* Cell Scrollbars */
+.grid-cell-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.grid-cell-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--text-quaternary);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+.grid-cell-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-tertiary);
+}
+.grid-cell-scrollbar::-webkit-scrollbar-thumb:active {
+  background-color: var(--accent);
+}
 ::-webkit-scrollbar-corner {
   background: transparent;
 }

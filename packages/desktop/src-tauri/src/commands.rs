@@ -907,6 +907,7 @@ pub fn get_hql_completion(code: String, cursor: usize, schema: Option<SchemaSumm
 // ============================================
 const MAX_SINGLE_LINE_LENGTH: usize = 120;
 const EXPAND_THRESHOLD: usize = 40;
+const CHAIN_EXPAND_THRESHOLD: usize = 80;
 
 const INDENT: &str = "    ";
 const BLOCK_KEYWORDS: &[&str] = &["WHERE", "UPDATE", "MIGRATION", "THEN", "ELSE", "=>"];
@@ -1166,6 +1167,13 @@ where
                 }
             }
             ';' if nesting == 0 => break,
+            '\n' if nesting == 0 => {
+                // If a newline is NOT followed by ::, it's the end of this chain's context
+                let next_nc = peek_next_non_whitespace(&mut look);
+                if next_nc != ':' {
+                    break;
+                }
+            }
             c if c.is_alphabetic() && nesting == 0 => {
                 let mut word = String::new();
                 word.push(c);
@@ -1181,12 +1189,17 @@ where
                 if is_terminator_keyword(&word) {
                     break;
                 }
+                // If we see a word followed by <- or =, it's a new statement
+                let next_nc = peek_next_non_whitespace(&mut look);
+                if next_nc == '<' || next_nc == '=' {
+                    break;
+                }
             }
             _ => {}
         }
     }
     
-    if double_colon_count == 1 && total_length < 60 {
+    if double_colon_count == 1 && total_length < CHAIN_EXPAND_THRESHOLD {
         return false;
     }
     
@@ -1312,6 +1325,21 @@ pub fn format_hql(code: String) -> Result<String, String> {
                 {
                     if c == '{' || c == '[' {
                         processed.push(' ');
+                    }
+                }
+
+                if c == '<' {
+                    if iter.peek() == Some(&'-') {
+                        iter.next(); // consume -
+                        trim_trailing_spaces(&mut processed);
+                        processed.push_str(" <-");
+                        if let Some(top) = traversal_expand_stack.last_mut() {
+                            *top = false;
+                        }
+                        if peek_next_non_whitespace(iter) != '\n' {
+                            processed.push(' ');
+                        }
+                        continue;
                     }
                 }
                 
@@ -1442,8 +1470,10 @@ pub fn format_hql(code: String) -> Result<String, String> {
                         look_chain.next(); // skip second :
                         let mut nesting = 0;
                         let mut is_multi = false;
+                        let mut total_length = 0;
                         
                         while let Some(nc) = look_chain.next() {
+                            total_length += 1;
                             match nc {
                                 '{' | '(' | '[' => nesting += 1,
                                 '}' | ')' | ']' => {
@@ -1457,9 +1487,19 @@ pub fn format_hql(code: String) -> Result<String, String> {
                                     break;
                                 }
                                 ';' if nesting == 0 => break,
+                                '\n' if nesting == 0 => {
+                                    let next_nc = peek_next_non_whitespace(&mut look_chain);
+                                    if next_nc != ':' {
+                                        break;
+                                    }
+                                }
                                 c if c.is_alphabetic() && nesting == 0 => {
                                     let word = peek_word(&mut look_chain);
                                     if is_terminator_keyword(&word) {
+                                        break;
+                                    }
+                                    let next_nc = peek_next_non_whitespace(&mut look_chain);
+                                    if next_nc == '<' || next_nc == '=' {
                                         break;
                                     }
                                 }
@@ -1467,7 +1507,9 @@ pub fn format_hql(code: String) -> Result<String, String> {
                             }
                         }
                         
-                        if !is_multi && traversal_expand_stack.last() == Some(&false) {
+                        let too_complex = is_multi || total_length > CHAIN_EXPAND_THRESHOLD;
+                        
+                        if !too_complex && traversal_expand_stack.last() == Some(&false) {
                             if !processed.ends_with(' ') && !processed.is_empty() {
                                 processed.push(' ');
                             }
@@ -1477,6 +1519,9 @@ pub fn format_hql(code: String) -> Result<String, String> {
                 } else if next_non_ws == 'R' {
                     let word = peek_word(iter);
                     if word == "RETURN" {
+                        if let Some(top) = traversal_expand_stack.last_mut() {
+                            *top = false;
+                        }
                         if !processed.ends_with('\n') && !processed.is_empty() {
                             processed.push('\n');
                         }
