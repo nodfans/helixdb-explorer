@@ -48,6 +48,21 @@ const TYPE_COLORS: Record<string, string> = {
 const MAX_SAFE_EDGES = 5000;
 const MAX_HARD_EDGES = 10000;
 
+// Persistent store for cross-page navigation
+interface PersistentState {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  camera: { x: number; y: number; zoom: number } | null;
+  settings: {
+    nodeLimit: number;
+    rankingMode: boolean;
+    hiddenTypes: Set<string>;
+    selectedNode: GraphNode | null;
+    showDetailPanel: boolean;
+  };
+}
+let persistentStore: PersistentState | null = null;
+
 // Generate color from hash for unknown types - aurora palette
 const hashColor = (str: string): string => {
   let hash = 0;
@@ -95,9 +110,11 @@ export const Graph = (props: GraphProps) => {
 
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
-  const [allNodes, setAllNodes] = createSignal<GraphNode[]>([]);
-  const [allEdges, setAllEdges] = createSignal<GraphEdge[]>([]);
-  const [selectedNode, setSelectedNode] = createSignal<GraphNode | null>(null);
+  const [allNodes, setAllNodes] = createSignal<GraphNode[]>(persistentStore?.nodes ?? []);
+  const [allEdges, setAllEdges] = createSignal<GraphEdge[]>(persistentStore?.edges ?? []);
+
+  // Initialize selection from cache if available (preserves enriched properties)
+  const [selectedNode, setSelectedNode] = createSignal<GraphNode | null>(persistentStore?.settings.selectedNode ?? null);
   const [hoveredNodeId, setHoveredNodeId] = createSignal<string | null>(null);
 
   // Track previous showDetailPanel state to avoid unnecessary resize
@@ -112,12 +129,12 @@ export const Graph = (props: GraphProps) => {
     }
   };
 
-  const [nodeLimit, setNodeLimit] = createSignal(5);
-  const [showDetailPanel, setShowDetailPanel] = createSignal(false);
+  const [nodeLimit, setNodeLimit] = createSignal(persistentStore?.settings.nodeLimit ?? 5);
+  const [showDetailPanel, setShowDetailPanel] = createSignal(persistentStore?.settings.showDetailPanel ?? false);
   const [searchQuery, setSearchQuery] = createSignal("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = createSignal("");
-  const [rankingMode, setRankingMode] = createSignal(false);
-  const [hiddenTypes, setHiddenTypes] = createSignal<Set<string>>(new Set());
+  const [rankingMode, setRankingMode] = createSignal(persistentStore?.settings.rankingMode ?? false);
+  const [hiddenTypes, setHiddenTypes] = createSignal<Set<string>>(persistentStore?.settings.hiddenTypes ?? new Set());
   const [showLegend, setShowLegend] = createSignal(false);
   const [showPerformanceWarning, setShowPerformanceWarning] = createSignal(false);
 
@@ -270,7 +287,11 @@ export const Graph = (props: GraphProps) => {
   };
 
   // Load basic data from API
-  const loadData = async () => {
+  const loadData = async (forceInit = false) => {
+    // Skip remote fetch if cache exists and we aren't forcing
+    if (persistentStore && !forceInit && allNodes().length > 0) {
+      return;
+    }
     setLoading(true);
     setError(null);
     setShowPerformanceWarning(false);
@@ -526,12 +547,19 @@ export const Graph = (props: GraphProps) => {
 
       updateGraphData();
 
-      const zoomTimeout = setTimeout(() => {
-        if (graphInstance && allNodes().length > 0) {
-          graphInstance.zoomToFit(800, 80);
-        }
-      }, 300);
-      timers.push(zoomTimeout as any);
+      // Restore camera if we have persistent state
+      if (persistentStore?.camera) {
+        const { x, y, zoom } = persistentStore.camera;
+        graphInstance.centerAt(x, y);
+        graphInstance.zoom(zoom);
+      } else if (allNodes().length > 0) {
+        const zoomTimeout = setTimeout(() => {
+          if (graphInstance && allNodes().length > 0) {
+            graphInstance.zoomToFit(800, 80);
+          }
+        }, 300);
+        timers.push(zoomTimeout as any);
+      }
     } catch (err) {
       console.error("Failed to initialize graph:", err);
       setError("Failed to initialize visualization");
@@ -580,18 +608,56 @@ export const Graph = (props: GraphProps) => {
     if (props.isConnected) {
       setLoading(true);
       setShowPerformanceWarning(false);
-      loadData().then(() => {
+      loadData(false).then(() => {
         initGraph();
         handleResize();
-        // getLoadingDelay() reads the freshly-loaded edge count
-        requestAnimationFrame(() => {
-          setTimeout(() => setLoading(false), getLoadingDelay());
-        });
+        // Always run a small warmup and delay to hide the initialization "pop"
+        // 200 ticks for new data, 50 ticks for cached data to ensure stability
+        const ticks = persistentStore ? 50 : 200;
+
+        if (graphInstance) {
+          graphInstance.warmupTicks(ticks);
+          requestAnimationFrame(() => {
+            // Tiny delay to ensure the canvas has rendered at least one frame
+            setTimeout(() => setLoading(false), getLoadingDelay());
+          });
+        } else {
+          setLoading(false);
+        }
       });
     }
   });
 
   onCleanup(() => {
+    // Save state to persistence before unmounting
+    if (graphInstance) {
+      persistentStore = {
+        nodes: allNodes().map((n) => ({
+          ...n,
+          // Capture current physics positions
+          x: (n as any).x,
+          y: (n as any).y,
+          vx: (n as any).vx,
+          vy: (n as any).vy,
+          fx: (n as any).fx,
+          fy: (n as any).fy,
+        })),
+        edges: allEdges(),
+        camera: {
+          x: graphInstance.centerAt().x,
+          y: graphInstance.centerAt().y,
+          zoom: graphInstance.zoom(),
+        },
+        settings: {
+          nodeLimit: nodeLimit(),
+          rankingMode: rankingMode(),
+          hiddenTypes: hiddenTypes(),
+          selectedNode: selectedNode(),
+          showDetailPanel: showDetailPanel(),
+        },
+      };
+    }
+
     window.removeEventListener("resize", handleResize);
     clearTimers();
     if (graphInstance && containerRef) {
@@ -656,7 +722,7 @@ export const Graph = (props: GraphProps) => {
     setLoading(true);
     setHoveredNodeId(null);
     setSelectedNode(null);
-    loadData().then(() => {
+    loadData(true).then(() => {
       requestAnimationFrame(() => {
         setTimeout(() => setLoading(false), getLoadingDelay());
       });
