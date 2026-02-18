@@ -170,7 +170,25 @@ async fn execute_final_action(client: &reqwest::Client, url: &str, conn: &str, a
         FinalAction::Count => {
             let resp = client.post(format!("{}/mcp/aggregate_by", url)).json(&serde_json::json!({ "connection_id": conn, "properties": Vec::<String>::new(), "drop": true })).send().await
                 .map_err(|e| format!("Count failed: {}", e))?;
-            if resp.status().is_success() { resp.json().await.map_err(|e| e.to_string()) } else { Err(format!("Count error: {}", resp.status())) }
+            
+            if resp.status().is_success() { 
+                let val: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+                
+                // HQL "::COUNT" expects a scalar number, but aggregate_by returns a full report.
+                // We unwrap { "Count": { "": { "count": N, ... } } } -> N
+                if let Some(count_obj) = val.get("Count").and_then(|c| c.as_object()) {
+                    if let Some(empty_group) = count_obj.get("").and_then(|g| g.as_object()) {
+                        if let Some(count_val) = empty_group.get("count").filter(|c| c.is_number()) {
+                            return Ok(count_val.clone());
+                        }
+                    }
+                }
+                
+                // Fallback: return original if structure doesn't match
+                Ok(val)
+            } else { 
+                Err(format!("Count error: {}", resp.status())) 
+            }
         }
         FinalAction::Aggregate { properties } => {
             let resp = client.post(format!("{}/mcp/aggregate_by", url)).json(&serde_json::json!({ "connection_id": conn, "properties": properties, "drop": true })).send().await
@@ -210,3 +228,4 @@ fn filter_by_ids(value: &serde_json::Value, ids: &[String]) -> serde_json::Value
         _ => value.clone(),
     }
 }
+

@@ -135,15 +135,20 @@ pub fn map_traversal_to_tools(traversal: &Traversal, params: &serde_json::Value)
                      GraphStepType::SearchVector(sv) => {
                          tools.push(map_search_vector_to_tool(sv, params)?);
                      }
-                     GraphStepType::FromN | GraphStepType::ToN => {
-                         // Convert recent edge step to node step (MCP fusion)
+                     GraphStepType::FromN | GraphStepType::ToN | GraphStepType::FromV | GraphStepType::ToV => {
+                         // Convert recent edge step to node or vector step (MCP fusion)
                          let mut found = false;
+                         let target_edge_type = match gs.step {
+                             GraphStepType::FromV | GraphStepType::ToV => EdgeType::Vec,
+                             _ => EdgeType::Node,
+                         };
+
                          for tool in tools.iter_mut().rev() {
                              match tool {
                                  ToolArgs::OutEStep { edge_label, filter } => {
                                      *tool = ToolArgs::OutStep { 
                                          edge_label: edge_label.clone(), 
-                                         edge_type: EdgeType::Node, 
+                                         edge_type: target_edge_type, 
                                          filter: filter.clone() 
                                      };
                                      found = true;
@@ -152,7 +157,7 @@ pub fn map_traversal_to_tools(traversal: &Traversal, params: &serde_json::Value)
                                  ToolArgs::InEStep { edge_label, filter } => {
                                      *tool = ToolArgs::InStep { 
                                          edge_label: edge_label.clone(), 
-                                         edge_type: EdgeType::Node, 
+                                         edge_type: target_edge_type, 
                                          filter: filter.clone() 
                                      };
                                      found = true;
@@ -163,7 +168,7 @@ pub fn map_traversal_to_tools(traversal: &Traversal, params: &serde_json::Value)
                              }
                          }
                          if !found {
-                             return Err("::ToN or ::FromN must follow an edge traversal step (like ::OutE or ::InE)".to_string());
+                             return Err("::ToN, ::FromN, ::ToV, or ::FromV must follow an edge traversal step (like ::OutE or ::InE)".to_string());
                          }
                      }
                      _ => {} 

@@ -2,32 +2,35 @@ use reqwest::blocking::Client;
 use serde_json::{json, Value};
 use chrono::Utc;
 use rand::{Rng, thread_rng};
-use rand::distributions::Alphanumeric;
 use std::env;
 
-const RECORD_COUNT: usize = 500;
+const NODE_LIMIT: usize = 100; // Nodes per type per domain
+const DOMAINS: [&str; 3] = ["Tech", "Life", "Health"];
 const HELIX_URL: &str = "http://127.0.0.1:6969";
 
-fn generate_random_string(len: usize) -> String {
-    thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(len)
-        .map(char::from)
-        .collect()
-}
-
-fn generate_random_vector(dim: usize) -> Vec<f64> {
+/// Generates a vector clustered around a domain centroid.
+fn generate_clustered_vector(domain_idx: usize, dim: usize) -> Vec<f64> {
     let mut rng = thread_rng();
-    (0..dim).map(|_| rng.gen_range(-1.0..1.0)).collect()
+    let mut vec = Vec::with_capacity(dim);
+    
+    let bases = [
+        vec![0.6; dim],   // Tech cluster
+        vec![-0.6; dim],  // Life cluster
+        vec![0.0; dim],   // Health cluster
+    ];
+
+    let base = &bases[domain_idx % bases.len()];
+    for i in 0..dim {
+        let jitter = rng.gen_range(-0.35..0.35);
+        vec.push(base[i] + jitter);
+    }
+    vec
 }
 
 fn extract_id(resp_json: Value) -> Result<String, String> {
-    // Try root first
     if let Some(id) = resp_json.get("id").and_then(|v| v.as_str()) {
         return Ok(id.to_string());
     }
-    
-    // Try nested (first child object)
     if let Some(obj) = resp_json.as_object() {
         for (_key, value) in obj {
             if let Some(id) = value.get("id").and_then(|v| v.as_str()) {
@@ -35,322 +38,174 @@ fn extract_id(resp_json: Value) -> Result<String, String> {
             }
         }
     }
-
     Err(format!("Could not extract 'id' from response: {:?}", resp_json))
 }
 
 fn clear_all_data(client: &Client) -> Result<(), Box<dyn std::error::Error>> {
-    println!(">>> Clearing all data...");
+    println!(">>> Clearing all data via /clear_all_data...");
     let url = format!("{}/clear_all_data", HELIX_URL);
-    let resp = client.post(&url)
-        .header("Content-Type", "application/json")
-        .header("Connection", "close")
-        .body("{}")
-        .send()?;
-
+    let resp = client.post(&url).json(&json!({})).send()?;
     if resp.status().is_success() {
         println!(">>> Successfully cleared all data.");
-    } else {
-        eprintln!(">>> Failed to clear data: status {}", resp.status());
-        let error_text = resp.text().unwrap_or_default();
-        eprintln!("Error: {}", error_text);
     }
     Ok(())
 }
 
-fn seed_users(client: &Client) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+struct SeededNode {
+    id: String,
+    domain_idx: usize,
+}
+
+fn check_resp(resp: reqwest::blocking::Response, context: &str) -> Result<Value, Box<dyn std::error::Error>> {
+    let status = resp.status();
+    let text = resp.text().unwrap_or_default();
+    if !status.is_success() {
+        eprintln!(">>> Error in {}: Status {}. Body: {}", context, status, text);
+        return Err(format!("Request failed: {}", context).into());
+    }
+    let json: Value = serde_json::from_str(&text)?;
+    Ok(json)
+}
+
+fn get_now() -> String {
+    Utc::now().to_rfc3339()
+}
+
+fn seed_users(client: &Client) -> Result<Vec<SeededNode>, Box<dyn std::error::Error>> {
     println!(">>> Seeding Users...");
-    let mut ids = Vec::new();
-    for i in 0..RECORD_COUNT {
-        let name = format!("User_{}_{}", i, generate_random_string(4));
-        let age = thread_rng().gen_range(18..80);
-        let score = thread_rng().gen_range(0.0..100.0);
-        let active = thread_rng().gen_bool(0.5);
-        let created_at = Utc::now().to_rfc3339();
+    let mut nodes = Vec::new();
+    for domain_idx in 0..DOMAINS.len() {
+        let domain = DOMAINS[domain_idx];
+        for i in 0..NODE_LIMIT {
+            let name = format!("{}_User_{}", domain, i);
+            let payload = json!({
+                "name": name, // Argument name in create_user
+                "age": thread_rng().gen_range(20..70),
+                "score": (thread_rng().gen_range(50.0..100.0) as f64 * 100.0).round() / 100.0,
+                "active": true,
+                "created_at": get_now()
+            });
 
-        let payload = json!({
-            "name": name,
-            "age": age,
-            "score": score,
-            "active": active,
-            "created_at": created_at
-        });
+            if i == 0 { println!("  [Sample Payload]: {}", payload); }
 
-        let url = format!("{}/create_user", HELIX_URL);
-        let resp = client.post(&url)
-            .header("Content-Type", "application/json")
-            .header("Connection", "close")
-            .body(serde_json::to_string(&payload)?)
-            .send()?;
-        
-        let json: Value = resp.json()?;
-        let id = extract_id(json)?;
-        ids.push(id);
-        println!("  [{}/{}] Created User: {}", i + 1, RECORD_COUNT, name);
+            let resp = client.post(format!("{}/create_user", HELIX_URL)).json(&payload).send()?;
+            let id = extract_id(check_resp(resp, &format!("create_user {}", name))?)?;
+
+            let embed_payload = json!({
+                "user_id": id,
+                "name": format!("Embed_{}", name),
+                "vector": generate_clustered_vector(domain_idx, 1536),
+                "created_at": get_now()
+            });
+            if i == 0 { println!("  [Embed Sample Payload]: {}", embed_payload); }
+
+            let embed_resp = client.post(format!("{}/add_user_embedding", HELIX_URL)).json(&embed_payload).send()?;
+            check_resp(embed_resp, &format!("add_user_embedding for {}", name))?;
+
+            nodes.push(SeededNode { id, domain_idx });
+        }
     }
-    Ok(ids)
+    Ok(nodes)
 }
 
-fn seed_posts(client: &Client) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+fn seed_posts(client: &Client) -> Result<Vec<SeededNode>, Box<dyn std::error::Error>> {
     println!(">>> Seeding Posts...");
-    let mut ids = Vec::new();
-    let categories = vec!["Tech", "Life", "Work", "Travel", "Food"];
-    for i in 0..RECORD_COUNT {
-        let title = format!("Post Title {} - {}", i, generate_random_string(8));
-        let content = format!("This is some random content for post {}. {}", i, generate_random_string(20));
-        let category = categories[thread_rng().gen_range(0..categories.len())];
-        let published = thread_rng().gen_bool(0.8);
+    let mut nodes = Vec::new();
+    for domain_idx in 0..DOMAINS.len() {
+        let domain = DOMAINS[domain_idx];
+        for i in 0..NODE_LIMIT {
+            let title = format!("{} Update #{}", domain, i);
+            let payload = json!({
+                "title": title,
+                "content": format!("Latest news in {}...", domain),
+                "category": domain,
+                "published": true
+            });
 
-        let payload = json!({
-            "title": title,
-            "content": content,
-            "category": category,
-            "published": published
-        });
+            let resp = client.post(format!("{}/create_post", HELIX_URL)).json(&payload).send()?;
+            let id = extract_id(check_resp(resp, &format!("create_post {}", title))?)?;
 
-        let url = format!("{}/create_post", HELIX_URL);
-        let resp = client.post(&url)
-            .header("Content-Type", "application/json")
-            .header("Connection", "close")
-            .body(serde_json::to_string(&payload)?)
-            .send()?;
-        
-        let json: Value = resp.json()?;
-        let id = extract_id(json)?;
-        ids.push(id);
-        println!("  [{}/{}] Created Post: {}", i + 1, RECORD_COUNT, title);
+            // Add Embedding
+            let embed_resp = client.post(format!("{}/add_post_embedding", HELIX_URL)).json(&json!({
+                "post_id": id,
+                "title": title,
+                "content": format!("Content for {}", title),
+                "vector": generate_clustered_vector(domain_idx, 1536),
+                "created_at": get_now()
+            })).send()?;
+            check_resp(embed_resp, &format!("add_post_embedding for {}", title))?;
+
+            nodes.push(SeededNode { id, domain_idx });
+        }
     }
-    Ok(ids)
+    Ok(nodes)
 }
 
-fn seed_products(client: &Client) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+fn seed_products(client: &Client) -> Result<Vec<SeededNode>, Box<dyn std::error::Error>> {
     println!(">>> Seeding Products...");
-    let mut ids = Vec::new();
-    for i in 0..RECORD_COUNT {
-        let sku = format!("SKU-{}-{}", i, generate_random_string(6));
-        let name = format!("Product {}", generate_random_string(5));
-        let price = thread_rng().gen_range(9.99..999.99);
+    let mut nodes = Vec::new();
+    for domain_idx in 0..DOMAINS.len() {
+        let domain = DOMAINS[domain_idx];
+        for i in 0..NODE_LIMIT {
+            let name = format!("{}_Gadget_{}", domain, i);
+            let payload = json!({
+                "sku": format!("SKU-{}-{}-{}", domain, i, thread_rng().gen_range(1000..9999)),
+                "name": name,
+                "price": thread_rng().gen_range(10.0..500.0)
+            });
 
-        let payload = json!({
-            "sku": sku,
-            "name": name,
-            "price": price
-        });
+            let resp = client.post(format!("{}/create_product", HELIX_URL)).json(&payload).send()?;
+            let id = extract_id(check_resp(resp, &format!("create_product {}", name))?)?;
 
-        let url = format!("{}/create_product", HELIX_URL);
-        let resp = client.post(&url)
-            .header("Content-Type", "application/json")
-            .header("Connection", "close")
-            .body(serde_json::to_string(&payload)?)
-            .send()?;
-        
-        let json: Value = resp.json()?;
-        let id = extract_id(json)?;
-        ids.push(id);
-        println!("  [{}/{}] Created Product: {} ({})", i + 1, RECORD_COUNT, name, sku);
+            // Add Embedding
+            let embed_resp = client.post(format!("{}/add_product_embedding", HELIX_URL)).json(&json!({
+                "product_id": id,
+                "name": name,
+                "description": format!("Specialized product for {}", domain),
+                "vector": generate_clustered_vector(domain_idx, 1536),
+                "price": 99.0,
+                "created_at": get_now()
+            })).send()?;
+            check_resp(embed_resp, &format!("add_product_embedding for {}", name))?;
+
+            nodes.push(SeededNode { id, domain_idx });
+        }
     }
-    Ok(ids)
+    Ok(nodes)
 }
 
-fn seed_organizations(client: &Client) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+fn seed_organizations(client: &Client) -> Result<Vec<SeededNode>, Box<dyn std::error::Error>> {
     println!(">>> Seeding Organizations...");
+    let mut nodes = Vec::new();
+    for domain_idx in 0..DOMAINS.len() {
+        let domain = DOMAINS[domain_idx];
+        for i in 0..10 { // Fewer orgs
+            let name = format!("{} Corp {}", domain, i);
+            let payload = json!({
+                "name": name,
+                "tax_id": format!("TX-{}", thread_rng().gen_range(100000..999999))
+            });
+
+            let resp = client.post(format!("{}/create_organization", HELIX_URL)).json(&payload).send()?;
+            let id = extract_id(check_resp(resp, &format!("create_organization {}", name))?)?;
+            nodes.push(SeededNode { id, domain_idx });
+        }
+    }
+    Ok(nodes)
+}
+
+fn seed_emails(client: &Client) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    println!(">>> Seeding EmailAddresses...");
     let mut ids = Vec::new();
-    for i in 0..RECORD_COUNT {
-        let name = format!("Org_{}_{}", i, generate_random_string(4));
-        let tax_id = format!("{}-{}-{}", thread_rng().gen_range(10..99), thread_rng().gen_range(100..999), thread_rng().gen_range(1000..9999));
-
+    for i in 0..(NODE_LIMIT * 3) {
         let payload = json!({
-            "name": name,
-            "tax_id": tax_id
+            "email": format!("user_{}@example.com", i),
+            "is_primary": i % 2 == 0
         });
-
-        let url = format!("{}/create_organization", HELIX_URL);
-        let resp = client.post(&url)
-            .header("Content-Type", "application/json")
-            .header("Connection", "close")
-            .body(serde_json::to_string(&payload)?)
-            .send()?;
-        
-        let json: Value = resp.json()?;
-        let id = extract_id(json)?;
-        ids.push(id);
-        println!("  [{}/{}] Created Organization: {}", i + 1, RECORD_COUNT, name);
+        let resp = client.post(format!("{}/create_email_address", HELIX_URL)).json(&payload).send()?;
+        ids.push(extract_id(check_resp(resp, &format!("create_email_address {}", i))?)?);
     }
     Ok(ids)
-}
-
-fn seed_email_addresses(client: &Client) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    println!(">>> Seeding Email Addresses...");
-    let mut ids = Vec::new();
-    let domains = vec!["gmail.com", "yahoo.com", "outlook.com", "example.com"];
-    for i in 0..(RECORD_COUNT * 2) { // Create more emails than users
-        let email = format!("{}.{}@{}", generate_random_string(5).to_lowercase(), i, domains[thread_rng().gen_range(0..domains.len())]);
-        let is_primary = thread_rng().gen_bool(0.3);
-
-        let payload = json!({
-            "email": email,
-            "is_primary": is_primary
-        });
-
-        let url = format!("{}/create_email_address", HELIX_URL);
-        let resp = client.post(&url)
-            .header("Content-Type", "application/json")
-            .header("Connection", "close")
-            .body(serde_json::to_string(&payload)?)
-            .send()?;
-        
-        let json: Value = resp.json()?;
-        let id = extract_id(json)?;
-        ids.push(id);
-        println!("  [{}/{}] Created Email: {}", i + 1, RECORD_COUNT * 2, email);
-    }
-    Ok(ids)
-}
-
-// --- Relationship Seeding with Sparsity and Multi-Edges ---
-
-fn seed_relationships(
-    client: &Client,
-    user_ids: &[String],
-    post_ids: &[String],
-    product_ids: &[String],
-    org_ids: &[String],
-    email_ids: &[String]
-) -> Result<(), Box<dyn std::error::Error>> {
-    println!(">>> Establishing Refined Relationships (Edges)...");
-    let mut rng = thread_rng();
-
-    for user_id in user_ids {
-        // 1. Authored: User -> Post (Multi-edge, 0 to 5 posts per user)
-        let num_posts = rng.gen_range(0..6);
-        for _ in 0..num_posts {
-            if !post_ids.is_empty() {
-                let post_id = &post_ids[rng.gen_range(0..post_ids.len())];
-                let url = format!("{}/connect_authored", HELIX_URL);
-                client.post(&url)
-                    .json(&json!({ "from_id": user_id, "to_id": post_id, "at": Utc::now().to_rfc3339() }))
-                    .send()?;
-            }
-        }
-        if num_posts > 0 {
-             println!("  User {} authored {} Posts", user_id, num_posts);
-        }
-
-        // 2. Follows: User -> User (Sparsity + Multi-edge, 0 to 3 follows)
-        let num_follows = rng.gen_range(0..4);
-        for _ in 0..num_follows {
-            if user_ids.len() > 1 {
-                let mut other_id = &user_ids[rng.gen_range(0..user_ids.len())];
-                while other_id == user_id {
-                    other_id = &user_ids[rng.gen_range(0..user_ids.len())];
-                }
-                let url = format!("{}/connect_follows", HELIX_URL);
-                client.post(&url)
-                    .json(&json!({ "from_id": user_id, "to_id": other_id, "since": Utc::now().to_rfc3339() }))
-                    .send()?;
-            }
-        }
-        if num_follows > 0 {
-            println!("  User {} follows {} Users", user_id, num_follows);
-        }
-
-        // 3. Purchased: User -> Product (Sparsity: 40% probability, 0 to 3 items)
-        if rng.gen_bool(0.4) {
-            let num_purchases = rng.gen_range(1..4);
-            for _ in 0..num_purchases {
-                if !product_ids.is_empty() {
-                    let product_id = &product_ids[rng.gen_range(0..product_ids.len())];
-                    let url = format!("{}/connect_purchased", HELIX_URL);
-                    client.post(&url)
-                        .json(&json!({ "from_id": user_id, "to_id": product_id, "date": Utc::now().to_rfc3339() }))
-                        .send()?;
-                }
-            }
-            println!("  User {} purchased {} Products", user_id, num_purchases);
-        }
-
-        // 4. WorksAt: User -> Organization (Sparsity: 60% probability)
-        if rng.gen_bool(0.6) {
-            if !org_ids.is_empty() {
-                let org_id = &org_ids[rng.gen_range(0..org_ids.len())];
-                let url = format!("{}/connect_works_at", HELIX_URL);
-                client.post(&url)
-                    .json(&json!({ "from_id": user_id, "to_id": org_id, "since": Utc::now().to_rfc3339() }))
-                    .send()?;
-                println!("  User {} works at Organization {}", user_id, org_id);
-            }
-        }
-
-        // 5. HasEmail: User -> EmailAddress (1 to 2 emails per user)
-        let num_emails = rng.gen_range(1..3);
-        for _ in 0..num_emails {
-            if !email_ids.is_empty() {
-                let email_id = &email_ids[rng.gen_range(0..email_ids.len())];
-                let url = format!("{}/connect_has_email", HELIX_URL);
-                client.post(&url)
-                    .json(&json!({ "from_id": user_id, "to_id": email_id }))
-                    .send()?;
-            }
-        }
-        println!("  User {} linked to {} Emails", user_id, num_emails);
-    }
-    Ok(())
-}
-
-fn seed_embeddings(
-    client: &Client,
-    user_ids: &[String],
-    post_ids: &[String],
-    product_ids: &[String]
-) -> Result<(), Box<dyn std::error::Error>> {
-    println!(">>> Seeding Embeddings (Vectors)...");
-    
-    // 1. User Embeddings
-    for (i, user_id) in user_ids.iter().enumerate() {
-        let url = format!("{}/add_user_embedding", HELIX_URL);
-        client.post(&url)
-            .json(&json!({
-                "user_id": user_id,
-                "name": format!("Embedding_{}", i),
-                "vector": generate_random_vector(128),
-                "created_at": Utc::now().to_rfc3339()
-            }))
-            .send()?;
-    }
-    println!("  Added embeddings for {} Users", user_ids.len());
-
-    // 2. Post Embeddings
-    for (i, post_id) in post_ids.iter().enumerate() {
-        let url = format!("{}/add_post_embedding", HELIX_URL);
-        client.post(&url)
-            .json(&json!({
-                "post_id": post_id,
-                "title": format!("PostTitle_{}", i),
-                "content": "Random description",
-                "vector": generate_random_vector(128),
-                "created_at": Utc::now().to_rfc3339()
-            }))
-            .send()?;
-    }
-    println!("  Added embeddings for {} Posts", post_ids.len());
-
-    // 3. Product Embeddings
-    for (i, product_id) in product_ids.iter().enumerate() {
-        let url = format!("{}/add_product_embedding", HELIX_URL);
-        client.post(&url)
-            .json(&json!({
-                "product_id": product_id,
-                "name": format!("ProductName_{}", i),
-                "description": "Random product description",
-                "vector": generate_random_vector(128),
-                "price": 99.99,
-                "created_at": Utc::now().to_rfc3339()
-            }))
-            .send()?;
-    }
-    println!("  Added embeddings for {} Products", product_ids.len());
-
-    Ok(())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -358,28 +213,88 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let should_clean = args.iter().any(|arg| arg == "--clean");
 
     let client = Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .user_agent("HelixSeed/0.1.0")
+        .timeout(std::time::Duration::from_secs(60))
+        .user_agent("HelixSeed/0.3.1")
         .no_proxy()
-        .http1_only()
         .build()?;
 
     if should_clean {
         clear_all_data(&client)?;
-    } else {
-        println!(">>> Starting seed process with Sparsity and Multi-Edges...");
-        
-        let user_ids = seed_users(&client)?;
-        let post_ids = seed_posts(&client)?;
-        let product_ids = seed_products(&client)?;
-        let org_ids = seed_organizations(&client)?;
-        let email_ids = seed_email_addresses(&client)?;
-        
-        seed_relationships(&client, &user_ids, &post_ids, &product_ids, &org_ids, &email_ids)?;
-        seed_embeddings(&client, &user_ids, &post_ids, &product_ids)?;
-        
-        println!(">>> Seeding completed successfully.");
+        return Ok(());
     }
 
+    println!(">>> Starting Seed with Clustered Entities (Aligned + Verbose)...");
+    
+    let users = seed_users(&client)?;
+    let posts = seed_posts(&client)?;
+    let products = seed_products(&client)?;
+    let orgs = seed_organizations(&client)?;
+    let emails = seed_emails(&client)?;
+
+    println!(">>> Linking Relationships...");
+    let mut rng = thread_rng();
+
+    // Shuffle emails for unique 1-to-1 assignment (HasEmail is UNIQUE)
+    use rand::seq::SliceRandom;
+    let mut shuffled_emails = emails.clone();
+    shuffled_emails.shuffle(&mut rng);
+    let mut email_iter = shuffled_emails.iter();
+
+    for user in &users {
+        // Link to Emails (1-to-1 since HasEmail is UNIQUE)
+        if let Some(email_id) = email_iter.next() {
+            let resp = client.post(format!("{}/connect_has_email", HELIX_URL)).json(&json!({
+                "from_id": &user.id, "to_id": email_id
+            })).send()?;
+            check_resp(resp, "connect_has_email")?;
+        }
+
+        // Link to Posts (Write in same domain)
+        let same_domain_posts: Vec<&SeededNode> = posts.iter().filter(|p| p.domain_idx == user.domain_idx).collect();
+        for _ in 0..rng.gen_range(1..4) {
+             if !same_domain_posts.is_empty() {
+                 let post = same_domain_posts[rng.gen_range(0..same_domain_posts.len())];
+                 let resp = client.post(format!("{}/connect_authored", HELIX_URL)).json(&json!({
+                     "from_id": &user.id, "to_id": &post.id, "at": get_now()
+                 })).send()?;
+                 check_resp(resp, "connect_authored")?;
+             }
+        }
+
+        // Link to Products (Purchased)
+        for _ in 0..rng.gen_range(0..3) {
+            let product = &products[rng.gen_range(0..products.len())];
+            let resp = client.post(format!("{}/connect_purchased", HELIX_URL)).json(&json!({
+                "from_id": &user.id, "to_id": &product.id, "date": get_now()
+            })).send()?;
+            check_resp(resp, "connect_purchased")?;
+        }
+
+        // Link to Organizations (WorksAt same domain)
+        let same_domain_orgs: Vec<&SeededNode> = orgs.iter().filter(|o| o.domain_idx == user.domain_idx).collect();
+        if !same_domain_orgs.is_empty() && rng.gen_bool(0.7) {
+            let org = same_domain_orgs[rng.gen_range(0..same_domain_orgs.len())];
+            let resp = client.post(format!("{}/connect_works_at", HELIX_URL)).json(&json!({
+                "from_id": &user.id, "to_id": &org.id, "since": get_now()
+            })).send()?;
+            check_resp(resp, "connect_works_at")?;
+        }
+
+        // Follows (Same domain)
+        let colleagues: Vec<&SeededNode> = users.iter().filter(|u| u.domain_idx == user.domain_idx && u.id != user.id).collect();
+        for _ in 0..rng.gen_range(0..2) {
+            if !colleagues.is_empty() {
+                let friend = colleagues[rng.gen_range(0..colleagues.len())];
+                let resp = client.post(format!("{}/connect_follows", HELIX_URL)).json(&json!({
+                    "from_id": &user.id, "to_id": &friend.id, "since": get_now()
+                })).send()?;
+                check_resp(resp, "connect_follows")?;
+            }
+        }
+    }
+
+    println!(">>> Seeding completed successfully. Aligned with db-test/db schema.");
     Ok(())
 }
+
+

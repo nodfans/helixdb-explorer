@@ -125,18 +125,23 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
     }
 
     let source = if code.trim().to_uppercase().starts_with("QUERY") {
-        try_parse(&code).map_err(|e| format!("Failed to parse Query: {}\nCode: '{}'", e, code))?
+        try_parse(&code).map_err(|e| {
+            format!("Failed to parse Query: {}\nCode: '{}'", e, code)
+        })?
     } else {
         match try_parse(&code) {
             Ok(s) => s,
             Err(_) => {
                 // If that fails, assume it's a raw traversal and wrap it
                 let wrapped = format!("QUERY ExplorerTmp() => {}", code);
-                try_parse(&wrapped).map_err(|e| format!("Failed to parse HQL: {}", e))?
+                try_parse(&wrapped).map_err(|e| {
+                    format!("Failed to parse HQL: {}", e)
+                })?
             }
         }
     };
 
+    
     if source.queries.len() > 1 {
         return Err("Multiple queries detected in editor. Please select a specific query to execute, or ensure only one query exists.".to_string());
     }
@@ -340,6 +345,7 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
              // Should not happen given logic above
              serde_json::Value::Null
         };
+        
         
         // Single implicit return Optimization: if it's the ONLY return, return it raw
         if var_name == "_implicit_" && final_map.is_empty() {
@@ -1564,6 +1570,103 @@ pub fn format_hql(code: String) -> Result<String, String> {
     }
 
     Ok(format_hql_lines(processed))
+}
+
+#[tauri::command]
+pub fn get_vector_projections(vectors: Vec<Vec<f64>>) -> Result<Vec<Vec<f64>>, String> {
+    if vectors.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let n = vectors.len();
+    let d = vectors[0].len();
+
+    // Validate all vectors have same length
+    for (i, v) in vectors.iter().enumerate() {
+        if v.len() != d {
+            let err = format!("Vector at index {} has dimension {}, expected {}", i, v.len(), d);
+            return Err(err);
+        }
+    }
+
+    if d < 2 {
+        return Ok(vectors.iter().map(|v| {
+            let mut out = v.clone();
+            if out.len() == 1 { out.push(0.0); }
+            out
+        }).collect());
+    }
+
+    // 1. Mean centering
+    let mut means = vec![0.0; d];
+    for v in &vectors {
+        for i in 0..d {
+            means[i] += v[i];
+        }
+    }
+    for i in 0..d {
+        means[i] /= n as f64;
+    }
+
+    let mut centered = vectors.clone();
+    for v in &mut centered {
+        for i in 0..d {
+            v[i] -= means[i];
+        }
+    }
+
+    // 2. Power iteration for first principal component
+    fn power_iteration(data: &[Vec<f64>], num_iters: usize) -> Vec<f64> {
+        let d = data[0].len();
+        let mut v = vec![0.1; d]; // Initial guess
+        
+        for _ in 0..num_iters {
+            let mut next_v = vec![0.0; d];
+            // v_next = X^T * (X * v)
+            let mut x_v = vec![0.0; data.len()];
+            for (i, row) in data.iter().enumerate() {
+                for (j, &val) in row.iter().enumerate() {
+                    x_v[i] += val * v[j];
+                }
+            }
+            
+            for (i, row) in data.iter().enumerate() {
+                for (j, &val) in row.iter().enumerate() {
+                    next_v[j] += val * x_v[i];
+                }
+            }
+
+            // Normalize
+            let norm = next_v.iter().map(|x| x * x).sum::<f64>().sqrt();
+            if norm < 1e-9 { break; }
+            v = next_v.iter().map(|x| x / norm).collect();
+        }
+        v
+    }
+
+    let v1 = power_iteration(&centered, 20);
+
+    // 3. Deflation
+    let mut deflated = centered.clone();
+    for i in 0..n {
+        let dot = centered[i].iter().zip(v1.iter()).map(|(a, b)| a * b).sum::<f64>();
+        for j in 0..d {
+            deflated[i][j] -= dot * v1[j];
+        }
+    }
+
+    // 4. Power iteration for second principal component
+    let v2 = power_iteration(&deflated, 20);
+
+    // 5. Project onto v1, v2
+    let mut projection = Vec::with_capacity(n);
+    for row in &centered {
+        let x = row.iter().zip(v1.iter()).map(|(a, b)| a * b).sum::<f64>();
+        let y = row.iter().zip(v2.iter()).map(|(a, b)| a * b).sum::<f64>();
+        projection.push(vec![x, y]);
+    }
+
+    Ok(projection)
 }
 
 fn format_hql_lines(code: String) -> String {

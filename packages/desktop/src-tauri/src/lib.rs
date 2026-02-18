@@ -179,7 +179,8 @@ pub fn run() {
             show_grid_context_menu,
             validate_hql,
             get_hql_completion,
-            format_hql
+            format_hql,
+            get_vector_projections
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {

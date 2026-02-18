@@ -114,6 +114,7 @@ export const Vectors = (props: VectorsProps) => {
   const selectedNode = createMemo(() => nodes().find((n) => n.id === selectedNodeId()));
 
   const [selectedIndex, setSelectedIndex] = createSignal(persistentStore?.selectedIndex ?? "");
+  const [lastIndex, setLastIndex] = createSignal(persistentStore?.selectedIndex ?? "");
   const [availableIndices, setAvailableIndices] = createSignal<string[]>(persistentStore?.availableIndices ?? []);
   const [hasFetched, setHasFetched] = createSignal(persistentStore?.hasFetched ?? false);
   const [showIndexPanel, setShowIndexPanel] = createSignal(persistentStore?.showIndexPanel ?? false);
@@ -234,16 +235,23 @@ export const Vectors = (props: VectorsProps) => {
 
   const fetchData = async (forceInit = false) => {
     if (!props.isConnected || !selectedIndex()) return;
+
     // Skip remote fetch if cache exists and we aren't forcing
     if (persistentStore && !forceInit && nodes().length > 0) {
+      console.log("[Vectors] Using persistent cache for index:", selectedIndex());
       return;
     }
+
+    console.log(`[Vectors] Fetching data for index: ${selectedIndex()} (forceInit: ${forceInit})`);
     setIsLoading(true);
     setHasFetched(true);
     try {
       const rawNodes = await props.api.fetchVectorNodes(selectedIndex());
+      console.log(`[Vectors] Fetched ${rawNodes.length} raw nodes`);
+
       if (rawNodes.length === 0) {
         setNodes([]);
+        setLastIndex(selectedIndex());
         return;
       }
 
@@ -259,6 +267,7 @@ export const Vectors = (props: VectorsProps) => {
       };
 
       const vectorsToProject = rawNodes.map(extractVector).filter((v) => v !== null);
+      console.log(`[Vectors] Projecting ${vectorsToProject.length} valid vectors`);
 
       if (vectorsToProject.length > 0) {
         const projections = await invoke<number[][]>("get_vector_projections", { vectors: vectorsToProject });
@@ -281,9 +290,12 @@ export const Vectors = (props: VectorsProps) => {
           .filter((n: any) => n.x !== undefined);
 
         setNodes(enrichedNodes);
+        setLastIndex(selectedIndex());
         autoFitNodes(enrichedNodes);
       } else {
+        console.warn("[Vectors] No valid embeddings found in fetched nodes");
         setNodes([]);
+        setLastIndex(selectedIndex());
       }
     } catch (e) {
       console.error("[Vectors] Failed to fetch or project vector data:", e);
@@ -335,12 +347,9 @@ export const Vectors = (props: VectorsProps) => {
 
   createEffect(() => {
     const label = selectedIndex();
-    if (props.isConnected && hasFetched() && label) {
-      // Check if this index is different from what's currently loaded
-      // This allows restoration from persistentStore without re-fetching
-      if (!persistentStore || persistentStore.selectedIndex !== label || nodes().length === 0) {
-        fetchData(true);
-      }
+    const currentLast = lastIndex();
+    if (props.isConnected && hasFetched() && label && label !== currentLast) {
+      fetchData(true);
     }
   });
 

@@ -122,7 +122,7 @@ export function createConnection() {
         throw new Error("Invalid Host");
       }
       const sanitizedUrl = getConnectionUrl(conn);
-      const response = await tauriFetch(`${sanitizedUrl}/nodes-edges`, {
+      const response = await tauriFetch(`${sanitizedUrl}/node-details?id=0`, {
         method: "GET",
         headers: {
           ...(conn.apiKey ? { "x-api-key": conn.apiKey } : {}),
@@ -166,7 +166,7 @@ export function createConnection() {
       throw new Error("Invalid Host");
     }
     const sanitizedUrl = getConnectionUrl(conn);
-    const response = await tauriFetch(`${sanitizedUrl}/nodes-edges`, {
+    const response = await tauriFetch(`${sanitizedUrl}/node-details?id=0`, {
       method: "GET",
       headers: {
         ...(conn.apiKey ? { "x-api-key": conn.apiKey } : {}),

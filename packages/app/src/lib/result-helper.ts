@@ -43,32 +43,33 @@ export function extractMultiTableData(data: any): Record<string, any[]> {
   }
 
   const keys = Object.keys(data);
-  const results: Record<string, any[]> = {};
-  const metrics: Record<string, any> = {};
   let complexCount = 0;
-  let scalarCount = 0;
-
   for (const key of keys) {
     const val = data[key];
-    if (Array.isArray(val)) {
-      results[key] = val;
+    if (Array.isArray(val) || isTableFriendly(val)) {
       complexCount++;
-    } else if (isTableFriendly(val)) {
-      results[key] = [val];
-      complexCount++;
-    } else if (val !== undefined) {
-      metrics[key] = val;
-      scalarCount++;
     }
   }
 
-  if (scalarCount > 0) {
-    results["Summary"] = [metrics];
-  }
-  if (complexCount > 0 || scalarCount > 0) {
+  // If we have complex data, we want to respect the key order for separate tables
+  // including scalars as mini-tables
+  if (complexCount > 0) {
+    const results: Record<string, any[]> = {};
+    for (const key of keys) {
+      const val = data[key];
+      if (Array.isArray(val)) {
+        results[key] = val;
+      } else if (isTableFriendly(val)) {
+        results[key] = [val];
+      } else if (val !== undefined) {
+        // Scalar in mixed mode -> Mini-table
+        results[key] = [{ [key]: val }];
+      }
+    }
     return results;
   }
 
+  // Pure scalar mode
   return { Result: [data] };
 }
 export function extractTableData(data: any): any[] | null {
@@ -80,7 +81,7 @@ export function extractTableData(data: any): any[] | null {
   const match = priority.find((p) => multi[p]);
   if (match) return multi[match];
 
-  // Fallback: pick the first key that isn't "Summary", or just the first key
-  const fallback = keys.find((k) => k !== "Summary") || keys[0];
+  // Fallback: just pick the first key
+  const fallback = keys[0];
   return multi[fallback];
 }
