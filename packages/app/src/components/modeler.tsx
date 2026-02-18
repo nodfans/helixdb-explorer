@@ -1,7 +1,7 @@
 import { createSignal, createMemo, Show, Index, onCleanup } from "solid-js";
 import { HelixApi } from "../lib/api";
 import { reconcile } from "solid-js/store";
-import { DraftingCompass, Share2, Database, Zap } from "lucide-solid";
+import { DraftingCompass, CircleDot, Share2, Database, Zap } from "lucide-solid";
 import { ProEntityCard } from "./modeler/entity-card";
 import { HqlCodeGen, EntityDef } from "../lib/codegen";
 import { CodePanel } from "./modeler/code-panel";
@@ -288,7 +288,7 @@ export const Modeler = (_props: ModelerProps) => {
               }}
               class="flex items-center gap-1.5 transition-all duration-75"
             >
-              <DraftingCompass size={13} strokeWidth={2.5} class="text-accent" /> New Node
+              <CircleDot size={13} strokeWidth={2.5} class="text-emerald-500" /> New Node
             </Button>
 
             {/* Secondary Action Button */}
@@ -300,7 +300,7 @@ export const Modeler = (_props: ModelerProps) => {
               }}
               class="flex items-center gap-1.5 transition-all duration-75"
             >
-              <Share2 size={13} strokeWidth={2.5} class="text-accent" /> New Edge
+              <Share2 size={13} strokeWidth={2.5} class="text-blue-500" /> New Edge
             </Button>
 
             {/* Vector Action Button */}
@@ -312,7 +312,7 @@ export const Modeler = (_props: ModelerProps) => {
               }}
               class="flex items-center gap-1.5 transition-all duration-75"
             >
-              <Zap size={13} strokeWidth={2.5} class="text-accent" /> New Vector
+              <Zap size={13} strokeWidth={2.5} class="text-amber-500" /> New Vector
             </Button>
           </div>
         </ToolbarLayout>
@@ -377,7 +377,7 @@ export const Modeler = (_props: ModelerProps) => {
               {/* Nodes Section */}
               <section class="space-y-4">
                 <div class="flex items-center gap-2 px-1">
-                  <Database size={14} class="text-[var(--text-tertiary)]" strokeWidth={2} />
+                  <CircleDot size={14} class="text-[var(--text-tertiary)]" strokeWidth={2} />
                   <h3 class="text-[12px] font-semibold text-[var(--text-secondary)]">Nodes</h3>
                   <div class="flex-1 h-px bg-[var(--border-subtle)] ml-2" />
                 </div>

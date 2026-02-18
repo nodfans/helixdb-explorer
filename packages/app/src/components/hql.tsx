@@ -20,7 +20,8 @@ export interface HQLProps {
 export const HQL = (props: HQLProps) => {
   const [executing, setExecuting] = createSignal(false);
   const [syncing, setSyncing] = createSignal(false);
-  const [resultsHeight, setResultsHeight] = createSignal(300);
+  const resultsHeight = () => hqlStore.resultsHeight;
+  const setResultsHeight = (val: number) => setHqlStore("resultsHeight", val);
   const [isResizing, setIsResizing] = createSignal(false);
   const [copied, setCopied] = createSignal(false);
   const [formatted, setFormatted] = createSignal(false);

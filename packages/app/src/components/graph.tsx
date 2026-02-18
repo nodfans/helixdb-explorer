@@ -1,7 +1,7 @@
 import { createSignal, createEffect, createMemo, onCleanup, onMount, Show, For } from "solid-js";
 import { HelixApi } from "../lib/api";
 import ForceGraphFactory from "force-graph";
-import { Network, RefreshCw, ChevronRight, X, Sparkles, Maximize, Layers, Check, AlertTriangle } from "lucide-solid";
+import { Network, RefreshCw, ChevronRight, X, Maximize, Layers, Check, AlertTriangle } from "lucide-solid";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ToolbarLayout } from "./ui/toolbar-layout";
@@ -804,12 +804,8 @@ export const Graph = (props: GraphProps) => {
 
             <div class="w-px h-5 bg-native-subtle" />
 
-            <button
-              onClick={() => setShowDetailPanel(!showDetailPanel())}
-              class="w-7 h-7 flex items-center justify-center rounded-md border border-native-subtle hover:bg-native-content/50 transition-colors"
-              title={showDetailPanel() ? "Hide Details" : "Show Details"}
-            >
-              <ChevronRight size={14} class={`text-native-tertiary transition-transform ${showDetailPanel() ? "rotate-180" : ""}`} />
+            <button onClick={() => setShowDetailPanel(!showDetailPanel())} class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/8 transition-colors">
+              <ChevronRight size={14} class={`text-native-tertiary transition-transform duration-200 ${showDetailPanel() ? "rotate-0" : "rotate-180"}`} />
             </button>
           </div>
         </ToolbarLayout>
@@ -915,10 +911,10 @@ export const Graph = (props: GraphProps) => {
           <div class="flex flex-col items-center gap-3 scale-90 transition-transform duration-300" style={{ transform: loading() ? "scale(1)" : "scale(0.95)" }}>
             <div class="relative">
               <div class="w-10 h-10 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
-              <Sparkles size={16} class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-accent" />
+              <Network size={16} class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-accent" />
             </div>
             <div class="flex flex-col items-center gap-1">
-              <span class="text-[11px] font-medium text-native-secondary tracking-tight">Updating graph...</span>
+              <span class="text-[11px] font-bold tracking-widest text-native-secondary">Syncing Graph Data</span>
               <Show when={showPerformanceWarning()}>
                 <div class="flex items-center gap-1.5 mt-1 px-2 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-md animate-pulse">
                   <AlertTriangle size={12} class="text-yellow-500" />
@@ -946,13 +942,20 @@ export const Graph = (props: GraphProps) => {
         </Show>
       </div>
 
-      {/* Status Bar */}
       <footer class="h-9 border-t border-native bg-native-content/50 backdrop-blur-md flex items-center justify-between px-5 flex-none select-none">
-        <div class="flex items-center gap-3 text-[11px] text-native-tertiary font-medium">
+        <div class="flex items-center gap-4 text-[11px]">
           <Show when={props.isConnected}>
-            <span class="tabular-nums">{stats().nodeCount} nodes</span>
-            <div class="w-px h-3 bg-native-subtle" />
-            <span class="tabular-nums">{stats().edgeCount} edges</span>
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-1.5 font-semibold text-[11px]">
+                <span class="text-native-primary tabular-nums">{stats().nodeCount}</span>
+                <span class="text-native-tertiary">nodes</span>
+              </div>
+              <div class="w-px h-3 bg-native-subtle/100" />
+              <div class="flex items-center gap-1.5 font-semibold text-[11px]">
+                <span class="text-native-primary tabular-nums">{stats().edgeCount}</span>
+                <span class="text-native-tertiary">edges</span>
+              </div>
+            </div>
           </Show>
         </div>
 

@@ -1,5 +1,5 @@
 import { For } from "solid-js";
-import { Plug, DraftingCompass, Database, Zap, Network, ChevronDown, SquareCode } from "lucide-solid";
+import { Plug, DraftingCompass, Database, Terminal, Network, ChevronDown, SquareCode, Crosshair } from "lucide-solid";
 import { activeConnection } from "../../stores/connection";
 
 interface TopNavProps {
@@ -13,8 +13,14 @@ const NAV_ITEMS = [
   {
     id: "hql",
     label: "HQL",
-    icon: SquareCode,
+    icon: Terminal,
     color: "text-emerald-500",
+  },
+  {
+    id: "queries",
+    label: "Queries",
+    icon: SquareCode,
+    color: "text-yellow-500",
   },
   {
     id: "editor",
@@ -29,16 +35,16 @@ const NAV_ITEMS = [
     color: "text-blue-500",
   },
   {
-    id: "queries",
-    label: "Queries",
-    icon: Zap,
-    color: "text-yellow-500",
-  },
-  {
     id: "graph",
     label: "Graph",
     icon: Network,
     color: "text-purple-500",
+  },
+  {
+    id: "vectors",
+    label: "Vectors",
+    icon: Crosshair,
+    color: "text-amber-500",
   },
 ] as const;
 

@@ -3,7 +3,7 @@ import { NodeType, EdgeType, VectorType } from "../lib/types";
 import { Input } from "./ui/input";
 import { HelixApi } from "../lib/api";
 import { Button } from "./ui/button";
-import { Database, Network, Zap, ArrowRight, RefreshCw, ChevronsUpDown, ChevronsDownUp, ChevronDown, ChevronRight } from "lucide-solid";
+import { Database, CircleDot, Share2, Zap, ArrowRight, RefreshCw, ChevronsUpDown, ChevronsDownUp, ChevronDown, ChevronRight } from "lucide-solid";
 import { ToolbarLayout } from "./ui/toolbar-layout";
 import { EmptyState } from "./ui/empty-state";
 
@@ -98,13 +98,22 @@ interface SchemaProps {
   onConnect: () => void;
 }
 
+// Persistent store for cross-page navigation
+interface PersistentState {
+  data: any | null;
+  activeTab: "nodes" | "relationships" | "vectors";
+  searchQuery: string;
+  expandedCards: Record<string, boolean>;
+}
+let persistentStore: PersistentState | null = null;
+
 const NodeCard = (props: { node: NodeType; expanded: boolean; onToggle: () => void }) => {
   const hasProperties = () => Object.keys(props.node.properties || {}).length > 0;
 
   return (
     <Card
       title={formatName(props.node.name)}
-      icon={Database}
+      icon={CircleDot}
       iconColorClass="text-emerald-500"
       iconBgClass="bg-emerald-500/10"
       count={Object.keys(props.node.properties || {}).length}
@@ -123,7 +132,7 @@ const EdgeCard = (props: { edge: EdgeType; expanded: boolean; onToggle: () => vo
   return (
     <Card
       title={formatName(props.edge.name)}
-      icon={Network}
+      icon={Share2}
       iconColorClass="text-blue-500"
       iconBgClass="bg-blue-500/10"
       count={Object.keys(props.edge.properties || {}).length}
@@ -169,6 +178,10 @@ export const Schema = (props: SchemaProps) => {
     () => (props.isConnected ? props.api : null),
     async (api) => {
       if (!api) return null;
+      // Skip remote fetch if cache exists and we aren't forcing a refresh
+      if (persistentStore?.data) {
+        return persistentStore.data;
+      }
       try {
         const data = await api.fetchSchema();
         return data;
@@ -181,11 +194,13 @@ export const Schema = (props: SchemaProps) => {
 
   const schema = () => schemaData() || null;
   const loading = () => schemaData.loading;
-  const error = () => (schemaData.error ? schemaData.error.message || "Failed to fetch schema" : null);
+  const error = () => (schemaData.error ? schemaData?.error?.message || "Failed to fetch schema" : null);
 
-  const [activeTab, setActiveTab] = createSignal<"nodes" | "relationships" | "vectors">("nodes");
-  const [searchQuery, setSearchQuery] = createSignal("");
-  const [expandedCards, setExpandedCards] = createSignal<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = createSignal<"nodes" | "relationships" | "vectors">(persistentStore?.activeTab ?? "nodes");
+  const [searchQuery, setSearchQuery] = createSignal(persistentStore?.searchQuery ?? "");
+  const [expandedCards, setExpandedCards] = createSignal<Record<string, boolean>>(persistentStore?.expandedCards ?? {});
+
+  const isAnyExpanded = createMemo(() => Object.values(expandedCards()).some((v) => v === true));
 
   // Responsive column count — driven by container width via ResizeObserver,
   // so it correctly handles sidebars and other layout shifts.
@@ -206,7 +221,19 @@ export const Schema = (props: SchemaProps) => {
       setColCount(calcCols(entry.contentRect.width));
     });
     ro.observe(gridContainerRef);
-    onCleanup(() => ro.disconnect());
+    onCleanup(() => {
+      ro.disconnect();
+    });
+  });
+
+  onCleanup(() => {
+    // Save state before unmounting
+    persistentStore = {
+      data: schemaData(),
+      activeTab: activeTab(),
+      searchQuery: searchQuery(),
+      expandedCards: expandedCards(),
+    };
   });
 
   const distributeItems = (items: any[]) => {
@@ -236,9 +263,9 @@ export const Schema = (props: SchemaProps) => {
     if (!schema()) return;
     batch(() => {
       const newExpanded: Record<string, boolean> = {};
-      schema()?.nodes.forEach((n) => (newExpanded["node-" + n.name] = true));
-      schema()?.edges.forEach((e) => (newExpanded[`edge-${e.name}-${e.from_node}-${e.to_node}`] = true));
-      schema()?.vectors.forEach((v) => (newExpanded["vector-" + v.name] = true));
+      schema()?.nodes.forEach((n: NodeType) => (newExpanded["node-" + n.name] = true));
+      schema()?.edges.forEach((e: EdgeType) => (newExpanded[`edge-${e.name}-${e.from_node}-${e.to_node}`] = true));
+      schema()?.vectors.forEach((v: VectorType) => (newExpanded["vector-" + v.name] = true));
       setExpandedCards(newExpanded);
     });
   };
@@ -250,21 +277,21 @@ export const Schema = (props: SchemaProps) => {
   const filteredNodes = createMemo(() => {
     const query = searchQuery().toLowerCase();
     const nodes = schema()?.nodes || [];
-    const filtered = nodes.filter((n) => (n.name || "").toLowerCase().includes(query));
+    const filtered = nodes.filter((n: NodeType) => (n.name || "").toLowerCase().includes(query));
     return [...filtered].reverse();
   });
 
   const filteredEdges = createMemo(() => {
     const query = searchQuery().toLowerCase();
     const edges = schema()?.edges || [];
-    const filtered = edges.filter((e) => (e.name || "").toLowerCase().includes(query));
+    const filtered = edges.filter((e: EdgeType) => (e.name || "").toLowerCase().includes(query));
     return [...filtered].reverse();
   });
 
   const filteredVectors = createMemo(() => {
     const query = searchQuery().toLowerCase();
     const vectors = schema()?.vectors || [];
-    const filtered = vectors.filter((v) => (v.name || "").toLowerCase().includes(query));
+    const filtered = vectors.filter((v: VectorType) => (v.name || "").toLowerCase().includes(query));
     return [...filtered].reverse();
   });
 
@@ -277,21 +304,47 @@ export const Schema = (props: SchemaProps) => {
             <Input variant="search" placeholder={`Search ${activeTab()}...`} value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-64 h-7" />
 
             <div class="w-px h-5 bg-native-subtle" />
-            <Button variant="toolbar" onClick={() => refetch()} disabled={loading()} class="flex items-center gap-1.5 transition-all">
+            <Button
+              variant="toolbar"
+              onClick={() => {
+                // Clear cache and refetch
+                if (persistentStore) persistentStore.data = null;
+                refetch();
+              }}
+              disabled={loading()}
+              class="flex items-center gap-1.5 transition-all"
+            >
               <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : ""} text-accent`} />
               <span>Refresh</span>
             </Button>
           </div>
 
-          {/* Right: Expand/Collapse */}
+          {/* Right: Expand/Collapse Toggle */}
           <div class="flex items-center gap-2">
-            <Button variant="toolbar" onClick={() => expandAll()} class="flex items-center gap-1.5 transition-all duration-75">
-              <ChevronsUpDown size={13} strokeWidth={2} class="text-accent" />
-              Expand All
-            </Button>
-            <Button variant="toolbar" onClick={() => collapseAll()} class="flex items-center gap-1.5 transition-all duration-75">
-              <ChevronsDownUp size={13} strokeWidth={2} class="text-accent" />
-              Collapse All
+            <Button variant="toolbar" onClick={() => (isAnyExpanded() ? collapseAll() : expandAll())} class="transition-all duration-200">
+              <div class="grid place-items-center">
+                {/* 1. Ghost label (Invisible) - Forces the button to be wide enough for the longest text */}
+                <div class="invisible row-start-1 col-start-1 flex items-center gap-1.5 whitespace-nowrap">
+                  <ChevronsDownUp size={13} strokeWidth={2} class="text-accent" />
+                  Collapse All
+                </div>
+
+                {/* 2. Actual Label (Visible) - Centered in that same space */}
+                <div class="row-start-1 col-start-1 flex items-center gap-1.5 whitespace-nowrap">
+                  <Show
+                    when={isAnyExpanded()}
+                    fallback={
+                      <>
+                        <ChevronsUpDown size={13} strokeWidth={2} class="text-accent" />
+                        Expand All
+                      </>
+                    }
+                  >
+                    <ChevronsDownUp size={13} strokeWidth={2} class="text-accent" />
+                    Collapse All
+                  </Show>
+                </div>
+              </div>
             </Button>
           </div>
         </ToolbarLayout>
@@ -303,14 +356,14 @@ export const Schema = (props: SchemaProps) => {
               {
                 id: "nodes",
                 label: "Nodes",
-                icon: Database,
+                icon: CircleDot,
                 count: schema()?.nodes?.length || 0,
                 color: "text-emerald-500",
               },
               {
                 id: "relationships",
                 label: "Edges",
-                icon: Network,
+                icon: Share2,
                 count: schema()?.edges?.length || 0,
                 color: "text-blue-500",
               },
@@ -361,10 +414,10 @@ export const Schema = (props: SchemaProps) => {
               <div class="grid gap-3 items-start" style={{ "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))` }}>
                 <Show when={filteredNodes().length > 0}>
                   <For each={distributeItems(filteredNodes())}>
-                    {(columnItems) => (
+                    {(columnItems: NodeType[]) => (
                       <div class="flex flex-col gap-3">
                         <For each={columnItems}>
-                          {(node) => {
+                          {(node: NodeType) => {
                             const cardKey = "node-" + node.name;
                             return <NodeCard node={node} expanded={expandedCards()[cardKey] ?? false} onToggle={() => toggleCard(cardKey)} />;
                           }}
@@ -380,10 +433,10 @@ export const Schema = (props: SchemaProps) => {
               <div class="grid gap-3 items-start" style={{ "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))` }}>
                 <Show when={filteredEdges().length > 0}>
                   <For each={distributeItems(filteredEdges())}>
-                    {(columnItems) => (
+                    {(columnItems: EdgeType[]) => (
                       <div class="flex flex-col gap-3">
                         <For each={columnItems}>
-                          {(edge) => {
+                          {(edge: EdgeType) => {
                             const cardKey = `edge-${edge.name}-${edge.from_node}-${edge.to_node}`;
                             return <EdgeCard edge={edge} expanded={expandedCards()[cardKey] ?? false} onToggle={() => toggleCard(cardKey)} />;
                           }}
@@ -398,10 +451,10 @@ export const Schema = (props: SchemaProps) => {
             <Show when={activeTab() === "vectors"}>
               <div class="grid gap-3 items-start" style={{ "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))` }}>
                 <For each={distributeItems(filteredVectors())}>
-                  {(columnItems) => (
+                  {(columnItems: VectorType[]) => (
                     <div class="flex flex-col gap-3">
                       <For each={columnItems}>
-                        {(vector) => {
+                        {(vector: VectorType) => {
                           const cardKey = "vector-" + vector.name;
                           return <VectorCard vector={vector} expanded={expandedCards()[cardKey] ?? false} onToggle={() => toggleCard(cardKey)} />;
                         }}

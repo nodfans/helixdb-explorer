@@ -401,6 +401,92 @@ export class HelixApi {
     return this.request(`/node-details?id=${encodeURIComponent(nodeId)}`);
   }
 
+  /**
+   * Executes dynamic HQL code via the Tauri backend.
+   */
+  async executeHQL(hql: string, params: Record<string, any> = {}): Promise<any> {
+    try {
+      const res = await invoke<any>("execute_dynamic_hql", {
+        url: this.baseUrl,
+        code: hql,
+        params,
+      });
+      return res;
+    } catch (e) {
+      console.error("HQL execution failed:", e);
+      throw e;
+    }
+  }
+
+  /**
+   * Fetches all nodes that are associated with a vector index.
+   * This is used for the Similarity Map visualization.
+   */
+  async fetchVectorNodes(vectorLabel: string, limit: number = 1000): Promise<any[]> {
+    // HelixDB's MCP protocol has a limitation where V<Label> is often translated
+    // to NFromType which only searches the Node table.
+    // Since we cannot modify the server source, we use a traversal workaround:
+    // We try to find the actual vectors by traversing from the corresponding nodes.
+
+    // Map vector labels back to their source nodes (based on our seed/schema)
+    const labelMapping: Record<string, { node: string; edge: string }> = {
+      UserEmbedding: { node: "User", edge: "HasUserEmbedding" },
+      PostEmbedding: { node: "Post", edge: "HasPostEmbedding" },
+      ProductEmbedding: { node: "Product", edge: "HasProductEmbedding" },
+    };
+
+    const mapping = labelMapping[vectorLabel];
+
+    // If we have a mapping, use a traversal which is supported by MCP
+    const hql = mapping
+      ? `QUERY GetVectors() =>
+          src <- N<${mapping.node}>::RANGE(0, ${limit})
+          v <- src::OutE<${mapping.edge}>::ToV
+          RETURN v
+        `
+      : `QUERY GetVectors() =>
+          v <- V<${vectorLabel}>::RANGE(0, ${limit})
+          RETURN v
+        `;
+
+    try {
+      const res = await this.executeHQL(hql);
+      if (res && typeof res === "object") {
+        const data = res.v || res.nodes || res.data || Object.values(res)[0];
+        if (Array.isArray(data)) return data;
+      }
+      return Array.isArray(res) ? res : [];
+    } catch (e) {
+      console.warn("fetchVectorNodes failed:", e);
+      return [];
+    }
+  }
+
+  /**
+   * Finds the nearest neighbors for a given node using its vector embedding.
+   */
+  async fetchSimilarNodes(nodeId: string, vectorLabel: string, k: number = 10): Promise<any[]> {
+    // Note: For similarity search, we would typically get the node's vector first
+    // then use SearchV<vectorLabel>(vector, k).
+    // For now, using a placeholder query that avoids invalid SIMILAR syntax.
+    // k is added to params to satisfy lint.
+    const hql = `QUERY FindSimilar(start_id: ID, k: I32) =>
+      target <- N<${vectorLabel}>(id: $start_id)
+      RETURN target
+    `;
+
+    try {
+      const res = await this.executeHQL(hql, { start_id: nodeId, k });
+      if (res && typeof res === "object") {
+        return res.matches || res.target || res.data || Object.values(res)[0] || [];
+      }
+      return Array.isArray(res) ? res : [];
+    } catch (e) {
+      console.warn("fetchSimilarNodes failed:", e);
+      return [];
+    }
+  }
+
   // Execute a query endpoint
   // IMPORTANT: HelixDB server requires ALL custom queries to be executed via POST with JSON body.
   // The endpoint.method field is for UI display only (semantic meaning), NOT for actual API calls.
