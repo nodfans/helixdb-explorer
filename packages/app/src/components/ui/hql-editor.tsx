@@ -18,7 +18,8 @@ import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from "@
 import { indentOnInput, syntaxHighlighting, bracketMatching, foldGutter, foldKeymap, indentUnit } from "@codemirror/language";
 import { autocompletion, completionKeymap, acceptCompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { searchKeymap, search } from "@codemirror/search";
-import { Diagnostic, linter, forEachDiagnostic } from "@codemirror/lint";
+import { Diagnostic, forEachDiagnostic } from "@codemirror/lint";
+import { setDiagnostics } from "@codemirror/lint";
 
 class DiagnosticInlineWidget extends WidgetType {
   constructor(readonly message: string) {
@@ -47,8 +48,10 @@ const diagnosticInlineAnnotation = ViewPlugin.fromClass(
     }
 
     update(update: ViewUpdate) {
-      // Update when doc changes, selection changes, or if linter state might have updated
-      if (update.docChanged || update.selectionSet || update.viewportChanged) {
+      // Only update when doc changes, viewport changes, or if the selection moved to a different line
+      const lineChanged = update.selectionSet && update.state.doc.lineAt(update.state.selection.main.head).number !== update.startState.doc.lineAt(update.startState.selection.main.head).number;
+
+      if (update.docChanged || update.viewportChanged || lineChanged) {
         this.decorations = this.getDecorations(update.view);
       }
     }
@@ -110,6 +113,7 @@ export const HQLEditor = (props: HQLEditorProps) => {
   let editorParent: HTMLDivElement | undefined;
   let view: EditorView | undefined;
   let gutterObserver: ResizeObserver | undefined;
+  let lintTimeout: ReturnType<typeof setTimeout>;
   const { theme: appTheme } = useTheme();
 
   // Helper to get current theme-specific extensions
@@ -229,16 +233,6 @@ export const HQLEditor = (props: HQLEditorProps) => {
         EditorView.editable.of(true),
         props.placeholder ? placeholder(props.placeholder) : [],
         ...getThemeExtensions(isInitialDark),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged && props.onCodeChange) {
-            props.onCodeChange(update.state.doc.toString());
-          }
-          if (update.selectionSet && props.onSelectionChange) {
-            const selection = update.state.selection.main;
-            const text = selection.empty ? "" : update.state.sliceDoc(selection.from, selection.to);
-            props.onSelectionChange(text);
-          }
-        }),
         EditorView.domEventHandlers({
           paste(event, view) {
             const clipboardData = event.clipboardData;
@@ -256,24 +250,33 @@ export const HQLEditor = (props: HQLEditorProps) => {
             }
           },
         }),
-        linter(
-          async (view) => {
-            const code = view.state.doc.toString();
-            if (!code.trim()) return [];
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged && props.onCodeChange) {
+            props.onCodeChange(update.state.doc.toString());
+          }
+          if (update.selectionSet && props.onSelectionChange) {
+            const selection = update.state.selection.main;
+            const text = selection.empty ? "" : update.state.sliceDoc(selection.from, selection.to);
+            props.onSelectionChange(text);
+          }
 
-            try {
-              // Debug validation
-              console.log("[HQL Validation] Checking code:", code);
-              const diagnostics = await invoke<Diagnostic[]>("validate_hql", { code });
-              console.log("[HQL Validation] Result:", diagnostics);
-              return diagnostics;
-            } catch (e) {
-              console.error("Validation failed:", e);
-              return [];
-            }
-          },
-          { delay: 400 }
-        ),
+          if (update.docChanged) {
+            clearTimeout(lintTimeout);
+            lintTimeout = setTimeout(async () => {
+              const code = update.state.doc.toString();
+              if (!code.trim()) {
+                update.view.dispatch(setDiagnostics(update.view.state, []));
+                return;
+              }
+              try {
+                const diagnostics = await invoke<Diagnostic[]>("validate_hql", { code });
+                update.view.dispatch(setDiagnostics(update.view.state, diagnostics));
+              } catch (e) {
+                console.error("Validation failed:", e);
+              }
+            }, 1000);
+          }
+        }),
       ],
     });
 

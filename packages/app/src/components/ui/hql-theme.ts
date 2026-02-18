@@ -295,7 +295,6 @@ export const helixThemeDark = EditorView.theme(
     },
 
     ".cm-diagnostic-inline": {
-      marginLeft: "1em",
       color: "#ff6b6b",
       opacity: "0.6",
       fontStyle: "italic",
