@@ -36,6 +36,9 @@ pub enum ToolArgs {
     NFromType {
         node_type: String,
     },
+    VFromType {
+        vector_type: String,
+    },
     EFromType {
         edge_type: String,
     },
@@ -62,6 +65,11 @@ pub enum ToolArgs {
         k: usize,
         min_score: Option<f64>,
         cutoff: Option<usize>,
+    },
+    SearchV {
+        label: String,
+        vector: Vec<f64>,
+        k: usize,
     },
 }
 

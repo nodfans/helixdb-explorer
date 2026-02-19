@@ -343,8 +343,9 @@ export class HelixApi {
    * Backend returns raw u128 numeric strings in Top-N (limit) mode,
    * but hyphenated UUID strings in full graph mode.
    */
-  private normalizeId(id: string | number): string {
-    const s = String(id);
+  private normalizeId(id: string | number | undefined | null): string {
+    if (id === undefined || id === null) return "undefined";
+    const s = String(id).toLowerCase();
     if (s.includes("-")) return s;
 
     // Attempt to convert numeric string to UUID hyphenated format
@@ -418,53 +419,66 @@ export class HelixApi {
     }
   }
 
-  /**
-   * Fetches all nodes that are associated with a vector index.
-   * This is used for the Similarity Map visualization.
-   */
+  private cachedSchema: SchemaInfo | null = null;
+
+  // TODO: implement
   async fetchVectorNodes(vectorLabel: string, limit: number = 1000): Promise<any[]> {
-    // HelixDB's MCP protocol has a limitation where V<Label> is often translated
-    // to NFromType which only searches the Node table.
-    // Since we cannot modify the server source, we use a traversal workaround:
-    // We try to find the actual vectors by traversing from the corresponding nodes.
+    console.log(`[HelixApi] fetchVectorNodes starting for: ${vectorLabel}`);
 
-    // Map vector labels back to their source nodes (based on our seed/schema)
-    const labelMapping: Record<string, { node: string; edge: string }> = {
-      UserEmbedding: { node: "User", edge: "HasUserEmbedding" },
-      PostEmbedding: { node: "Post", edge: "HasPostEmbedding" },
-      ProductEmbedding: { node: "Product", edge: "HasProductEmbedding" },
-    };
+    // Dynamically discover the source node and edge from the schema
+    if (!this.cachedSchema) {
+      console.log("[HelixApi] fetchVectorNodes: Beginning schema fetch...");
+      try {
+        this.cachedSchema = await this.fetchSchema();
+        console.log("[HelixApi] fetchVectorNodes: Schema fetched successfully");
+      } catch (e) {
+        console.warn("[HelixApi] Could not fetch schema for vector mapping:", e);
+      }
+    }
 
-    const mapping = labelMapping[vectorLabel];
+    // Look for an edge pointing to this vector index in the schema
+    const vectorEdge = this.cachedSchema?.edges.find((e) => e.to_node === vectorLabel);
+    console.log(`[HelixApi] fetchVectorNodes mapping decision:`, vectorEdge ? `Found edge ${vectorEdge.name} from ${vectorEdge.from_node}` : "No edge mapping found");
 
-    // If we have a mapping, use a traversal which is supported by MCP
-    const hql = mapping
-      ? `QUERY GetVectors() =>
-          src <- N<${mapping.node}>::RANGE(0, ${limit})
-          v <- src::OutE<${mapping.edge}>::ToV
+    // Optimized HQL: Filter nodes that actually HAVE the vector edge, then traverse and range at the end.
+    // We explicitly request {id, label, data} to bypass the default HVector serialization.
+    let hql = "";
+    if (vectorEdge) {
+      hql = `QUERY GetVectors() =>
+          src <- N<${vectorEdge.from_node}>::RANGE(0, ${limit})
+          v <- src::OutE<${vectorEdge.name}>::ToV
           RETURN v
-        `
-      : `QUERY GetVectors() =>
+        `;
+    } else {
+      hql = `QUERY GetVectors() =>
           v <- V<${vectorLabel}>::RANGE(0, ${limit})
           RETURN v
         `;
+    }
+
+    console.log(`[HelixApi] HQL execution starting...`);
+    console.log(`[HelixApi] HQL:`, hql);
 
     try {
       const res = await this.executeHQL(hql);
+
+      if (!res) return [];
+
+      let vectors: any[] = [];
       if (res && typeof res === "object") {
-        const data = res.v || res.nodes || res.data || Object.values(res)[0];
-        if (Array.isArray(data)) return data;
+        const data = res.v || res.nodes || res.data || (Object.keys(res).length > 0 ? Object.values(res)[0] : null);
+        if (Array.isArray(data)) vectors = data;
+      } else if (Array.isArray(res)) {
+        vectors = res;
       }
-      return Array.isArray(res) ? res : [];
+
+      return vectors;
     } catch (e) {
       console.warn("fetchVectorNodes failed:", e);
       return [];
     }
   }
 
-  /**
-   * Finds the nearest neighbors for a given node using its vector embedding.
-   */
   async fetchSimilarNodes(nodeId: string, vectorLabel: string, k: number = 10): Promise<any[]> {
     // Note: For similarity search, we would typically get the node's vector first
     // then use SearchV<vectorLabel>(vector, k).

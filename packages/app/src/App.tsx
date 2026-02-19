@@ -12,7 +12,7 @@ import { createConnection } from "./hooks/connection";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
-import { Vectors } from "./components/vectors";
+// import { Vectors } from "./components/vectors";
 import { EmptyState } from "./components/ui/empty-state";
 import { Button } from "./components/ui/button";
 import { AlertCircle, Database, Network, Zap, SquareCode } from "lucide-solid";
@@ -160,11 +160,11 @@ function App() {
               </div>
             </Show>
 
-            <Show when={currentView() === "vectors"}>
+            {/* <Show when={currentView() === "vectors"}>
               <div class="view-enter flex-1 flex flex-col overflow-hidden">
                 <Vectors api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
               </div>
-            </Show>
+            </Show> */}
           </div>
 
           <Show when={!connection.isConnected() && ["schema", "queries", "graph", "hql", "vectors"].includes(currentView())}>

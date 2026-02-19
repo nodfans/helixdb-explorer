@@ -40,12 +40,12 @@ const NAV_ITEMS = [
     icon: Network,
     color: "text-purple-500",
   },
-  {
-    id: "vectors",
-    label: "Vectors",
-    icon: Crosshair,
-    color: "text-amber-500",
-  },
+  // {
+  //   id: "vectors",
+  //   label: "Vectors",
+  //   icon: Crosshair,
+  //   color: "text-amber-500",
+  // },
 ] as const;
 
 const ConnectionButton = (props: { isConnected: boolean; onClick: () => void }) => {

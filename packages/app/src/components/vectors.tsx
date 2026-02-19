@@ -256,7 +256,7 @@ export const Vectors = (props: VectorsProps) => {
       }
 
       const extractVector = (n: any) => {
-        const v = n.embedding || n.vector || n.vec || n.values;
+        const v = n.data || n.embedding || n.vector || n.vec || n.values;
         if (Array.isArray(v) && v.length > 0) return v;
         for (const val of Object.values(n)) {
           if (Array.isArray(val) && (val as any[]).length >= 8 && typeof (val as any[])[0] === "number") {

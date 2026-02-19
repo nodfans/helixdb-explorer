@@ -79,7 +79,7 @@ pub fn map_traversal_to_tools(traversal: &Traversal, params: &serde_json::Value)
             }
         }
         StartNode::Vector { vector_type, ids } => {
-            tools.push(ToolArgs::NFromType { node_type: vector_type.clone() });
+            tools.push(ToolArgs::VFromType { vector_type: vector_type.clone() });
             if let Some(ids) = ids {
                 let (id_strings, props) = extract_ids_and_props(ids, params)?;
                 id_filters_out = id_strings;
@@ -588,12 +588,22 @@ pub fn map_search_vector_to_tool(sv: &helix_db::helixc::parser::types::SearchVec
     };
 
     match &sv.data {
-        Some(VectorData::Vector(v)) => Ok(ToolArgs::SearchVec {
-            vector: v.clone(),
-            k,
-            min_score: None,
-            cutoff: None,
-        }),
+        Some(VectorData::Vector(v)) => {
+            if !label.is_empty() {
+                Ok(ToolArgs::SearchV {
+                    label,
+                    vector: v.clone(),
+                    k,
+                })
+            } else {
+                 Ok(ToolArgs::SearchVec {
+                    vector: v.clone(),
+                    k,
+                    min_score: None,
+                    cutoff: None,
+                })
+            }
+        },
         Some(VectorData::Embed(embed)) => {
             let query = match &embed.value {
                 EvaluatesToString::StringLiteral(s) => s.clone(),
