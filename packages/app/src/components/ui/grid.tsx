@@ -298,6 +298,11 @@ export function Grid(props: GridProps) {
 
     // Cmd+C / Ctrl+C: copy selected rows as TSV
     if ((e.metaKey || e.ctrlKey) && e.key === "c") {
+      // If there is any text selection in the window, let the browser handle it
+      if (window.getSelection()?.toString()) {
+        return;
+      }
+
       const indices = [...(props.selectedRowIndices || [])].sort((a, b) => a - b);
       if (indices.length === 0) return;
 

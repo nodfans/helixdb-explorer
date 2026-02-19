@@ -205,6 +205,19 @@ export const Queries = (props: QueriesProps) => {
       } else if (typeof res === "object" && res !== null) {
         setSelectedRows([res]);
       }
+
+      // Clear parameters on success
+      if (endpoint.params) {
+        const clearedParams: Record<string, any> = {};
+        endpoint.params.forEach((p) => {
+          if (p.param_type.toLowerCase() === "boolean" || p.param_type.toLowerCase() === "bool") {
+            clearedParams[p.name] = false;
+          } else {
+            clearedParams[p.name] = "";
+          }
+        });
+        setParams(clearedParams);
+      }
     } catch (err: any) {
       // GUARD: If user switched endpoints or started new run, DISCARD the error
       if (selectedEndpoint()?.id !== targetEndpointId || runId() !== currentRunId) return;

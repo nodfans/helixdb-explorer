@@ -34,7 +34,7 @@
 > **"App is damaged" or "Cannot be opened" Error**: Since this app is not signed by a registered Apple Developer yet (Ad-hoc signed), macOS may block it on first launch.
 >
 > <div align="center">
->   <img src="docs/assets/gatekeeper-warning.png" alt="Gatekeeper Warning" width="400" />
+>   <img src="docs/assets/warning.png" alt="Gatekeeper Warning" width="400" />
 > </div>
 >
 > To fix this, run this command in your terminal:
