@@ -1,18 +1,5 @@
 import { onMount, onCleanup, createEffect } from "solid-js";
-import {
-  EditorView,
-  keymap,
-  highlightSpecialChars,
-  drawSelection,
-  dropCursor,
-  lineNumbers,
-  highlightActiveLineGutter,
-  placeholder,
-  WidgetType,
-  Decoration,
-  ViewPlugin,
-  ViewUpdate,
-} from "@codemirror/view";
+import { EditorView, keymap, highlightSpecialChars, lineNumbers, highlightActiveLineGutter, placeholder, WidgetType, Decoration, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from "@codemirror/commands";
 import { indentOnInput, syntaxHighlighting, bracketMatching, foldGutter, foldKeymap, indentUnit } from "@codemirror/language";
@@ -138,9 +125,6 @@ export const HQLEditor = (props: HQLEditorProps) => {
         highlightSpecialChars(),
         history(),
         foldGutter(),
-        drawSelection(),
-        dropCursor(),
-        EditorState.allowMultipleSelections.of(true),
         indentOnInput(),
         bracketMatching(),
         closeBrackets(),

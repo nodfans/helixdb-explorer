@@ -41,7 +41,7 @@ export const helixTheme = EditorView.theme(
       borderLeft: "2px solid var(--accent)",
     },
     "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
-      backgroundColor: "var(--bg-selected) !important",
+      backgroundColor: "var(--bg-selected)",
     },
     ".cm-panels-top": {
       borderBottom: "none",
@@ -245,7 +245,7 @@ export const helixThemeDark = EditorView.theme(
       borderLeft: "2px solid var(--accent)",
     },
     "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
-      backgroundColor: "var(--bg-selected) !important",
+      backgroundColor: "var(--bg-selected)",
     },
     ".cm-panels-top": {
       borderBottom: "none",
