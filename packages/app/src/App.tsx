@@ -123,48 +123,32 @@ function App() {
         <TopNav activeView={currentView()} onSelectView={setCurrentView} isConnected={connection.isConnected()} onOpenSettings={connection.openSettings} />
 
         <main class="flex-1 flex flex-col overflow-hidden bg-native-content relative">
-          <div class="flex-1 overflow-hidden flex flex-col">
-            <Show when={currentView() === "editor"}>
-              <div class="view-enter flex-1 flex flex-col overflow-hidden">
-                <Modeler api={connection.apiClient()} onExecute={executeQuery} isExecuting={isExecuting()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
-              </div>
-            </Show>
+          <div class="flex-1 overflow-hidden flex flex-col relative">
+            <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "editor", "view-enter": currentView() === "editor" }}>
+              <Modeler api={connection.apiClient()} onExecute={executeQuery} isExecuting={isExecuting()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
+            </div>
 
-            <Show when={currentView() === "schema"}>
-              <div class="view-enter flex-1 flex flex-col overflow-hidden">
-                <Schema api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
-              </div>
-            </Show>
+            <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "schema", "view-enter": currentView() === "schema" }}>
+              <Schema api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
+            </div>
 
-            <Show when={currentView() === "queries"}>
-              <div class="view-enter flex-1 flex flex-col overflow-hidden">
-                <Queries
-                  api={connection.apiClient()}
-                  isExecuting={isExecuting()}
-                  onRegisterExecute={(fn) => setWbExecute(() => fn)}
-                  isConnected={connection.isConnected()}
-                  onConnect={connection.openSettings}
-                />
-              </div>
-            </Show>
+            <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "queries", "view-enter": currentView() === "queries" }}>
+              <Queries
+                api={connection.apiClient()}
+                isExecuting={isExecuting()}
+                onRegisterExecute={(fn) => setWbExecute(() => fn)}
+                isConnected={connection.isConnected()}
+                onConnect={connection.openSettings}
+              />
+            </div>
 
-            <Show when={currentView() === "graph"}>
-              <div class="view-enter flex-1 flex flex-col overflow-hidden">
-                <Graph api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
-              </div>
-            </Show>
+            <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "graph", "view-enter": currentView() === "graph" }}>
+              <Graph api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
+            </div>
 
-            <Show when={currentView() === "hql"}>
-              <div class="view-enter flex-1 flex flex-col overflow-hidden">
-                <HQL isConnected={connection.isConnected()} onConnect={connection.openSettings} />
-              </div>
-            </Show>
-
-            {/* <Show when={currentView() === "vectors"}>
-              <div class="view-enter flex-1 flex flex-col overflow-hidden">
-                <Vectors api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
-              </div>
-            </Show> */}
+            <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "hql", "view-enter": currentView() === "hql" }}>
+              <HQL isConnected={connection.isConnected()} onConnect={connection.openSettings} />
+            </div>
           </div>
 
           <Show when={!connection.isConnected() && ["schema", "queries", "graph", "hql", "vectors"].includes(currentView())}>
