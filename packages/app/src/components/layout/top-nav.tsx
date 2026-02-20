@@ -1,5 +1,6 @@
 import { For } from "solid-js";
-import { Plug, DraftingCompass, Database, Terminal, Network, ChevronDown, SquareCode, Crosshair } from "lucide-solid";
+import { Plug, DraftingCompass, Database, Terminal, Network, ChevronDown, SquareCode, VectorSquare } from "lucide-solid";
+
 import { activeConnection } from "../../stores/connection";
 
 interface TopNavProps {
@@ -40,12 +41,12 @@ const NAV_ITEMS = [
     icon: Network,
     color: "text-purple-500",
   },
-  // {
-  //   id: "vectors",
-  //   label: "Vectors",
-  //   icon: Crosshair,
-  //   color: "text-amber-500",
-  // },
+  {
+    id: "vectors",
+    label: "Vectors",
+    icon: VectorSquare,
+    color: "text-amber-500",
+  },
 ] as const;
 
 const ConnectionButton = (props: { isConnected: boolean; onClick: () => void }) => {

@@ -5,7 +5,7 @@ import { EndpointConfig } from "../lib/types";
 import { workbenchState, setWorkbenchState, queryStateCache } from "../stores/workbench";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Database, Copy, Check, ChevronRight, AlertCircle, Plus, Minus, Play, Loader2, X, Table, Braces, Zap, Search, Link } from "lucide-solid";
+import { Database, Copy, Check, ChevronRight, CircleAlert, Plus, Minus, Play, Loader2, X, Table, Braces, Zap, Search, Link } from "lucide-solid";
 import { ResultTable } from "./ui/result-table";
 import { ToolbarLayout } from "./ui/toolbar-layout";
 import { EmptyState } from "./ui/empty-state";
@@ -495,7 +495,7 @@ export const Queries = (props: QueriesProps) => {
                   <div class="flex-1 flex items-center justify-center p-6 bg-[var(--bg-workbench-content)]">
                     <div class="max-w-md text-center">
                       <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-status-error/10 border border-status-error/20 flex items-center justify-center shadow-sm">
-                        <AlertCircle class="w-7 h-7 text-status-error" />
+                        <CircleAlert class="w-7 h-7 text-status-error" />
                       </div>
                       <p class="text-[14px] font-semibold text-native-primary mb-2">Query Failed</p>
                       <p class="text-[12px] text-native-secondary font-mono bg-native-sidebar px-4 py-3 rounded-lg border border-native">{error()}</p>

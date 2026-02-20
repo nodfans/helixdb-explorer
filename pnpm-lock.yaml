@@ -60,8 +60,8 @@ importers:
         specifier: github:HelixDB/helix-ts
         version: https://codeload.github.com/HelixDB/helix-ts/tar.gz/deeb8bf4503e9c264dd626a94e30ca97bf84c2b8
       lucide-solid:
-        specifier: ^0.469.0
-        version: 0.469.0(solid-js@1.9.11)
+        specifier: ^0.575.0
+        version: 0.575.0(solid-js@1.9.11)
       solid-js:
         specifier: ^1.9.3
         version: 1.9.11
@@ -1078,8 +1078,8 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
-  lucide-solid@0.469.0:
-    resolution: {integrity: sha512-kBZl5AFg02g/wcwaapTwOwjHw0VvyyFmZm3BE6McKjs0GjiauWtjYbrhf2bCtDpScEtcinhIG/LpRExBlIV3fA==}
+  lucide-solid@0.575.0:
+    resolution: {integrity: sha512-EGdV4Kql+N/SpEJnLlgeUpTQPtarUJ8DpRWc8LpiymVCqcb2QffKMwrrG1ECY2omP+gVTZOu/5mJ3WmIj93kDg==}
     peerDependencies:
       solid-js: ^1.4.7
 
@@ -2204,7 +2204,7 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
-  lucide-solid@0.469.0(solid-js@1.9.11):
+  lucide-solid@0.575.0(solid-js@1.9.11):
     dependencies:
       solid-js: 1.9.11
 

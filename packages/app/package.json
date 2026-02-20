@@ -23,7 +23,7 @@
     "@tauri-apps/plugin-http": "^2",
     "force-graph": "^1.43.5",
     "helix-ts": "github:HelixDB/helix-ts",
-    "lucide-solid": "^0.469.0",
+    "lucide-solid": "^0.575.0",
     "solid-js": "^1.9.3",
     "tailwindcss": "^4.1.18"
   },

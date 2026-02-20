@@ -1,7 +1,7 @@
 import { createSignal, createEffect, createMemo, onCleanup, onMount, Show, For } from "solid-js";
 import { HelixApi } from "../lib/api";
 import ForceGraphFactory from "force-graph";
-import { Network, RefreshCw, ChevronRight, X, Maximize, Layers, Check, AlertTriangle } from "lucide-solid";
+import { Network, RefreshCw, ChevronRight, X, Maximize, Layers, Check, TriangleAlert } from "lucide-solid";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ToolbarLayout } from "./ui/toolbar-layout";
@@ -917,7 +917,7 @@ export const Graph = (props: GraphProps) => {
               <span class="text-[11px] font-bold tracking-widest text-native-secondary">Syncing Graph Data</span>
               <Show when={showPerformanceWarning()}>
                 <div class="flex items-center gap-1.5 mt-1 px-2 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-md animate-pulse">
-                  <AlertTriangle size={12} class="text-yellow-500" />
+                  <TriangleAlert size={12} class="text-yellow-500" />
                   <span class="text-[10px] font-bold text-yellow-500 uppercase tracking-tighter">Performance Warning: Large Data</span>
                 </div>
               </Show>

@@ -1,5 +1,5 @@
 import { createSignal, Show, createEffect, onCleanup } from "solid-js";
-import { FileCode, Copy, CheckCircle2, Zap, AlertCircle, Settings2, Database, Terminal, Check } from "lucide-solid";
+import { FileCode, Copy, CircleCheck, Zap, CircleAlert, Settings2, Database, Terminal, Check } from "lucide-solid";
 import { QueryGenerationConfig } from "../../lib/codegen";
 import { HQLEditor } from "../ui/hql-editor";
 import { Button } from "../ui/button";
@@ -66,7 +66,7 @@ export const CodePanel = (props: CodePanelProps) => {
           {/* Error Badge */}
           <Show when={props.lastError}>
             <div class="flex items-center gap-1.5 px-2 py-1 bg-error/10 rounded-md">
-              <AlertCircle size={12} class="text-error" strokeWidth={2} />
+              <CircleAlert size={12} class="text-error" strokeWidth={2} />
               <span class="text-[10px] font-semibold text-error">Error</span>
             </div>
           </Show>
@@ -302,7 +302,7 @@ export const CodePanel = (props: CodePanelProps) => {
           class="h-7 px-3"
         >
           <Show when={copied()} fallback={<Copy size={12} strokeWidth={2} />}>
-            <CheckCircle2 size={12} strokeWidth={2} class="text-emerald-500 animate-in fade-in zoom-in duration-200" />
+            <CircleCheck size={12} strokeWidth={2} class="text-emerald-500 animate-in fade-in zoom-in duration-200" />
           </Show>
           <span>{copied() ? "Copied" : "Copy"}</span>
         </Button>

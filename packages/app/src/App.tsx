@@ -12,10 +12,10 @@ import { createConnection } from "./hooks/connection";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
-// import { Vectors } from "./components/vectors";
+import { Vectors } from "./components/vectors";
 import { EmptyState } from "./components/ui/empty-state";
 import { Button } from "./components/ui/button";
-import { AlertCircle, Database, Network, Zap, SquareCode } from "lucide-solid";
+import { CircleAlert, Database, Network, Zap, SquareCode, VectorSquare } from "lucide-solid";
 
 function App() {
   const connection = createConnection();
@@ -101,7 +101,7 @@ function App() {
           <div class="w-[320px] bg-native-elevated border border-native rounded-2xl shadow-macos-lg overflow-hidden animate-in zoom-in-95 duration-200">
             <div class="p-6 text-center">
               <div class="w-14 h-14 bg-amber-500/15 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertCircle size={28} class="text-amber-500" />
+                <CircleAlert size={28} class="text-amber-500" />
               </div>
               <h3 class="text-base font-bold text-native-primary mb-2">Are you sure you want to exit?</h3>
               <p class="text-[13px] text-native-tertiary leading-relaxed mb-6">All unsaved model designs and HQL queries in memory will be lost.</p>
@@ -151,6 +151,12 @@ function App() {
             <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "hql", "view-enter": currentView() === "hql" }}>
               <HQL isConnected={connection.isConnected()} onConnect={connection.openSettings} />
             </div>
+
+            <Show when={currentView() === "vectors"}>
+              <div class="flex-1 flex flex-col overflow-hidden view-enter">
+                <Vectors api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
+              </div>
+            </Show>
           </div>
 
           <Show when={!connection.isConnected() && ["schema", "queries", "graph", "hql", "vectors"].includes(currentView())}>
@@ -178,6 +184,13 @@ function App() {
               </Show>
               <Show when={currentView() === "hql"}>
                 <EmptyState icon={SquareCode} title="HQL Editor" description="Write and execute Helix Query Language statements against your database.">
+                  <Button variant="primary" size="lg" onClick={connection.openSettings}>
+                    Connect Now
+                  </Button>
+                </EmptyState>
+              </Show>
+              <Show when={currentView() === "vectors"}>
+                <EmptyState icon={VectorSquare} title="Vector Space" description="Visualize and search high-dimensional vector embeddings in 2D space.">
                   <Button variant="primary" size="lg" onClick={connection.openSettings}>
                     Connect Now
                   </Button>
