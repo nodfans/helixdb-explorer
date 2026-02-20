@@ -14,14 +14,10 @@
     <a href="https://github.com/nodfans/helixdb-explorer/issues">🐞 Report Bug</a>
   </p>
 
-  <p>
-    <a href="https://github.com/nodfans/helixdb-explorer/blob/main/LICENSE">
-      <img src="https://img.shields.io/github/license/nodfans/helixdb-explorer?style=flat-square&color=000000" alt="License" />
-    </a>
-    <a href="https://github.com/nodfans/helixdb-explorer/releases">
-      <img src="https://img.shields.io/github/v/release/nodfans/helixdb-explorer?style=flat-square&color=000000" alt="Release" />
-    </a>
-  </p>
+  <div align="center">
+    <img src="https://img.shields.io/github/license/nodfans/helixdb-explorer?style=for-the-badge" />
+    <img src="https://img.shields.io/github/v/release/nodfans/helixdb-explorer?style=for-the-badge&color=6366f1" />
+  </div>
 </div>
 
 ## 📦 Installation
