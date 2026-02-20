@@ -40,3 +40,4 @@ packages/desktop/src-tauri/gen/schemas
 .env.test.local
 .env.production.local.agent
 packages/desktop/HELIX_MODES.md
+/Cargo.lock
