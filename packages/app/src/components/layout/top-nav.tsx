@@ -107,8 +107,8 @@ export const TopNav = (props: TopNavProps) => {
       }}
     >
       {/* Title Bar Area (Draggable) */}
-      <div class="h-7 flex items-center justify-center relative shrink-0" data-tauri-drag-region>
-        <span class="text-[12px] font-bold text-native-primary dark:text-white/60 antialiased select-none tracking-tight">HelixDB Explorer</span>
+      <div class="h-7 flex items-center justify-center relative shrink-0" data-tauri-drag-region style={{ "-webkit-app-region": "drag" }}>
+        <span class="text-[12px] font-bold text-native-primary dark:text-white/60 antialiased select-none tracking-tight pointer-events-none">HelixDB Explorer</span>
       </div>
 
       {/* Main Toolbar */}
