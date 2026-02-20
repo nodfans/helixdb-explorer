@@ -39,3 +39,4 @@ packages/desktop/src-tauri/gen/schemas
 .env.development.local
 .env.test.local
 .env.production.local.agent
+packages/desktop/HELIX_MODES.md

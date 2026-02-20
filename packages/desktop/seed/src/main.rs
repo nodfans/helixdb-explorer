@@ -5,21 +5,40 @@ use rand::{Rng, thread_rng};
 
 const HELIX_URL: &str = "http://127.0.0.1:6969";
 
-const USERS_PER_DOMAIN: usize = 2;    // 3 domains × 2 = 6 users 
-const PRODUCTS_PER_DOMAIN: usize = 3; // 3 domains × 3 = 9 products
-const PURCHASES_PER_USER: usize = 2;  // 6 users × 2 = 12 edges (≤20)
-const EMBEDDINGS_PER_DOMAIN: usize = 5; // 3 domains × 5 = 15 embeddings
+const USERS_PER_DOMAIN: usize = 2;
+const PRODUCTS_PER_DOMAIN: usize = 3;
+const PURCHASES_PER_USER: usize = 2;
+const EMBEDDINGS_PER_DOMAIN: usize = 5;
 
 const DOMAINS: [&str; 3] = ["Fashion", "Electronics", "Wellness"];
-const VECTOR_BASE: [f64; 3] = [0.7, -0.6, 0.05];
-const VECTOR_JITTER: [f64; 3] = [0.1, 0.2, 0.35];
-const VECTOR_DIM: usize = 64;
+const VECTOR_DIM: usize = 8;
 
-fn generate_vector(domain_idx: usize) -> Vec<f64> {
+fn generate_vector(domain_idx: usize, item_idx: usize) -> Vec<f64> {
     let mut rng = thread_rng();
-    let base = VECTOR_BASE[domain_idx];
-    let jitter = VECTOR_JITTER[domain_idx];
-    (0..VECTOR_DIM).map(|_| base + rng.gen_range(-jitter..jitter)).collect()
+
+    // Each domain occupies its own "strong" dimensions:
+    // Fashion:     dims 0,1,2  → high signal
+    // Electronics: dims 3,4,5  → high signal
+    // Wellness:    dims 5,6,7  → high signal
+    // All other dims stay near 0 → vectors are near-orthogonal across domains
+    (0..VECTOR_DIM).map(|i| {
+        let is_domain_dim = match domain_idx {
+            0 => i < 3,
+            1 => i >= 3 && i < 6,
+            2 => i >= 5,
+            _ => false,
+        };
+
+        let base = if is_domain_dim {
+            // item_idx adds slight spread within the same domain
+            (0.7 + item_idx as f64 * 0.05).min(0.95)
+        } else {
+            0.05
+        };
+
+        let noise: f64 = rng.gen_range(0.0..0.05);
+        (base + noise).clamp(0.0, 1.0)
+    }).collect()
 }
 
 fn get_now() -> String { Utc::now().to_rfc3339() }
@@ -164,7 +183,8 @@ fn seed_product_embeddings(
         let pool = &domain_products[domain_idx];
         for i in 0..EMBEDDINGS_PER_DOMAIN {
             let product = pool[i % pool.len()];
-            let vector = generate_vector(domain_idx);
+            let vector = generate_vector(domain_idx, i);
+            println!("  [{}] Vector for {}: {:?}", DOMAINS[domain_idx], product.id, vector);
             let payload = json!({
                 "product_id": product.id,
                 "name": format!("{} Embed {}", DOMAINS[domain_idx], i),
@@ -177,9 +197,7 @@ fn seed_product_embeddings(
             check_resp(resp, "add_product_embedding")?;
             count += 1;
         }
-        println!("  [{}] {} embeddings (base={}, jitter=±{})",
-            DOMAINS[domain_idx], EMBEDDINGS_PER_DOMAIN,
-            VECTOR_BASE[domain_idx], VECTOR_JITTER[domain_idx]);
+        println!("  [{}] {} embeddings seeded", DOMAINS[domain_idx], EMBEDDINGS_PER_DOMAIN);
     }
     println!("  Total ProductEmbeddings: {}", count);
     Ok(())
@@ -208,14 +226,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     println!("=== Helix Simple Seed ===");
-    println!("    Users: {} per domain × 3 = {}",
-        USERS_PER_DOMAIN, USERS_PER_DOMAIN * 3);
-    println!("    Products: {} per domain × 3 = {}",
-        PRODUCTS_PER_DOMAIN, PRODUCTS_PER_DOMAIN * 3);
-    println!("    Purchases: {} per user × {} = {}",
-        PURCHASES_PER_USER, USERS_PER_DOMAIN * 3, PURCHASES_PER_USER * USERS_PER_DOMAIN * 3);
-    println!("    Embeddings: {} per domain × 3 = {}",
-        EMBEDDINGS_PER_DOMAIN, EMBEDDINGS_PER_DOMAIN * 3);
+    println!("    Users:      {} per domain × 3 = {}", USERS_PER_DOMAIN, USERS_PER_DOMAIN * 3);
+    println!("    Products:   {} per domain × 3 = {}", PRODUCTS_PER_DOMAIN, PRODUCTS_PER_DOMAIN * 3);
+    println!("    Purchases:  {} per user × {} = {}", PURCHASES_PER_USER, USERS_PER_DOMAIN * 3, PURCHASES_PER_USER * USERS_PER_DOMAIN * 3);
+    println!("    Embeddings: {} per domain × 3 = {}", EMBEDDINGS_PER_DOMAIN, EMBEDDINGS_PER_DOMAIN * 3);
 
     let users    = seed_users(&client)?;
     let products = seed_products(&client)?;

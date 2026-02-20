@@ -79,7 +79,7 @@ pub fn map_traversal_to_tools(traversal: &Traversal, params: &serde_json::Value)
             }
         }
         StartNode::Vector { vector_type, ids } => {
-            tools.push(ToolArgs::VFromType { vector_type: vector_type.clone() });
+            tools.push(ToolArgs::VFromType { vector_type: vector_type.clone(), filter: None });
             if let Some(ids) = ids {
                 let (id_strings, props) = extract_ids_and_props(ids, params)?;
                 id_filters_out = id_strings;
@@ -94,6 +94,9 @@ pub fn map_traversal_to_tools(traversal: &Traversal, params: &serde_json::Value)
             }
         }
         StartNode::SearchVector(sv) => {
+            if let Some(label) = &sv.vector_type {
+                tools.push(ToolArgs::VFromType { vector_type: label.clone(), filter: None });
+            }
             tools.push(map_search_vector_to_tool(sv, params)?);
         }
         StartNode::Identifier(_) => {
@@ -589,20 +592,13 @@ pub fn map_search_vector_to_tool(sv: &helix_db::helixc::parser::types::SearchVec
 
     match &sv.data {
         Some(VectorData::Vector(v)) => {
-            if !label.is_empty() {
-                Ok(ToolArgs::SearchV {
-                    label,
-                    vector: v.clone(),
-                    k,
-                })
-            } else {
-                 Ok(ToolArgs::SearchVec {
-                    vector: v.clone(),
-                    k,
-                    min_score: None,
-                    cutoff: None,
-                })
-            }
+            Ok(ToolArgs::SearchVec {
+                vector: v.clone(),
+                k,
+                min_score: None,
+                cutoff: None,
+                label: label.clone(),
+            })
         },
         Some(VectorData::Embed(embed)) => {
             let query = match &embed.value {
@@ -622,7 +618,7 @@ pub fn map_search_vector_to_tool(sv: &helix_db::helixc::parser::types::SearchVec
             })
         }
         Some(VectorData::Identifier(s)) => {
-            // Case: SearchV<T>(vector_variable, k)
+            // Case: SearchVec<T>(vector_variable, k) (legacy SearchV mapping)
             if let Some(val) = params.get(s) {
                 // Expecting array of numbers
                 if let Some(arr) = val.as_array() {
@@ -639,6 +635,7 @@ pub fn map_search_vector_to_tool(sv: &helix_db::helixc::parser::types::SearchVec
                         k,
                         min_score: None,
                         cutoff: None,
+                        label: label.clone(),
                     })
                 } else {
                     Err(format!("Variable '{}' is not an array", s))

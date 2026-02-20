@@ -120,7 +120,7 @@ pub async fn execute_search_tool(
 ) -> Result<serde_json::Value, String> {
     let (endpoint, body) = match tool {
         ToolArgs::SearchKeyword { query, limit, label } => ("search_keyword", serde_json::json!({ "connection_id": connection_id, "data": { "query": query, "limit": limit, "label": label } })),
-        ToolArgs::SearchVec { vector, k, min_score, cutoff } => ("search_vector", serde_json::json!({ "connection_id": connection_id, "data": { "vector": vector, "k": k, "min_score": min_score, "cutoff": cutoff } })),
+        ToolArgs::SearchVec { vector, k, min_score, cutoff, label } => ("search_vector", serde_json::json!({ "connection_id": connection_id, "data": { "vector": vector, "k": k, "min_score": min_score, "cutoff": cutoff, "label": label } })),
         ToolArgs::SearchVecText { query, label, k } => ("search_vector_text", serde_json::json!({ "connection_id": connection_id, "data": { "query": query, "label": label, "k": k } })),
         _ => return Err("Not a search tool".to_string()),
     };
@@ -144,7 +144,7 @@ async fn send_tool(client: &reqwest::Client, url: &str, connection_id: &str, too
     if is_search {
         let (endpoint, body) = match tool {
             ToolArgs::SearchKeyword { query, limit, label } => ("search_keyword", serde_json::json!({ "connection_id": connection_id, "data": { "query": query, "limit": limit, "label": label } })),
-            ToolArgs::SearchVec { vector, k, min_score, cutoff } => ("search_vector", serde_json::json!({ "connection_id": connection_id, "data": { "vector": vector, "k": k, "min_score": min_score, "cutoff": cutoff } })),
+            ToolArgs::SearchVec { vector, k, min_score, cutoff, label } => ("search_vector", serde_json::json!({ "connection_id": connection_id, "data": { "vector": vector, "k": k, "min_score": min_score, "cutoff": cutoff, "label": label } })),
             ToolArgs::SearchVecText { query, label, k } => ("search_vector_text", serde_json::json!({ "connection_id": connection_id, "data": { "query": query, "label": label, "k": k } })),
             _ => unreachable!(),
         };
