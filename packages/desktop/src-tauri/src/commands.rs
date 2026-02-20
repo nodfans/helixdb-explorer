@@ -1556,6 +1556,16 @@ pub fn format_hql(code: String) -> Result<String, String> {
             
             _ => {
                 if c.is_whitespace() {
+                    let word = peek_word(iter);
+                    if is_terminator_keyword(&word) {
+                        if !processed.ends_with('\n') && !processed.is_empty() {
+                            if let Some(top) = traversal_expand_stack.last_mut() {
+                                *top = false;
+                            }
+                            processed.push('\n');
+                            continue;
+                        }
+                    }
                     if !processed.is_empty()
                         && !processed.ends_with('\n')
                         && !processed.ends_with(' ')

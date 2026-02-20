@@ -18,6 +18,47 @@ use regex::Regex;
 ///
 /// This allows users to write intuitive inline syntax while satisfying the engine's strict requirements.
 pub fn preprocess_hql(code: &str) -> String {
+    // 1. Strip comments (replace with spaces to preserve offsets)
+    // We handle // comments, but avoid stripping them if inside a string.
+    let mut clean_code = String::with_capacity(code.len());
+    let mut in_string = false;
+    let mut string_char = ' ';
+    let mut chars = code.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if in_string {
+            clean_code.push(c);
+            if c == string_char {
+                in_string = false;
+            } else if c == '\\' {
+                if let Some(next_c) = chars.next() {
+                    clean_code.push(next_c);
+                }
+            }
+        } else {
+            if c == '"' || c == '\'' {
+                in_string = true;
+                string_char = c;
+                clean_code.push(c);
+            } else if c == '/' && chars.peek() == Some(&'/') {
+                // Found a comment! Fill the rest of the line with spaces
+                clean_code.push(' '); // for first /
+                clean_code.push(' '); // for second /
+                chars.next(); // consume second /
+                while let Some(&next_c) = chars.peek() {
+                    if next_c == '\n' {
+                        break;
+                    }
+                    clean_code.push(' ');
+                    chars.next();
+                }
+            } else {
+                clean_code.push(c);
+            }
+        }
+    }
+
+    let code = &clean_code;
     let re = Regex::new(r"SearchV\s*<\s*(\w+)\s*>\s*\(\s*(\[[^\]]*\])").unwrap();
     let mut assignments = Vec::new();
     let mut last_end = 0;
@@ -141,5 +182,30 @@ mod tests {
         let processed = preprocess_hql(code);
         // Should inject at the top
         assert!(processed.trim().starts_with("tmpVec_0"));
+    }
+
+    #[test]
+    fn test_comment_stripping() {
+        let code = r#"
+            // leading comment
+            QUERY Test() =>
+                SearchV<Doc>([0.1], 1) // trailing comment
+                RETURN 1
+        "#;
+        let processed = preprocess_hql(code);
+        // Verify comments are gone (replaced with spaces)
+        assert!(!processed.contains("// leading comment"));
+        assert!(!processed.contains("// trailing comment"));
+        // Verify it still detects as QUERY
+        assert!(processed.trim().to_uppercase().starts_with("QUERY"));
+        // Verify lifting still works
+        assert!(processed.contains("tmpVec_0 <- [0.1]"));
+    }
+
+    #[test]
+    fn test_no_strip_comment_in_string() {
+        let code = r#"QUERY Test() => N<Doc>::WHERE(url == "http://example.com")"#;
+        let processed = preprocess_hql(code);
+        assert_eq!(code, &processed);
     }
 }
