@@ -176,7 +176,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
                         </div>
                       </Match>
                       <Match when={props.activeTab.multiTableData && Object.keys(props.activeTab.multiTableData).length > 0}>
-                        <div class="flex-1 overflow-auto h-full space-y-5 px-1 py-2 scrollbar-thin flex flex-col">
+                        <div class="flex-1 overflow-auto h-full space-y-5 px-0 pt-2 pb-0 scrollbar-thin flex flex-col">
                           <For each={Object.entries(props.activeTab.multiTableData || {})}>
                             {([name, rows]: [string, any[]]) => {
                               const tableCount = () => Object.keys(props.activeTab.multiTableData || {}).length;
@@ -184,7 +184,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
                                 <div class="flex flex-col gap-2" classList={{ "flex-1 min-h-[200px]": tableCount() === 1 }}>
                                   <div class="flex items-center gap-2 px-1">
                                     <Table size={12} class="text-accent" />
-                                    <span class="text-[11px] font-bold uppercase tracking-wider text-native-secondary">{name}</span>
+                                    <span class="text-[11px] font-bold capitalize tracking-wider text-native-secondary">{name}</span>
                                     <span class="text-[10px] text-native-quaternary tabular-nums">({rows.length})</span>
                                   </div>
                                   <div
@@ -203,7 +203,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
                         </div>
                       </Match>
                       <Match when={props.activeTab.tableData || (Array.isArray(props.activeTab.rawOutput) ? props.activeTab.rawOutput : null)}>
-                        <div class="flex-1 min-h-0 flex flex-col px-0.5 py-2">
+                        <div class="flex-1 min-h-0 flex flex-col px-0.5 pt-2 pb-0">
                           <ResultTable
                             data={props.activeTab.tableData || props.activeTab.rawOutput}
                             selectedRows={props.activeTab.selectedRows}
