@@ -142,9 +142,11 @@ function App() {
               />
             </div>
 
-            <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "graph", "view-enter": currentView() === "graph" }}>
-              <Graph api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
-            </div>
+            <Show when={currentView() === "graph"}>
+              <div class="flex-1 flex flex-col overflow-hidden view-enter">
+                <Graph api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
+              </div>
+            </Show>
 
             <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "hql", "view-enter": currentView() === "hql" }}>
               <HQL isConnected={connection.isConnected()} onConnect={connection.openSettings} />
