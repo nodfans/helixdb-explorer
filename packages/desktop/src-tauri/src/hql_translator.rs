@@ -464,7 +464,7 @@ fn invert_operator(op: Operator) -> Operator {
 fn extract_value(expr: &Expression, params: &serde_json::Value) -> Result<Value, String> {
     match &expr.expr {
         ExpressionType::StringLiteral(s) => Ok(Value::String(s.clone())),
-        ExpressionType::IntegerLiteral(i) => Ok(Value::I32(*i)),
+        ExpressionType::IntegerLiteral(i) => Ok(Value::F64(*i as f64)), // Normalize to F64
         ExpressionType::FloatLiteral(f) => Ok(Value::F64(*f)),
         ExpressionType::BooleanLiteral(b) => Ok(Value::Boolean(*b)),
         ExpressionType::Identifier(s) => {
@@ -472,9 +472,8 @@ fn extract_value(expr: &Expression, params: &serde_json::Value) -> Result<Value,
                 match val {
                     serde_json::Value::String(vs) => Ok(Value::String(vs.clone())),
                     serde_json::Value::Number(vn) => {
-                        if let Some(i) = vn.as_i64() {
-                            Ok(Value::I32(i as i32))
-                        } else if let Some(f) = vn.as_f64() {
+                        // Always return F64 for numbers to avoid backend type-comparison issues
+                        if let Some(f) = vn.as_f64() {
                             Ok(Value::F64(f))
                         } else {
                             Ok(Value::String(vn.to_string()))
@@ -518,9 +517,8 @@ fn extract_field_value(fv: &FieldValue, params: &serde_json::Value) -> Result<Va
                 match val {
                     serde_json::Value::String(vs) => Ok(Value::String(vs.clone())),
                     serde_json::Value::Number(vn) => {
-                        if let Some(i) = vn.as_i64() {
-                            Ok(Value::I32(i as i32))
-                        } else if let Some(f) = vn.as_f64() {
+                        // Normalize to F64 to avoid backend comparison mismatch
+                        if let Some(f) = vn.as_f64() {
                             Ok(Value::F64(f))
                         } else {
                             Ok(Value::String(vn.to_string()))
