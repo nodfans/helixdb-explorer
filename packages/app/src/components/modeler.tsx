@@ -1,7 +1,7 @@
 import { createSignal, createMemo, Show, Index, onCleanup } from "solid-js";
 import { HelixApi } from "../lib/api";
 import { reconcile } from "solid-js/store";
-import { DraftingCompass, CircleDot, Share2, Database, Zap } from "lucide-solid";
+import { DraftingCompass, CircleDot, Share2, Link2, Layers } from "lucide-solid";
 import { ProEntityCard } from "./modeler/entity-card";
 import { HqlCodeGen, EntityDef } from "../lib/codegen";
 import { CodePanel } from "./modeler/code-panel";
@@ -276,10 +276,22 @@ export const Modeler = (_props: ModelerProps) => {
     <div class="flex h-full bg-[var(--bg-content)] text-[var(--text-primary)] font-[system-ui] selection:bg-[var(--selected-bg)]" classList={{ "cursor-col-resize": isResizing() }}>
       {/* Left Column: Modeler */}
       <div class="flex-1 flex flex-col min-w-0">
-        {/* macOS style toolbar */}
-        <ToolbarLayout>
-          <div class="flex items-center gap-2">
-            {/* Primary Action Button */}
+        <ToolbarLayout class="justify-between">
+          <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 px-2 py-1 rounded-md bg-orange-500/10 border border-orange-500/10 shrink-0">
+              <DraftingCompass size={14} class="text-orange-500" strokeWidth={2.5} />
+              <span class="text-[12px] font-bold text-orange-500 uppercase tracking-wider">Modeler</span>
+            </div>
+
+            <div class="w-px h-4 bg-native/10 shrink-0" />
+
+            <div class="flex items-center gap-1.5 text-[11px] text-native-tertiary font-medium">
+              <Link2 size={12} class="opacity-60" />
+              <span class="truncate max-w-[120px]">{_props.api?.baseUrl || "Not Connected"}</span>
+            </div>
+
+            <div class="w-px h-4 bg-native/10 shrink-0" />
+
             <Button
               variant="toolbar"
               onMouseDown={(e) => {
@@ -312,7 +324,7 @@ export const Modeler = (_props: ModelerProps) => {
               }}
               class="flex items-center gap-1.5 transition-all duration-75"
             >
-              <Zap size={13} strokeWidth={2.5} class="text-amber-500" /> New Vector
+              <DraftingCompass size={13} strokeWidth={2.5} class="text-amber-500" /> New Vector
             </Button>
           </div>
         </ToolbarLayout>
@@ -349,7 +361,7 @@ export const Modeler = (_props: ModelerProps) => {
                         class="group flex flex-col items-center gap-3 p-4 rounded-[1.25rem] bg-native-sidebar/40 border border-native hover:border-orange-500/30 hover:bg-orange-500/[0.04] transition-all duration-300 w-36 text-center shadow-sm hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1"
                       >
                         <div class="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:bg-orange-500/20 group-hover:scale-110 transition-all duration-300">
-                          <Database size={20} />
+                          <Layers size={20} />
                         </div>
                         <div class="flex flex-col gap-0.5">
                           <span class="text-[13px] font-semibold text-native-primary">E-commerce</span>
@@ -362,7 +374,7 @@ export const Modeler = (_props: ModelerProps) => {
                         class="group flex flex-col items-center gap-3 p-4 rounded-[1.25rem] bg-native-sidebar/40 border border-native hover:border-purple-500/30 hover:bg-purple-500/[0.04] transition-all duration-300 w-36 text-center shadow-sm hover:shadow-xl hover:shadow-purple-500/10 hover:-translate-y-1"
                       >
                         <div class="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500 group-hover:bg-purple-500/20 group-hover:scale-110 transition-all duration-300">
-                          <Zap size={20} />
+                          <DraftingCompass size={20} />
                         </div>
                         <div class="flex flex-col gap-0.5">
                           <span class="text-[13px] font-semibold text-native-primary">Knowledge Graph</span>
@@ -418,7 +430,7 @@ export const Modeler = (_props: ModelerProps) => {
               <Show when={filteredVectors().length > 0}>
                 <section class="space-y-4">
                   <div class="flex items-center gap-2 px-1">
-                    <Zap size={14} class="text-[var(--text-tertiary)]" strokeWidth={2} />
+                    <DraftingCompass size={14} class="text-[var(--text-tertiary)]" strokeWidth={2} />
                     <h3 class="text-[12px] font-semibold text-[var(--text-secondary)]">Vectors</h3>
                     <div class="flex-1 h-px bg-[var(--border-subtle)] ml-2" />
                   </div>

@@ -15,9 +15,10 @@
   </p>
 
   <div align="center">
-    <img src="https://img.shields.io/github/license/nodfans/helixdb-explorer?style=for-the-badge" />
-    <img src="https://img.shields.io/github/v/release/nodfans/helixdb-explorer?style=for-the-badge&color=6366f1" />
-  </div>
+      <img src="https://img.shields.io/github/license/nodfans/helixdb-explorer?style=for-the-badge" />
+      <img src="https://img.shields.io/github/v/release/nodfans/helixdb-explorer?style=for-the-badge&color=6366f1" />
+      <img src="https://img.shields.io/github/downloads/nodfans/helixdb-explorer/total?style=for-the-badge&color=22c55e&label=downloads" />
+    </div>
 </div>
 
 ## 📦 Installation

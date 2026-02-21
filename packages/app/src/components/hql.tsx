@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createSignal, For, onMount, Show, onCleanup } from "solid-js";
 import { reconcile } from "solid-js/store";
-import { Play, Plus, X, FileCode, Database, Sparkles, Check, Upload, ChevronDown } from "lucide-solid";
+import { Play, Plus, X, FileCode, Sparkles, Check, Upload, ChevronDown, Terminal, Link2 } from "lucide-solid";
 import { invoke } from "@tauri-apps/api/core";
 import { hqlStore, setHqlStore, type HqlTab } from "../stores/hql";
 import { HQLEditor } from "./ui/hql-editor";
@@ -275,15 +275,22 @@ export const HQL = (props: HQLProps) => {
         </button>
       </div>
 
-      <div class="h-9 border-b border-native bg-native-sidebar-vibrant/40 flex items-center px-5 gap-2 shrink-0">
+      <div class="h-9 border-b border-native bg-native-sidebar-vibrant/40 flex items-center px-5 gap-3 shrink-0">
+        <div class="flex items-center gap-2 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/10 shrink-0">
+          <Terminal size={14} class="text-emerald-500" strokeWidth={2.5} />
+          <span class="text-[12px] font-bold text-emerald-500 uppercase tracking-wider">HQL</span>
+        </div>
+
+        <div class="w-px h-4 bg-native/10 shrink-0" />
+
         <div
           onClick={handleConnect}
           class="flex items-center h-[26px] bg-[var(--bg-input)] border border-native rounded-md px-2 gap-2 hover:border-native-active transition-colors min-w-[160px] max-w-[240px] group cursor-default select-none"
         >
           <div class="flex items-center justify-center w-4 h-4 bg-accent/10 rounded p-0.5">
-            <Database size={11} strokeWidth={2.5} class="text-accent" />
+            <Link2 size={11} strokeWidth={2.5} class="text-accent" />
           </div>
-          <span class="flex-1 text-[11px] text-native-primary font-medium truncate">
+          <span class="flex-1 text-[11px] text-native-tertiary font-medium truncate">
             {activeConnection().host}:{activeConnection().port}
           </span>
         </div>

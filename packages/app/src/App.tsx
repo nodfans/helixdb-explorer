@@ -6,6 +6,7 @@ import { Schema } from "./components/schema";
 import { Queries } from "./components/queries";
 import { Graph } from "./components/graph";
 import { HQL } from "./components/hql";
+import { Dashboard } from "./components/dashboard";
 import { ThemeSettings, initTheme } from "./components/ui/theme";
 import { Connection } from "./components/connection";
 import { createConnection } from "./hooks/connection";
@@ -15,14 +16,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { Vectors } from "./components/vectors";
 import { EmptyState } from "./components/ui/empty-state";
 import { Button } from "./components/ui/button";
-import { CircleAlert, Database, Network, Zap, SquareCode, VectorSquare } from "lucide-solid";
+import { CircleAlert, PanelTopDashed, Layers, MessageSquareCode, GitGraph, Terminal, Sparkles } from "lucide-solid";
 
 function App() {
   const connection = createConnection();
 
   const [showSplash, setShowSplash] = createSignal(true);
 
-  const [currentView, setCurrentView] = createSignal("hql");
+  const [currentView, setCurrentView] = createSignal("dashboard");
   const [isExecuting, setIsExecuting] = createSignal(false);
   const [wbExecute, setWbExecute] = createSignal<(() => Promise<void>) | undefined>();
 
@@ -142,6 +143,10 @@ function App() {
               />
             </div>
 
+            <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "dashboard", "view-enter": currentView() === "dashboard" }}>
+              <Dashboard api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
+            </div>
+
             <Show when={currentView() === "graph"}>
               <div class="flex-1 flex flex-col overflow-hidden view-enter">
                 <Graph api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
@@ -159,38 +164,45 @@ function App() {
             </Show>
           </div>
 
-          <Show when={!connection.isConnected() && ["schema", "queries", "graph", "hql", "vectors"].includes(currentView())}>
+          <Show when={!connection.isConnected() && ["dashboard", "schema", "queries", "graph", "hql", "vectors"].includes(currentView())}>
             <div class="absolute inset-0 flex items-center justify-center bg-native-content z-[100]">
+              <Show when={currentView() === "dashboard"}>
+                <EmptyState icon={PanelTopDashed} title="Instance Dashboard" description="Connect to your HelixDB instance to view global statistics.">
+                  <Button variant="primary" size="lg" onClick={connection.openSettings}>
+                    Connect Now
+                  </Button>
+                </EmptyState>
+              </Show>
               <Show when={currentView() === "schema"}>
-                <EmptyState icon={Database} title="Database Schema" description="Connect to your HelixDB instance to explore schema structure.">
+                <EmptyState icon={Layers} title="Database Schema" description="Connect to your HelixDB instance to explore schema structure.">
                   <Button variant="primary" size="lg" onClick={connection.openSettings}>
                     Connect Now
                   </Button>
                 </EmptyState>
               </Show>
               <Show when={currentView() === "queries"}>
-                <EmptyState icon={Zap} title="Queries Workbench" description="Connect to see and execute your specific database queries.">
+                <EmptyState icon={MessageSquareCode} title="Queries Workbench" description="Connect to see and execute your specific database queries.">
                   <Button variant="primary" size="lg" onClick={connection.openSettings}>
                     Connect Now
                   </Button>
                 </EmptyState>
               </Show>
               <Show when={currentView() === "graph"}>
-                <EmptyState icon={Network} title="Graph Explorer" description="Visualize your database as an interactive network. Start by connecting to an instance.">
+                <EmptyState icon={GitGraph} title="Graph Explorer" description="Visualize your database as an interactive network. Start by connecting to an instance.">
                   <Button variant="primary" size="lg" onClick={connection.openSettings}>
                     Connect Now
                   </Button>
                 </EmptyState>
               </Show>
               <Show when={currentView() === "hql"}>
-                <EmptyState icon={SquareCode} title="HQL Editor" description="Write and execute Helix Query Language statements against your database.">
+                <EmptyState icon={Terminal} title="HQL Editor" description="Write and execute Helix Query Language statements against your database.">
                   <Button variant="primary" size="lg" onClick={connection.openSettings}>
                     Connect Now
                   </Button>
                 </EmptyState>
               </Show>
               <Show when={currentView() === "vectors"}>
-                <EmptyState icon={VectorSquare} title="Vector Space" description="Visualize and search high-dimensional vector embeddings in 2D space.">
+                <EmptyState icon={Sparkles} title="Vector Space" description="Visualize and search high-dimensional vector embeddings in 2D space.">
                   <Button variant="primary" size="lg" onClick={connection.openSettings}>
                     Connect Now
                   </Button>

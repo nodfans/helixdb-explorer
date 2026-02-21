@@ -15,10 +15,6 @@ const tauriFetch = async (url: string, method: string = "GET", headers: Record<s
         headers,
         body: body ? JSON.stringify(body) : null,
       });
-      console.log(`[tauriFetch] Response text length: ${responseText?.length || 0} bytes`);
-      if (responseText) {
-        console.log(`[tauriFetch] Response preview: ${responseText.substring(0, 200)}`);
-      }
 
       if (!responseText || responseText.trim() === "") {
         throw new Error("Empty response from server");
@@ -57,7 +53,7 @@ const tauriFetch = async (url: string, method: string = "GET", headers: Record<s
 };
 
 export class HelixApi {
-  private baseUrl: string;
+  public baseUrl: string;
   private apiKey: string | null;
 
   constructor(baseUrl: string, apiKey: string | null) {
@@ -151,11 +147,17 @@ export class HelixApi {
       const nodesInput = sourceData.nodes || sourceData.classes || sourceData.labels || (Array.isArray(sourceData) ? sourceData : []);
       const edgesInput = sourceData.edges || sourceData.relationships || sourceData.links || [];
       const vectorsInput = sourceData.vectors || sourceData.indexes || [];
+      const queriesInput = sourceData.queries || sourceData.tools || data.queries || data.tools || [];
 
       return {
         nodes: normalizeItems(nodesInput, sharedProps),
         edges: normalizeEdges(edgesInput, sharedProps),
         vectors: normalizeItems(vectorsInput, sharedProps),
+        queries: (Array.isArray(queriesInput) ? queriesInput : []).map((q: any) => ({
+          name: q.name || "Unknown",
+          parameters: q.parameters || {},
+          returns: Array.isArray(q.returns) ? q.returns : [],
+        })),
       };
     };
 
@@ -242,6 +244,7 @@ export class HelixApi {
           nodes: Object.values(nodes),
           edges: Object.values(edges),
           vectors: Object.values(vectors),
+          queries: [],
         };
 
         console.log("HelixApi: Inferred schema result", result);

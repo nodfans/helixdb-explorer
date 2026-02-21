@@ -29,10 +29,17 @@ export interface SchemaVector {
 }
 export type VectorType = SchemaVector;
 
+export interface SchemaQuery {
+  name: string;
+  parameters: Record<string, string>;
+  returns: string[];
+}
+
 export interface SchemaInfo {
   nodes: SchemaNode[];
   edges: SchemaEdge[];
   vectors: SchemaVector[];
+  queries: SchemaQuery[];
 }
 
 export interface NodesEdgesResponse {

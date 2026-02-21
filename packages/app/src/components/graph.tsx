@@ -1,7 +1,7 @@
 import { createSignal, createEffect, createMemo, onCleanup, onMount, Show, For } from "solid-js";
 import { HelixApi } from "../lib/api";
 import ForceGraphFactory from "force-graph";
-import { Network, RefreshCw, ChevronRight, X, Maximize, Layers, Check, TriangleAlert } from "lucide-solid";
+import { GitGraph, RefreshCw, ChevronRight, X, Maximize, Layers, Check, TriangleAlert, Link2 } from "lucide-solid";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ToolbarLayout } from "./ui/toolbar-layout";
@@ -734,9 +734,24 @@ export const Graph = (props: GraphProps) => {
       {/* Header & Controls */}
       <div class="flex-none">
         <ToolbarLayout class="justify-between">
-          <div class="flex items-center gap-3">
-            {/* Search */}
-            <Input variant="search" placeholder="Search nodes..." value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-64 h-7" />
+          <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 px-2 py-1 rounded-md bg-purple-500/10 border border-purple-500/10 shrink-0">
+              <GitGraph size={14} class="text-purple-500" strokeWidth={2.5} />
+              <span class="text-[12px] font-bold text-purple-500 uppercase tracking-wider">Graph</span>
+            </div>
+
+            <div class="w-px h-4 bg-native/10 shrink-0" />
+
+            <div class="flex items-center gap-1.5 text-[11px] text-native-tertiary font-medium shrink-0">
+              <Link2 size={12} class="opacity-60" />
+              <span class="truncate max-w-[120px]">{props.api?.baseUrl || "Not Connected"}</span>
+            </div>
+
+            <div class="w-px h-4 bg-native/10 shrink-0" />
+
+            <Input variant="search" placeholder="Search nodes..." value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-48 h-7 shrink-0" />
+
+            <div class="w-px h-1.5" />
 
             <div class="w-px h-5 bg-native-subtle" />
 
@@ -875,7 +890,7 @@ export const Graph = (props: GraphProps) => {
               fallback={
                 <div class="flex-1 flex flex-col items-center justify-center p-8 text-center select-none">
                   <div class="w-12 h-12 rounded-full bg-native-content/10 flex items-center justify-center mb-4">
-                    <Network size={28} class="text-native-tertiary" />
+                    <GitGraph size={48} class="text-native-quaternary opacity-20" />
                   </div>
                   <div class="space-y-1">
                     <p class="text-[11px] text-native-primary font-bold tracking-tight">No Selection</p>
@@ -911,7 +926,7 @@ export const Graph = (props: GraphProps) => {
           <div class="flex flex-col items-center gap-3 scale-90 transition-transform duration-300" style={{ transform: loading() ? "scale(1)" : "scale(0.95)" }}>
             <div class="relative">
               <div class="w-10 h-10 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
-              <Network size={16} class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-accent" />
+              <GitGraph size={16} class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-accent" />
             </div>
             <div class="flex flex-col items-center gap-1">
               <span class="text-[11px] font-bold tracking-widest text-native-secondary">Syncing Graph Data</span>
@@ -969,7 +984,7 @@ export const Graph = (props: GraphProps) => {
             <div class="w-px h-5 bg-native-subtle" />
 
             <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
-              <Network size={11} class="text-emerald-500" />
+              <GitGraph size={11} class="text-emerald-500" />
               <span class="text-[11px] font-semibold text-emerald-500 tabular-nums">
                 {
                   allEdges().filter((e) => {

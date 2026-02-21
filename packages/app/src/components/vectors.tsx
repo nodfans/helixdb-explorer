@@ -3,7 +3,7 @@ import { HelixApi } from "../lib/api";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { RefreshCw, RotateCcw, Database, ChevronRight, Sparkles, Maximize, Layers, Check, X, Crosshair } from "lucide-solid";
+import { RefreshCw, RotateCcw, ChevronRight, Sparkles, Maximize, Layers, Check, X, Crosshair, Link2 } from "lucide-solid";
 import { ToolbarLayout } from "./ui/toolbar-layout";
 
 interface VectorsProps {
@@ -569,7 +569,21 @@ export const Vectors = (props: VectorsProps) => {
     <div class="flex flex-col h-full w-full bg-graph text-native-primary overflow-hidden">
       <div class="flex-none bg-native-content/80 backdrop-blur-md border-b border-native">
         <ToolbarLayout class="justify-between">
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 px-2 py-1 rounded-md bg-rose-500/10 border border-rose-500/10 shrink-0">
+              <Sparkles size={14} class="text-rose-500" strokeWidth={2.5} />
+              <span class="text-[12px] font-bold text-rose-500 uppercase tracking-wider">Vector Space</span>
+            </div>
+
+            <div class="w-px h-4 bg-native/10 shrink-0" />
+
+            <div class="flex items-center gap-1.5 text-[11px] text-native-tertiary font-medium">
+              <Link2 size={12} class="opacity-60" />
+              <span class="truncate max-w-[120px]">{props.api?.baseUrl || "Not Connected"}</span>
+            </div>
+
+            <div class="w-px h-4 bg-native/10 shrink-0" />
+
             {/* Search */}
             <div class="relative flex items-center">
               <Input
@@ -581,7 +595,7 @@ export const Vectors = (props: VectorsProps) => {
                   if (!isSemantic()) setSemanticResults([]);
                 }}
                 onKeyDown={(e) => e.key === "Enter" && isSemantic() && handleSemanticSearch()}
-                class={`w-64 h-7 pr-8 transition-all ${isSemantic() ? "border-accent/50 bg-accent/5 shadow-[0_0_10px_rgba(59,130,246,0.1)]" : ""}`}
+                class={`w-48 h-7 pr-8 transition-all ${isSemantic() ? "border-accent/50 bg-accent/5 shadow-[0_0_10px_rgba(59,130,246,0.1)]" : ""}`}
               />
               <button
                 onClick={() => {
@@ -598,7 +612,7 @@ export const Vectors = (props: VectorsProps) => {
             <div class="w-px h-5 bg-native-subtle" />
 
             <Button variant="toolbar" active={showIndexPanel()} onClick={() => setShowIndexPanel(!showIndexPanel())} class="flex items-center gap-1.5 h-7">
-              <Database size={12} class={showIndexPanel() ? "text-accent" : "text-native-tertiary"} />
+              <Sparkles size={12} class={showIndexPanel() ? "text-accent" : "text-native-tertiary"} />
               <span class="text-[11px] font-medium">Indices</span>
             </Button>
 
@@ -648,7 +662,7 @@ export const Vectors = (props: VectorsProps) => {
             <div class="absolute top-4 left-4 z-40 w-56 bg-native-elevated/95 backdrop-blur-xl rounded-xl border border-native shadow-macos-lg flex flex-col max-h-[calc(100%-2rem)] overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-left-4">
               <div class="flex-none p-3 border-b border-native flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                  <Database size={14} class="text-accent" />
+                  <Sparkles size={14} class="text-accent" />
                   <span class="text-[12px] font-bold text-native-primary">Indices</span>
                 </div>
                 <button onClick={() => setShowIndexPanel(false)} class="p-1 hover:bg-native-content/10 rounded-md transition-colors text-native-tertiary hover:text-native-primary">

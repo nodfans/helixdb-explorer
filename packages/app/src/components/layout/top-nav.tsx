@@ -1,5 +1,5 @@
 import { For } from "solid-js";
-import { Plug, DraftingCompass, Database, Terminal, Network, ChevronDown, SquareCode, VectorSquare } from "lucide-solid";
+import { Plug, DraftingCompass, Layers, Terminal, ChevronDown, MessageSquareCode, GitGraph, PanelTopDashed } from "lucide-solid";
 
 import { activeConnection } from "../../stores/connection";
 
@@ -12,6 +12,12 @@ interface TopNavProps {
 
 const NAV_ITEMS = [
   {
+    id: "dashboard",
+    label: "Dashboard",
+    icon: PanelTopDashed,
+    color: "text-rose-400",
+  },
+  {
     id: "hql",
     label: "HQL",
     icon: Terminal,
@@ -20,7 +26,7 @@ const NAV_ITEMS = [
   {
     id: "queries",
     label: "Queries",
-    icon: SquareCode,
+    icon: MessageSquareCode,
     color: "text-yellow-500",
   },
   {
@@ -32,13 +38,13 @@ const NAV_ITEMS = [
   {
     id: "schema",
     label: "Schema",
-    icon: Database,
-    color: "text-blue-500",
+    icon: Layers,
+    color: "text-indigo-500",
   },
   {
     id: "graph",
     label: "Graph",
-    icon: Network,
+    icon: GitGraph,
     color: "text-purple-500",
   },
   // {
