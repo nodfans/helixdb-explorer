@@ -34,6 +34,7 @@ interface PersistentState {
   hasFetched: boolean;
   showIndexPanel: boolean;
   searchQuery: string;
+  isSemantic: boolean;
   camera: { zoom: number; offset: { x: number; y: number } } | null;
 }
 let persistentStore: PersistentState | null = null;
@@ -119,12 +120,20 @@ export const Vectors = (props: VectorsProps) => {
   const [hasFetched, setHasFetched] = createSignal(persistentStore?.hasFetched ?? false);
   const [showIndexPanel, setShowIndexPanel] = createSignal(persistentStore?.showIndexPanel ?? false);
   const [searchQuery, setSearchQuery] = createSignal(persistentStore?.searchQuery ?? "");
+  const [isSemantic, setIsSemantic] = createSignal(persistentStore?.isSemantic ?? false);
+  const [semanticResults, setSemanticResults] = createSignal<string[]>([]);
 
   const filteredNodes = createMemo(() => {
     const query = searchQuery().trim().toLowerCase();
     if (!query) return nodes();
+
+    // If semantic search is on, we only filter if we have explicit results
+    if (isSemantic() && semanticResults().length > 0) {
+      return nodes().filter((n) => semanticResults().includes(n.id));
+    }
+
     return nodes().filter((n) => {
-      const name = String(n.name || n.label || n.id).toLowerCase();
+      const name = String(n.name || n.label || n.product_name || n.id).toLowerCase();
       return name.includes(query) || n.id.toLowerCase().includes(query);
     });
   });
@@ -304,6 +313,27 @@ export const Vectors = (props: VectorsProps) => {
     }
   };
 
+  const handleSemanticSearch = async () => {
+    const query = searchQuery().trim();
+    if (!query || !isSemantic() || !selectedIndex()) return;
+
+    setIsLoading(true);
+    try {
+      const results = await props.api.searchVectors(query, selectedIndex(), 50);
+      const ids = results.map((r: any) => r.id);
+      setSemanticResults(ids);
+
+      // If we found something, let's pan to the first result
+      if (ids.length > 0) {
+        panToNode(ids[0]);
+      }
+    } catch (e) {
+      console.warn("[Vectors] Semantic search failed:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   onMount(() => {
     if (canvasRef) {
       const resizeObserver = new ResizeObserver(() => draw());
@@ -326,6 +356,7 @@ export const Vectors = (props: VectorsProps) => {
       hasFetched: hasFetched(),
       showIndexPanel: showIndexPanel(),
       searchQuery: searchQuery(),
+      isSemantic: isSemantic(),
       camera: {
         zoom: zoom(),
         offset: offset(),
@@ -382,10 +413,11 @@ export const Vectors = (props: VectorsProps) => {
       const query = searchQuery().trim().toLowerCase();
       const isFilteredOut =
         query &&
-        !String(node.name || node.label || node.id)
-          .toLowerCase()
-          .includes(query) &&
-        !node.id.toLowerCase().includes(query);
+        (isSemantic()
+          ? !semanticResults().includes(node.id)
+          : !String(node.name || node.label || node.product_name || node.id)
+              .toLowerCase()
+              .includes(query) && !node.id.toLowerCase().includes(query));
 
       const nx = node.x! * scaleFactor;
       const ny = node.y! * scaleFactor;
@@ -436,7 +468,7 @@ export const Vectors = (props: VectorsProps) => {
 
       // Tooltip-style Labels (Matching Graph.tsx refinement)
       if ((isSelected || isHovered || showLabels()) && !isFilteredOut) {
-        const labelText = String(node.name || node.label || node.id);
+        const labelText = String(node.name || node.product_name || node.label || node.id);
         const displayLabel = labelText.length > 14 ? labelText.slice(0, 14) + "..." : labelText;
 
         ctx.font = `${isHovered ? "bold " : ""}${11 / zoom()}px Inter, system-ui, sans-serif`;
@@ -539,7 +571,29 @@ export const Vectors = (props: VectorsProps) => {
         <ToolbarLayout class="justify-between">
           <div class="flex items-center gap-3">
             {/* Search */}
-            <Input variant="search" placeholder="Search vectors..." value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-64 h-7" />
+            <div class="relative flex items-center">
+              <Input
+                variant="search"
+                placeholder={isSemantic() ? "Semantic search (AI)..." : "Search ID or Label..."}
+                value={searchQuery()}
+                onInput={(e) => {
+                  setSearchQuery(e.currentTarget.value);
+                  if (!isSemantic()) setSemanticResults([]);
+                }}
+                onKeyDown={(e) => e.key === "Enter" && isSemantic() && handleSemanticSearch()}
+                class={`w-64 h-7 pr-8 transition-all ${isSemantic() ? "border-accent/50 bg-accent/5 shadow-[0_0_10px_rgba(59,130,246,0.1)]" : ""}`}
+              />
+              <button
+                onClick={() => {
+                  setIsSemantic(!isSemantic());
+                  if (!isSemantic()) setSemanticResults([]);
+                }}
+                class={`absolute right-2 p-1 rounded transition-colors ${isSemantic() ? "text-accent hover:bg-accent/10" : "text-native-tertiary hover:bg-native-content/10"}`}
+                title="Toggle Semantic Search (AI)"
+              >
+                <Sparkles size={12} class={isSemantic() ? "animate-pulse" : ""} />
+              </button>
+            </div>
 
             <div class="w-px h-5 bg-native-subtle" />
 
@@ -662,14 +716,14 @@ export const Vectors = (props: VectorsProps) => {
                   </div>
                   <div class="space-y-1">
                     <p class="text-[11px] text-native-primary font-bold tracking-tight">No Selection</p>
-                    <p class="text-[10px] text-native-tertiary font-medium max-w-[140px] mx-auto leading-relaxed">Select a vector node in the space to inspect its properties.</p>
+                    <p class="text-[10px] text-native-tertiary font-medium max-w-[140px] mx-auto leading-relaxed">Select a vector node in the space to inspect its rich metadata.</p>
                   </div>
                 </div>
               }
             >
               {(node) => (
                 <div class="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
-                  <For each={Object.entries(node()).filter(([key]) => !["x", "y", "embedding", "color"].includes(key))}>
+                  <For each={Object.entries(node()).filter(([key]) => !["x", "y", "embedding", "color", "vector", "data"].includes(key))}>
                     {([key, value]) => (
                       <div class="flex flex-col gap-1 border-b border-native-subtle/20 pb-2 last:border-0 border-transparent hover:border-native-subtle transition-colors group">
                         <span class="text-[11px] font-bold text-native-tertiary tracking-wider group-hover:text-accent transition-colors">{key}</span>

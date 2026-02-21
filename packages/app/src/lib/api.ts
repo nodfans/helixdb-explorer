@@ -425,29 +425,24 @@ export class HelixApi {
   async fetchVectorNodes(vectorLabel: string, limit: number = 1000): Promise<any[]> {
     console.log(`[HelixApi] fetchVectorNodes starting for: ${vectorLabel}`);
 
-    // Dynamically discover the source node and edge from the schema
     if (!this.cachedSchema) {
-      console.log("[HelixApi] fetchVectorNodes: Beginning schema fetch...");
       try {
         this.cachedSchema = await this.fetchSchema();
-        console.log("[HelixApi] fetchVectorNodes: Schema fetched successfully");
       } catch (e) {
         console.warn("[HelixApi] Could not fetch schema for vector mapping:", e);
       }
     }
 
-    // Look for an edge pointing to this vector index in the schema
     const vectorEdge = this.cachedSchema?.edges.find((e) => e.to_node === vectorLabel);
-    console.log(`[HelixApi] fetchVectorNodes mapping decision:`, vectorEdge ? `Found edge ${vectorEdge.name} from ${vectorEdge.from_node}` : "No edge mapping found");
 
-    // Optimized HQL: Filter nodes that actually HAVE the vector edge, then traverse and range at the end.
-    // We explicitly request {id, label, data} to bypass the default HVector serialization.
     let hql = "";
     if (vectorEdge) {
+      // Start from vectors (v) to ensure every row has coord data,
+      // then hop back to source (src) for labels/properties.
       hql = `QUERY GetVectors() =>
-          src <- N<${vectorEdge.from_node}>::RANGE(0, ${limit})
-          v <- src::OutE<${vectorEdge.name}>::ToV
-          RETURN v
+          v <- V<${vectorLabel}>::RANGE(0, ${limit})
+          src <- v::In<${vectorEdge.name}>
+          RETURN v, src
         `;
     } else {
       hql = `QUERY GetVectors() =>
@@ -456,23 +451,40 @@ export class HelixApi {
         `;
     }
 
-    console.log(`[HelixApi] HQL execution starting...`);
-    console.log(`[HelixApi] HQL:`, hql);
-
     try {
+      console.log(`[HelixApi] fetchVectorNodes: Executing HQL:\n${hql}`);
       const res = await this.executeHQL(hql);
+      console.log(`[HelixApi] fetchVectorNodes: Raw response:`, res);
 
-      if (!res) return [];
-
-      let vectors: any[] = [];
-      if (res && typeof res === "object") {
-        const data = res.v || res.nodes || res.data || (Object.keys(res).length > 0 ? Object.values(res)[0] : null);
-        if (Array.isArray(data)) vectors = data;
-      } else if (Array.isArray(res)) {
-        vectors = res;
+      if (!res) {
+        console.warn("[HelixApi] fetchVectorNodes: Received empty response from executeHQL");
+        return [];
       }
 
-      return vectors;
+      // HELIX-EXPLORER BACKEND VIBE:
+      // Multiple HQL returns (e.g., "RETURN v, src") are returned as { v: [...], src: [...] }
+      if (res.v && res.src && Array.isArray(res.v) && Array.isArray(res.src)) {
+        console.log(`[HelixApi] fetchVectorNodes: Multiple returns detected (v, src). Zipping ${res.v.length} vectors with source nodes.`);
+        return res.v.map((vNode: any, i: number) => {
+          const srcNode = res.src[i] || {};
+          return {
+            ...vNode,
+            ...srcNode,
+            id: vNode.id, // Prefer vector ID for identification
+          };
+        });
+      }
+
+      // Fallback for single return or results-wrapped format
+      let rawData: any[] = [];
+      if (Array.isArray(res)) {
+        rawData = res;
+      } else if (res && typeof res === "object") {
+        rawData = res.results || res.v || res.nodes || res.data || Object.values(res)[0] || [];
+      }
+
+      console.log(`[HelixApi] fetchVectorNodes: Returning ${rawData.length} nodes (fallback/single path)`);
+      return rawData;
     } catch (e) {
       console.warn("fetchVectorNodes failed:", e);
       return [];
@@ -480,23 +492,50 @@ export class HelixApi {
   }
 
   async fetchSimilarNodes(nodeId: string, vectorLabel: string, k: number = 10): Promise<any[]> {
-    // Note: For similarity search, we would typically get the node's vector first
-    // then use SearchV<vectorLabel>(vector, k).
-    // For now, using a placeholder query that avoids invalid SIMILAR syntax.
-    // k is added to params to satisfy lint.
+    // 1. Find the vector associated with this node first
+    // 2. Perform SearchV based on that vector
+    // For now, we'll use a direct SearchV query if we had the vector,
+    // but since we only have nodeId, we traverse to the vector first then search.
+
+    if (!this.cachedSchema) {
+      try {
+        this.cachedSchema = await this.fetchSchema();
+      } catch {}
+    }
+
+    const vectorEdge = this.cachedSchema?.edges.find((e) => e.to_node === vectorLabel);
+    if (!vectorEdge) return [];
+
     const hql = `QUERY FindSimilar(start_id: ID, k: I32) =>
-      target <- N<${vectorLabel}>(id: $start_id)
-      RETURN target
+      target <- N<${vectorEdge.from_node}>(id: $start_id)
+      v_seed <- target::OutE<${vectorEdge.name}>::ToV
+      sim_v <- SearchV<${vectorLabel}>(v_seed, $k)
+      sim_node <- sim_v::In<${vectorEdge.name}>
+      RETURN sim_node
     `;
 
     try {
       const res = await this.executeHQL(hql, { start_id: nodeId, k });
-      if (res && typeof res === "object") {
-        return res.matches || res.target || res.data || Object.values(res)[0] || [];
-      }
+      if (res && res.sim_node) return res.sim_node;
       return Array.isArray(res) ? res : [];
     } catch (e) {
       console.warn("fetchSimilarNodes failed:", e);
+      return [];
+    }
+  }
+
+  async searchVectors(query: string, vectorLabel: string, k: number = 20): Promise<any[]> {
+    const hql = `QUERY SemanticSearch(q: String, k: I32) =>
+      v <- SearchV<${vectorLabel}>($q, $k)
+      RETURN v
+    `;
+
+    try {
+      const res = await this.executeHQL(hql, { q: query, k });
+      if (res && res.v) return res.v;
+      return Array.isArray(res) ? res : [];
+    } catch (e) {
+      console.warn("searchVectors failed:", e);
       return [];
     }
   }

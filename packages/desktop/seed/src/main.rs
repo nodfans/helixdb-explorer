@@ -1,14 +1,9 @@
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
 use chrono::{Utc, Duration};
-use rand::{Rng, thread_rng};
+use rand::{Rng, thread_rng, seq::SliceRandom};
 
 const HELIX_URL: &str = "http://127.0.0.1:6969";
-
-const USERS_PER_DOMAIN: usize = 2;
-const PRODUCTS_PER_DOMAIN: usize = 3;
-const PURCHASES_PER_USER: usize = 2;
-const EMBEDDINGS_PER_DOMAIN: usize = 5;
 
 const DOMAINS: [&str; 3] = ["Fashion", "Electronics", "Wellness"];
 const VECTOR_DIM: usize = 8;
@@ -20,7 +15,6 @@ fn generate_vector(domain_idx: usize, item_idx: usize) -> Vec<f64> {
     // Fashion:     dims 0,1,2  → high signal
     // Electronics: dims 3,4,5  → high signal
     // Wellness:    dims 5,6,7  → high signal
-    // All other dims stay near 0 → vectors are near-orthogonal across domains
     (0..VECTOR_DIM).map(|i| {
         let is_domain_dim = match domain_idx {
             0 => i < 3,
@@ -28,14 +22,11 @@ fn generate_vector(domain_idx: usize, item_idx: usize) -> Vec<f64> {
             2 => i >= 5,
             _ => false,
         };
-
         let base = if is_domain_dim {
-            // item_idx adds slight spread within the same domain
             (0.7 + item_idx as f64 * 0.05).min(0.95)
         } else {
             0.05
         };
-
         let noise: f64 = rng.gen_range(0.0..0.05);
         (base + noise).clamp(0.0, 1.0)
     }).collect()
@@ -65,67 +56,77 @@ fn extract_id(v: &Value) -> Result<String, String> {
     Err(format!("No id in: {:?}", v))
 }
 
-struct SeededNode { id: String, domain_idx: usize }
+struct SeededNode { id: String, domain_idx: usize, name: String }
 
 fn seed_users(client: &Client) -> Result<Vec<SeededNode>, Box<dyn std::error::Error>> {
-    println!(">>> Seeding Users...");
+    println!(">>> Seeding 10 Users...");
     let mut rng = thread_rng();
     let tiers = ["Bronze", "Silver", "Gold", "Platinum"];
     let regions = ["North", "South", "East", "West"];
 
-    let lifetime_ranges = [(500.0_f64, 3000.0_f64), (2000.0, 15000.0), (200.0, 1500.0)];
-    let recency_ranges = [(1_i64, 30_i64), (30, 180), (7, 60)];
+    let users_def: Vec<(&str, usize)> = vec![
+        ("Alice",   0),
+        ("Bob",     0),
+        ("Carol",   0),
+        ("Dave",    0),
+        ("Eve",     1),
+        ("Frank",   1),
+        ("Grace",   1),
+        ("Hank",    2),
+        ("Ivy",     2),
+        ("Jack",    2),
+    ];
 
     let mut nodes = Vec::new();
-    for domain_idx in 0..DOMAINS.len() {
-        let domain = DOMAINS[domain_idx];
-        for i in 0..USERS_PER_DOMAIN {
-            let payload = json!({
-                "name": format!("{}_User_{}", domain, i),
-                "age": rng.gen_range(18..65_i32),
-                "region": regions[rng.gen_range(0..regions.len())],
-                "tier": tiers[rng.gen_range(0..tiers.len())],
-                "lifetime_value": round2(rng.gen_range(lifetime_ranges[domain_idx].0..lifetime_ranges[domain_idx].1)),
-                "created_at": days_ago(rng.gen_range(recency_ranges[domain_idx].0..recency_ranges[domain_idx].1))
-            });
-            let resp = client.post(format!("{}/create_user", HELIX_URL)).json(&payload).send()?;
-            let id = extract_id(&check_resp(resp, "create_user")?)?;
-            println!("  [{}] User_{} → {}", domain, i, id);
-            nodes.push(SeededNode { id, domain_idx });
-        }
+    for (i, (name, domain_idx)) in users_def.iter().enumerate() {
+        let payload = json!({
+            "name": name,
+            "age": rng.gen_range(18..65_i32),
+            "region": regions[rng.gen_range(0..regions.len())],
+            "tier": tiers[rng.gen_range(0..tiers.len())],
+            "lifetime_value": round2(rng.gen_range(500.0..5000.0_f64)),
+            "created_at": days_ago(rng.gen_range(1..180_i64))
+        });
+        let resp = client.post(format!("{}/create_user", HELIX_URL)).json(&payload).send()?;
+        let id = extract_id(&check_resp(resp, "create_user")?)?;
+        println!("  [User {:02}] {} ({}) → {}", i, name, DOMAINS[*domain_idx], id);
+        nodes.push(SeededNode { id, domain_idx: *domain_idx, name: name.to_string() });
     }
-    println!("  Total users: {}", nodes.len());
+    println!("  Total users: {}\n", nodes.len());
     Ok(nodes)
 }
 
 fn seed_products(client: &Client) -> Result<Vec<SeededNode>, Box<dyn std::error::Error>> {
-    println!(">>> Seeding Products...");
+    println!(">>> Seeding 10 Products...");
     let mut rng = thread_rng();
-    let brands = [
-        ["Zara", "H&M", "Uniqlo"],
-        ["Apple", "Samsung", "Sony"],
-        ["Lush", "Nivea", "The Ordinary"],
+
+    let products_def: Vec<(&str, &str, usize, f64, f64)> = vec![
+        ("SKU-0000", "Zara Jacket",        0, 20.0,  300.0),
+        ("SKU-0001", "H&M Dress",          0, 20.0,  300.0),
+        ("SKU-0002", "Uniqlo Tee",         0, 20.0,  300.0),
+        ("SKU-0003", "Zara Boots",         0, 20.0,  300.0),
+        ("SKU-0004", "Apple AirPods",      1, 100.0, 2000.0),
+        ("SKU-0005", "Samsung Monitor",    1, 100.0, 2000.0),
+        ("SKU-0006", "Sony Headphones",    1, 100.0, 2000.0),
+        ("SKU-0007", "Lush Bath Bomb",     2, 10.0,  150.0),
+        ("SKU-0008", "Nivea Cream",        2, 10.0,  150.0),
+        ("SKU-0009", "The Ordinary Serum", 2, 10.0,  150.0),
     ];
-    let price_ranges = [(20.0_f64, 300.0_f64), (100.0, 2000.0), (10.0, 150.0)];
 
     let mut nodes = Vec::new();
-    for domain_idx in 0..DOMAINS.len() {
-        let domain = DOMAINS[domain_idx];
-        for i in 0..PRODUCTS_PER_DOMAIN {
-            let brand = brands[domain_idx][i % 3];
-            let payload = json!({
-                "sku": format!("SKU-{}-{:04}", domain.to_uppercase(), i),
-                "name": format!("{} {} #{}", brand, domain, i),
-                "category": domain,
-                "price": round2(rng.gen_range(price_ranges[domain_idx].0..price_ranges[domain_idx].1))
-            });
-            let resp = client.post(format!("{}/create_product", HELIX_URL)).json(&payload).send()?;
-            let id = extract_id(&check_resp(resp, "create_product")?)?;
-            println!("  [{}] Product_{} → {}", domain, i, id);
-            nodes.push(SeededNode { id, domain_idx });
-        }
+    for (i, (sku, name, domain_idx, min_p, max_p)) in products_def.iter().enumerate() {
+        let payload = json!({
+            "sku": sku,
+            "name": name,
+            "category": DOMAINS[*domain_idx],
+            "price": round2(rng.gen_range(*min_p..*max_p))
+        });
+        let resp = client.post(format!("{}/create_product", HELIX_URL)).json(&payload).send()?;
+        let id = extract_id(&check_resp(resp, "create_product")?)?;
+        println!("  [Product {:02}] {} ({}) → {}", i, name, DOMAINS[*domain_idx], id);
+        nodes.push(SeededNode { id, domain_idx: *domain_idx, name: name.to_string() });
     }
-    println!("  Total products: {}", nodes.len());
+    println!("  Total products: {}\n", nodes.len());
     Ok(nodes)
 }
 
@@ -134,37 +135,26 @@ fn seed_purchases(
     users: &[SeededNode],
     products: &[SeededNode],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!(">>> Seeding Purchased edges...");
+    println!(">>> Seeding 10 Purchased edges (1 per user)...");
     let mut rng = thread_rng();
-    let mut edge_count = 0;
 
-    let mut domain_products: Vec<Vec<&SeededNode>> = vec![Vec::new(); 3];
-    for p in products { domain_products[p.domain_idx].push(p); }
+    let mut product_pool: Vec<&SeededNode> = products.iter().collect();
+    product_pool.shuffle(&mut rng);
 
-    let amount_ranges = [(20.0_f64, 300.0_f64), (100.0, 2000.0), (10.0, 150.0)];
-    let recency_ranges = [(1_i64, 30_i64), (30, 180), (7, 60)];
-
-    for user in users {
-        let d = user.domain_idx;
-        for _ in 0..PURCHASES_PER_USER {
-            let product = if rng.gen_bool(0.7) && !domain_products[d].is_empty() {
-                domain_products[d][rng.gen_range(0..domain_products[d].len())]
-            } else {
-                &products[rng.gen_range(0..products.len())]
-            };
-            let amount = round2(rng.gen_range(amount_ranges[d].0..amount_ranges[d].1));
-            let resp = client.post(format!("{}/connect_purchased", HELIX_URL)).json(&json!({
-                "from_id": &user.id,
-                "to_id": &product.id,
-                "date": days_ago(rng.gen_range(recency_ranges[d].0..recency_ranges[d].1)),
-                "amount": amount,
-                "quantity": rng.gen_range(1..4_i32)
-            })).send()?;
-            check_resp(resp, "connect_purchased")?;
-            edge_count += 1;
-        }
+    for (i, (user, product)) in users.iter().zip(product_pool.iter()).enumerate() {
+        let amount = round2(rng.gen_range(10.0..2000.0_f64));
+        let resp = client.post(format!("{}/connect_purchased", HELIX_URL)).json(&json!({
+            "from_id": &user.id,
+            "to_id": &product.id,
+            "date": days_ago(rng.gen_range(1..180_i64)),
+            "amount": amount,
+            "quantity": rng.gen_range(1..4_i32)
+        })).send()?;
+        check_resp(resp, "connect_purchased")?;
+        println!("  [Purchase {:02}] {} → \"{}\" ${}", i, user.name, product.name, amount);
     }
-    println!("  Total Purchased edges: {}", edge_count);
+
+    println!("  Total Purchased edges: {}\n", users.len());
     Ok(())
 }
 
@@ -172,34 +162,24 @@ fn seed_product_embeddings(
     client: &Client,
     products: &[SeededNode],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!(">>> Seeding ProductEmbeddings...");
-    let mut rng = thread_rng();
-    let mut count = 0;
+    println!(">>> Seeding 10 ProductEmbeddings (1 per product)...");
 
-    let mut domain_products: Vec<Vec<&SeededNode>> = vec![Vec::new(); 3];
-    for p in products { domain_products[p.domain_idx].push(p); }
+    for (i, product) in products.iter().enumerate() {
+        let vector = generate_vector(product.domain_idx, i);
+        println!("  [Embed {:02}] \"{}\" → {:?}", i, product.name, vector);
 
-    for domain_idx in 0..DOMAINS.len() {
-        let pool = &domain_products[domain_idx];
-        for i in 0..EMBEDDINGS_PER_DOMAIN {
-            let product = pool[i % pool.len()];
-            let vector = generate_vector(domain_idx, i);
-            println!("  [{}] Vector for {}: {:?}", DOMAINS[domain_idx], product.id, vector);
-            let payload = json!({
-                "product_id": product.id,
-                "name": format!("{} Embed {}", DOMAINS[domain_idx], i),
-                "description": format!("{} product semantic embedding {}", DOMAINS[domain_idx], i),
-                "price": round2(rng.gen_range(10.0..2000.0_f64)),
-                "vec_data": vector,
-                "created_at": get_now()
-            });
-            let resp = client.post(format!("{}/add_product_embedding", HELIX_URL)).json(&payload).send()?;
-            check_resp(resp, "add_product_embedding")?;
-            count += 1;
-        }
-        println!("  [{}] {} embeddings seeded", DOMAINS[domain_idx], EMBEDDINGS_PER_DOMAIN);
+        let payload = json!({
+            "product_id": product.id,
+            "name": format!("{} Embedding", product.name),
+            "description": format!("Semantic embedding for {}", product.name),
+            "vec_data": vector,
+            "created_at": get_now()
+        });
+        let resp = client.post(format!("{}/add_product_embedding", HELIX_URL)).json(&payload).send()?;
+        check_resp(resp, "add_product_embedding")?;
     }
-    println!("  Total ProductEmbeddings: {}", count);
+
+    println!("  Total ProductEmbeddings: {}\n", products.len());
     Ok(())
 }
 
@@ -226,10 +206,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     println!("=== Helix Simple Seed ===");
-    println!("    Users:      {} per domain × 3 = {}", USERS_PER_DOMAIN, USERS_PER_DOMAIN * 3);
-    println!("    Products:   {} per domain × 3 = {}", PRODUCTS_PER_DOMAIN, PRODUCTS_PER_DOMAIN * 3);
-    println!("    Purchases:  {} per user × {} = {}", PURCHASES_PER_USER, USERS_PER_DOMAIN * 3, PURCHASES_PER_USER * USERS_PER_DOMAIN * 3);
-    println!("    Embeddings: {} per domain × 3 = {}", EMBEDDINGS_PER_DOMAIN, EMBEDDINGS_PER_DOMAIN * 3);
+    println!("    Users:      10 (4 Fashion, 3 Electronics, 3 Wellness)");
+    println!("    Products:   10 (4 Fashion, 3 Electronics, 3 Wellness)");
+    println!("    Purchases:  10 (1 per user, each product bought once)");
+    println!("    Embeddings: 10 (1 per product, clean 1:1)\n");
 
     let users    = seed_users(&client)?;
     let products = seed_products(&client)?;

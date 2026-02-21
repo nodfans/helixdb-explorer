@@ -213,11 +213,13 @@ pub fn map_traversal_to_tools(traversal: &Traversal, params: &serde_json::Value)
                  let start = match extract_value(start_expr, params)? {
                      Value::I32(val) => val as usize,
                      Value::I64(val) => val as usize,
+                     Value::F64(val) => val as usize,
                      _ => 0,
                  };
                  let end = match extract_value(end_expr, params)? {
                      Value::I32(val) => Some(val as usize),
                      Value::I64(val) => Some(val as usize),
+                     Value::F64(val) => Some(val as usize),
                      _ => None,
                  };
                  final_action = FinalAction::Collect { range: Some((start, end)) };

@@ -205,8 +205,11 @@ async fn execute_final_action(client: &reqwest::Client, url: &str, conn: &str, a
 
 async fn collect_results(client: &reqwest::Client, url: &str, connection_id: &str, range: Option<(usize, Option<usize>)>) -> Result<serde_json::Value, String> {
     let range_json = if let Some((start, end)) = range {
-        if let Some(e) = end { serde_json::json!({ "start": start, "end": e }) } else { serde_json::json!({ "start": start }) }
-    } else { serde_json::json!(null) };
+        let e = end.unwrap_or(1_000_000); // Backend requires 'end', fallback to a large limit if None
+        serde_json::json!({ "start": start, "end": e })
+    } else {
+        serde_json::json!(null)
+    };
 
     let resp = client.post(format!("{}/mcp/collect", url)).json(&serde_json::json!({ "connection_id": connection_id, "range": range_json, "drop": true })).send().await
         .map_err(|e| format!("Collect failed: {}", e))?;
