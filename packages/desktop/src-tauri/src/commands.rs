@@ -367,6 +367,58 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
 
 
 #[tauri::command]
+pub async fn fetch_mcp_schema(url: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to build client: {}", e))?;
+
+    // 1. Init MCP connection
+    let init_resp = client.post(format!("{}/mcp/init", url))
+        .send()
+        .await
+        .map_err(|e| map_reqwest_error(e, "Init failed"))?;
+    
+    if !init_resp.status().is_success() {
+        let status = init_resp.status();
+        let err_text = init_resp.text().await.unwrap_or_else(|_| String::new());
+        return Err(format!("Init request failed ({}): {}", status, err_text));
+    }
+
+    let init_body = init_resp.text().await.map_err(|e| format!("Failed to read init body: {}", e))?;
+    let connection_id: String = serde_json::from_str(&init_body)
+        .map_err(|e| format!("Failed to parse connection_id from '{}': {}", init_body, e))?;
+
+    // 2. Request schema_resource
+    let schema_resp = client.post(format!("{}/mcp/schema_resource", url))
+        .json(&serde_json::json!({ "connection_id": connection_id }))
+        .send()
+        .await
+        .map_err(|e| map_reqwest_error(e, "Schema request failed"))?;
+
+    if !schema_resp.status().is_success() {
+        let status = schema_resp.status();
+        let err_text = schema_resp.text().await.unwrap_or_else(|_| String::new());
+        return Err(format!("Schema request failed ({}): {}", status, err_text));
+    }
+
+    let val = schema_resp.json::<serde_json::Value>().await
+        .map_err(|e| format!("Failed to parse schema response: {}", e))?;
+    
+   if let serde_json::Value::String(s) = &val {
+        if s == "no schema" {
+            return Ok(serde_json::json!({}));
+        }
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(s) {
+            return Ok(parsed);
+        }
+    }
+    
+    Ok(val)
+}
+
+#[tauri::command]
 pub fn load_connection_config(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     config::load_connection_config(app)
 }

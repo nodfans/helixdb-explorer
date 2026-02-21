@@ -170,6 +170,7 @@ pub fn run() {
             log_to_terminal,
             terminate_app,
             helix_request,
+            fetch_mcp_schema,
             execute_query,
             execute_dynamic_hql,
             load_connection_config,

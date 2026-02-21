@@ -142,11 +142,15 @@ export class HelixApi {
 
     const processData = (data: any) => {
       // Look for shared properties maps
-      const sharedProps = data.properties || data.fields || data.schema || {};
+      const sharedProps = data.properties || data.fields || data.schema?.properties || {};
 
-      const nodesInput = data.nodes || data.classes || data.labels || (Array.isArray(data) ? data : []);
-      const edgesInput = data.edges || data.relationships || data.links || [];
-      const vectorsInput = data.vectors || data.indexes || [];
+      // The MCP schema_resource returns { queries: [...], schema: { nodes: [], edges: [], vectors: [] } }
+      // while the old /introspect might return { nodes: [], edges: [], vectors: [] } directly or also nested.
+      const sourceData = data.schema?.nodes ? data.schema : data;
+
+      const nodesInput = sourceData.nodes || sourceData.classes || sourceData.labels || (Array.isArray(sourceData) ? sourceData : []);
+      const edgesInput = sourceData.edges || sourceData.relationships || sourceData.links || [];
+      const vectorsInput = sourceData.vectors || sourceData.indexes || [];
 
       return {
         nodes: normalizeItems(nodesInput, sharedProps),
@@ -155,15 +159,30 @@ export class HelixApi {
       };
     };
 
-    // HelixDB primarily uses /introspect for schema info. /schema is often restricted to POST.
     try {
-      console.log("HelixApi: Fetching schema via /introspect...");
-      const res = await this.request("/introspect");
-      console.log("HelixApi: /introspect success", res);
+      let data: any;
+      if (isTauri()) {
+        data = await invoke<any>("fetch_mcp_schema", {
+          url: this.baseUrl,
+        });
+      } else {
+        // Browser fallback for MCP (manually executing init & schema_resource rest calls)
+        const initRes = await fetch(`${this.baseUrl}/mcp/init`, { method: "POST" });
+        if (!initRes.ok) throw new Error("MCP Init failed");
+        const connectionId = await initRes.json();
 
-      const data = res.data || res.schema || res.results || res || {};
+        const schemaRes = await fetch(`${this.baseUrl}/mcp/schema_resource`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ connection_id: connectionId }),
+        });
+        if (!schemaRes.ok) throw new Error("MCP Schema Request failed");
+        const val = await schemaRes.json();
+        data = typeof val === "string" && val !== "no schema" ? JSON.parse(val) : val;
+        if (data === "no schema") data = {};
+      }
+
       const normalized = processData(data);
-      console.log("HelixApi: Normalized /introspect data", normalized);
       return normalized;
     } catch (introspectErr: any) {
       console.warn("HelixApi: /introspect failed, trying /nodes-edges sampling fallback...", introspectErr);
