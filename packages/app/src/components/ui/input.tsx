@@ -19,9 +19,9 @@ export function Input(props: InputProps) {
           autocorrect="off"
           autocapitalize="off"
           spellcheck={false}
-          class="w-full h-[28px] pl-9 pr-3 rounded-md text-[13px] outline-none transition-all relative z-0 bg-native-elevated border border-native text-native-primary focus:border-accent"
+          class="w-full h-[28px] pl-8 pr-3 rounded-md text-[13px] outline-none transition-all relative z-0 bg-native-elevated border border-native text-native-primary focus:border-accent"
         />
-        <Search size={16} stroke-width={2} class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 text-native-tertiary" />
+        <Search size={16} stroke-width={2} class="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none z-10 text-native-tertiary" />
       </div>
     );
   }

@@ -1,5 +1,5 @@
 import { Show, Switch, Match, type Accessor, Index, createSignal, For } from "solid-js";
-import { Table, Copy, ChevronDown, Loader2, X, Database, FileCode, CheckCircle2, Info } from "lucide-solid";
+import { Table, Copy, ChevronDown, LoaderCircle, X, Database, FileCode, Info, CircleCheck, Terminal } from "lucide-solid";
 import { Button } from "./button";
 import { ResultTable } from "./result-table";
 import type { HqlTab } from "../../stores/hql";
@@ -69,13 +69,13 @@ export const HqlPanel = (props: HqlPanelProps) => {
               <Switch>
                 <Match when={props.activeTab.queryStatus === "loading"}>
                   <div class="flex items-center gap-1.5">
-                    <Loader2 size={11} class="animate-spin text-accent" />
+                    <LoaderCircle size={11} class="animate-spin text-accent" />
                     <span class="text-[10px] text-accent font-medium">Running...</span>
                   </div>
                 </Match>
                 <Match when={props.activeTab.queryStatus === "success"}>
                   <div class="flex items-center gap-1.5">
-                    <CheckCircle2 size={11} class="text-emerald-500" />
+                    <CircleCheck size={11} class="text-emerald-500" />
                     <span class="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Success</span>
                     <Show when={props.activeTab.rawOutput}>
                       <div class="w-[3.5px] h-[3.5px] rounded-full bg-[var(--text-tertiary)] mx-1.5 shrink-0 opacity-60" />
@@ -122,7 +122,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
           <Show when={props.activeTab.output}>
             <Button variant="toolbar" size="sm" onMouseDown={props.copyOutput} class="flex items-center gap-1.5">
               <Show when={props.copied()} fallback={<Copy size={11} />}>
-                <CheckCircle2 size={11} class="text-emerald-500" />
+                <CircleCheck size={11} class="text-emerald-500" />
               </Show>
               <span>{props.copied() ? "Copied" : "Copy"}</span>
             </Button>
@@ -147,7 +147,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
           {/* 3. Loading (Initial) */}
           <Match when={props.activeTab.status === "loading" && !props.activeTab.rawOutput && props.activeTab.viewMode !== "log"}>
             <div class="h-full flex flex-col items-center justify-center">
-              <Loader2 size={24} class="animate-spin text-accent mb-2" />
+              <LoaderCircle size={24} class="animate-spin text-accent mb-2" />
               <div class="text-[12px] text-native-primary font-medium">Executing HQL...</div>
             </div>
           </Match>
@@ -227,7 +227,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
           {/* 5. Idle State */}
           <Match when={true}>
             <div class="h-full flex flex-col items-center justify-center text-native-quaternary">
-              <Database size={32} class="opacity-25 mb-3" />
+              <Terminal size={32} class="opacity-25 mb-3" />
               <span class="text-xs font-medium">Ready to execute HQL</span>
             </div>
           </Match>

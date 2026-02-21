@@ -3,7 +3,7 @@ import { HelixApi } from "../lib/api";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { RefreshCw, RotateCcw, ChevronRight, Sparkles, Maximize, Layers, Check, X, Crosshair, Link2 } from "lucide-solid";
+import { RefreshCw, RotateCcw, ChevronRight, Sparkles, Maximize, Layers, Check, X, Crosshair } from "lucide-solid";
 import { ToolbarLayout } from "./ui/toolbar-layout";
 
 interface VectorsProps {
@@ -570,20 +570,6 @@ export const Vectors = (props: VectorsProps) => {
       <div class="flex-none bg-native-content/80 backdrop-blur-md border-b border-native">
         <ToolbarLayout class="justify-between">
           <div class="flex items-center gap-4">
-            <div class="flex items-center gap-2 px-2 py-1 rounded-md bg-rose-500/10 border border-rose-500/10 shrink-0">
-              <Sparkles size={14} class="text-rose-500" strokeWidth={2.5} />
-              <span class="text-[12px] font-bold text-rose-500 uppercase tracking-wider">Vector Space</span>
-            </div>
-
-            <div class="w-px h-4 bg-native/10 shrink-0" />
-
-            <div class="flex items-center gap-1.5 text-[11px] text-native-tertiary font-medium">
-              <Link2 size={12} class="opacity-60" />
-              <span class="truncate max-w-[120px]">{props.api?.baseUrl || "Not Connected"}</span>
-            </div>
-
-            <div class="w-px h-4 bg-native/10 shrink-0" />
-
             {/* Search */}
             <div class="relative flex items-center">
               <Input

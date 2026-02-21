@@ -5,7 +5,7 @@ import { EndpointConfig } from "../lib/types";
 import { workbenchState, setWorkbenchState, queryStateCache } from "../stores/workbench";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Copy, Check, ChevronRight, CircleAlert, Plus, Minus, Play, Loader2, X, Table, Braces, Search, Link, MessageSquareCode } from "lucide-solid";
+import { Copy, Check, ChevronRight, CircleAlert, Plus, Minus, Play, LoaderCircle, X, Table, Braces, Search, Link, MessageSquareCode } from "lucide-solid";
 import { ResultTable } from "./ui/result-table";
 import { ToolbarLayout } from "./ui/toolbar-layout";
 import { EmptyState } from "./ui/empty-state";
@@ -325,10 +325,7 @@ export const Queries = (props: QueriesProps) => {
           <div class="w-[200px] flex-none flex flex-col border-r border-native relative macos-vibrant-sidebar overflow-hidden" style={{ width: `${sidebarWidth()}px` }}>
             <div class="px-3 py-4 flex-none border-b border-native">
               <div class="flex items-center justify-between mb-3 px-1">
-                <h2 class="text-[12px] font-semibold text-native-secondary/80 flex items-center gap-2">
-                  <MessageSquareCode size={12} class="text-yellow-500" />
-                  Workbench
-                </h2>
+                <h2 class="text-[12px] font-semibold text-native-secondary/80 flex items-center gap-2">Workbench</h2>
               </div>
 
               <div class="w-full">
@@ -399,13 +396,6 @@ export const Queries = (props: QueriesProps) => {
           >
             <ToolbarLayout class="justify-between items-center pl-1">
               <div class="flex items-center gap-4 min-w-0">
-                <div class="flex items-center gap-2 px-2 py-1 rounded-md bg-yellow-500/10 border border-yellow-500/10 shrink-0">
-                  <MessageSquareCode size={14} class="text-yellow-500" strokeWidth={2.5} />
-                  <span class="text-[12px] font-bold text-yellow-500 uppercase tracking-wider">Queries</span>
-                </div>
-
-                <div class="w-px h-4 bg-native/10 shrink-0" />
-
                 <Show when={selectedEndpoint()} fallback={<span class="text-[10px] font-semibold text-native-quaternary tracking-wider uppercase">Overview</span>}>
                   <div
                     class="flex items-center gap-1.5 cursor-pointer hover:bg-native-hover/60 px-1.5 py-0.5 rounded transition-colors group/path"
@@ -431,7 +421,7 @@ export const Queries = (props: QueriesProps) => {
                   title="Run (⌘+Enter)"
                   class="h-7 w-7 flex items-center justify-center rounded-md hover:bg-native-content/50 active:bg-native-content transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <Show when={!props.isExecuting} fallback={<Loader2 size={14} class="animate-spin text-emerald-500" strokeWidth={2.5} />}>
+                  <Show when={!props.isExecuting} fallback={<LoaderCircle size={14} class="animate-spin text-emerald-500" strokeWidth={2.5} />}>
                     <Play size={14} class="text-emerald-500" strokeWidth={2.5} fill="currentColor" />
                   </Show>
                 </button>

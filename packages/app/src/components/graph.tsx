@@ -1,7 +1,7 @@
 import { createSignal, createEffect, createMemo, onCleanup, onMount, Show, For } from "solid-js";
 import { HelixApi } from "../lib/api";
 import ForceGraphFactory from "force-graph";
-import { GitGraph, RefreshCw, ChevronRight, X, Maximize, Layers, Check, TriangleAlert, Link2 } from "lucide-solid";
+import { GitGraph, RefreshCw, ChevronRight, X, Maximize, Layers, Check, TriangleAlert } from "lucide-solid";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ToolbarLayout } from "./ui/toolbar-layout";
@@ -735,20 +735,6 @@ export const Graph = (props: GraphProps) => {
       <div class="flex-none">
         <ToolbarLayout class="justify-between">
           <div class="flex items-center gap-4">
-            <div class="flex items-center gap-2 px-2 py-1 rounded-md bg-purple-500/10 border border-purple-500/10 shrink-0">
-              <GitGraph size={14} class="text-purple-500" strokeWidth={2.5} />
-              <span class="text-[12px] font-bold text-purple-500 uppercase tracking-wider">Graph</span>
-            </div>
-
-            <div class="w-px h-4 bg-native/10 shrink-0" />
-
-            <div class="flex items-center gap-1.5 text-[11px] text-native-tertiary font-medium shrink-0">
-              <Link2 size={12} class="opacity-60" />
-              <span class="truncate max-w-[120px]">{props.api?.baseUrl || "Not Connected"}</span>
-            </div>
-
-            <div class="w-px h-4 bg-native/10 shrink-0" />
-
             <Input variant="search" placeholder="Search nodes..." value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-48 h-7 shrink-0" />
 
             <div class="w-px h-1.5" />

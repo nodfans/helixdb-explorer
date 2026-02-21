@@ -3,7 +3,7 @@ import { NodeType, EdgeType, VectorType } from "../lib/types";
 import { Input } from "./ui/input";
 import { HelixApi } from "../lib/api";
 import { Button } from "./ui/button";
-import { CircleDot, Share2, Zap, ArrowRight, RefreshCw, ChevronsUpDown, ChevronsDownUp, ChevronDown, ChevronRight, Layers, Link2 } from "lucide-solid";
+import { CircleDot, Share2, Zap, ArrowRight, RefreshCw, ChevronsUpDown, ChevronsDownUp, ChevronDown, ChevronRight, Layers } from "lucide-solid";
 import { ToolbarLayout } from "./ui/toolbar-layout";
 import { EmptyState } from "./ui/empty-state";
 
@@ -301,20 +301,6 @@ export const Schema = (props: SchemaProps) => {
         {/* Top Row: Primary Toolbar */}
         <ToolbarLayout class="justify-between">
           <div class="flex items-center gap-4">
-            <div class="flex items-center gap-2 px-2 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/10 shrink-0">
-              <Layers size={14} class="text-indigo-500" strokeWidth={2.5} />
-              <span class="text-[12px] font-bold text-indigo-500 uppercase tracking-wider">Schema</span>
-            </div>
-
-            <div class="w-px h-4 bg-native/10 shrink-0" />
-
-            <div class="flex items-center gap-1.5 text-[11px] text-native-tertiary font-medium">
-              <Link2 size={12} class="opacity-60" />
-              <span class="truncate max-w-[120px]">{props.api?.baseUrl || "Not Connected"}</span>
-            </div>
-
-            <div class="w-px h-4 bg-native/10 shrink-0" />
-
             <Input variant="search" placeholder={`Search ${activeTab()}...`} value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-48 h-7" />
 
             <div class="w-px h-5 bg-native-subtle" />
@@ -404,7 +390,6 @@ export const Schema = (props: SchemaProps) => {
         </div>
       </div>
 
-      {/* ref 绑在这里，ResizeObserver 监听的是这个容器的实际宽度 */}
       <div ref={gridContainerRef} class="flex-1 overflow-y-auto px-5 py-5 scrollbar-thin">
         <Show when={!loading() && error()}>
           <div class="bg-status-error/10 border border-status-error/20 text-status-error px-4 py-3 rounded-lg flex items-center gap-3">

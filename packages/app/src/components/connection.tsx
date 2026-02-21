@@ -1,6 +1,6 @@
 import { For, Show, createSignal, createEffect, onMount, onCleanup } from "solid-js";
 import { Input } from "./ui/input";
-import { AlertCircle, Plus, Trash2, Server, Globe, Hash, ShieldCheck, CheckCircle2, Database, Zap } from "lucide-solid";
+import { CircleAlert, Plus, Trash2, Server, Globe, Hash, ShieldCheck, CircleCheck, Database, Zap } from "lucide-solid";
 import { connectionStore, setConnectionStore, saveConnections, ConnectionInfo, activeConnection } from "../stores/connection";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -256,7 +256,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                       }`}
                     >
                       <div class="shrink-0">
-                        {testResult()?.success ? <CheckCircle2 size={14} strokeWidth={2.5} class="text-emerald-500" /> : <AlertCircle size={14} strokeWidth={2.5} class="text-red-500" />}
+                        {testResult()?.success ? <CircleCheck size={14} strokeWidth={2.5} class="text-emerald-500" /> : <CircleAlert size={14} strokeWidth={2.5} class="text-red-500" />}
                       </div>
                       <span class="text-[11px] font-medium leading-tight">{testResult()?.message || props.error}</span>
                     </div>

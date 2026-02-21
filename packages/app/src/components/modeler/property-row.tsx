@@ -1,5 +1,5 @@
 import { createEffect, createSignal, Show, For, onCleanup } from "solid-js";
-import { Type, Hash, Fingerprint, Calendar, ChevronDown, Trash2, Settings2 } from "lucide-solid";
+import { Type, Hash, FingerprintPattern, Calendar, ChevronDown, Trash2, Settings2 } from "lucide-solid";
 import { PropertyDef, HqlType, HQL_TYPES } from "../../lib/codegen";
 import { Badge } from "../ui/badge";
 
@@ -45,7 +45,7 @@ export const PropertyRow = (props: PropertyRowProps) => {
       case "String":
         return <Type size={12} class="text-accent" />;
       case "ID":
-        return <Fingerprint size={12} class="text-purple-500" />;
+        return <FingerprintPattern size={12} class="text-purple-500" />;
       case "Date":
         return <Calendar size={12} class="text-error" />;
       case "Boolean":

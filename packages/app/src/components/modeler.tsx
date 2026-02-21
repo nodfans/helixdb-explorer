@@ -1,7 +1,7 @@
 import { createSignal, createMemo, Show, Index, onCleanup } from "solid-js";
 import { HelixApi } from "../lib/api";
 import { reconcile } from "solid-js/store";
-import { DraftingCompass, CircleDot, Share2, Link2, Layers } from "lucide-solid";
+import { DraftingCompass, CircleDot, Share2, Layers } from "lucide-solid";
 import { ProEntityCard } from "./modeler/entity-card";
 import { HqlCodeGen, EntityDef } from "../lib/codegen";
 import { CodePanel } from "./modeler/code-panel";
@@ -278,20 +278,6 @@ export const Modeler = (_props: ModelerProps) => {
       <div class="flex-1 flex flex-col min-w-0">
         <ToolbarLayout class="justify-between">
           <div class="flex items-center gap-4">
-            <div class="flex items-center gap-2 px-2 py-1 rounded-md bg-orange-500/10 border border-orange-500/10 shrink-0">
-              <DraftingCompass size={14} class="text-orange-500" strokeWidth={2.5} />
-              <span class="text-[12px] font-bold text-orange-500 uppercase tracking-wider">Modeler</span>
-            </div>
-
-            <div class="w-px h-4 bg-native/10 shrink-0" />
-
-            <div class="flex items-center gap-1.5 text-[11px] text-native-tertiary font-medium">
-              <Link2 size={12} class="opacity-60" />
-              <span class="truncate max-w-[120px]">{_props.api?.baseUrl || "Not Connected"}</span>
-            </div>
-
-            <div class="w-px h-4 bg-native/10 shrink-0" />
-
             <Button
               variant="toolbar"
               onMouseDown={(e) => {
