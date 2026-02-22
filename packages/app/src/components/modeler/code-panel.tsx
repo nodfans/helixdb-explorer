@@ -56,7 +56,7 @@ export const CodePanel = (props: CodePanelProps) => {
   return (
     <div class="flex-none flex flex-col h-full bg-native-sidebar border-l border-native-subtle">
       {/* Top Toolbar */}
-      <header class="h-12 flex-none border-b border-native-subtle bg-native-sidebar-vibrant flex items-center justify-between px-4">
+      <header class="h-11 flex-none border-b border-native-subtle bg-native-sidebar-vibrant flex items-center justify-between px-4">
         <div class="flex items-center gap-2">
           <FileCode size={14} class="text-accent" strokeWidth={2} />
           <span class="text-[12px] font-semibold text-native-primary">HQL Generation</span>

@@ -444,24 +444,22 @@ export const Queries = (props: QueriesProps) => {
                   <div class="w-px h-3.5 bg-native-subtle opacity-30" />
                 </Show>
 
-                <div class="relative group/search">
-                  <Search size={12} class="absolute left-2.5 top-1/2 -translate-y-1/2 text-native-quaternary group-focus-within/search:text-accent transition-colors" />
-                  <input
-                    type="text"
+                <div class="relative transition-all duration-300 ease-out z-10" style={{ width: searchFocused() || resultSearchQuery() ? "180px" : "110px" }}>
+                  <Input
+                    variant="search"
+                    fullWidth
                     placeholder="Search..."
                     value={resultSearchQuery()}
                     onFocus={() => setSearchFocused(true)}
                     onBlur={() => setSearchFocused(false)}
                     onInput={(e) => setResultSearchQuery(e.currentTarget.value)}
-                    class="h-7 pl-8 pr-7 bg-native-content/50 border border-native rounded-md text-[11px] text-native-primary placeholder:text-native-quaternary focus:outline-none focus:border-accent/40 focus:bg-native-content transition-all duration-300 ease-out"
-                    style={{ width: searchFocused() || resultSearchQuery() ? "180px" : "110px" }}
                   />
                   <Show when={resultSearchQuery()}>
                     <button
                       onClick={() => setResultSearchQuery("")}
-                      class="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 hover:bg-native-content/80 rounded-md text-native-quaternary hover:text-native-primary transition-colors"
+                      class="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 hover:bg-native-content/80 rounded-md text-native-quaternary hover:text-native-primary transition-colors z-20"
                     >
-                      <X size={10} />
+                      <X size={12} />
                     </button>
                   </Show>
                 </div>
