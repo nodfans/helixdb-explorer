@@ -1,72 +1,66 @@
 import { createSignal, createEffect, Show, For, createMemo, onCleanup } from "solid-js";
 import { HelixApi } from "../lib/api";
 import { Button } from "./ui/button";
-import { RefreshCw, ChevronDown, ChevronUp, Terminal, Clock, Globe, Database, HardDrive, Activity } from "lucide-solid";
+import { RefreshCw, ChevronDown, ChevronUp, Terminal, Clock, Globe, Database, HardDrive, Activity, Search, Sparkles } from "lucide-solid";
 import { SchemaQuery, LocalStorageStats } from "../lib/types";
 import { ToolbarLayout } from "./ui/toolbar-layout";
+import * as echarts from "echarts";
 
-// A modern, subtle, and premium color palette
-const MODERN_PALETTE = [
-  "#6366f1", // Indigo
-  "#14b8a6", // Teal
-  "#f59e0b", // Amber
-  "#ec4899", // Pink
-  "#8b5cf6", // Purple
-  "#3b82f6", // Blue
-  "#10b981", // Emerald
-  "#f43f5e", // Rose
-  "#f97316", // Orange
-  "#06b6d4", // Cyan
-  "#84cc16", // Lime
-  "#eab308", // Yellow
-  "#d946ef", // Fuchsia
-  "#a855f7", // Violet
-  "#0ea5e9", // Sky
-  "#ef4444", // Red
-];
+// ─── Color Palette ───
+const MODERN_PALETTE = ["#6366f1", "#14b8a6", "#f59e0b", "#ec4899", "#8b5cf6", "#3b82f6", "#10b981", "#f43f5e", "#f97316", "#06b6d4", "#84cc16", "#eab308", "#d946ef", "#a855f7", "#0ea5e9", "#ef4444"];
 
-// ─── Utilities ───
 const getHSLColor = (index: number) => {
   if (index < MODERN_PALETTE.length) return MODERN_PALETTE[index];
   const hue = (index * 137.508) % 360;
   return `hsl(${hue}, 65%, 55%)`;
 };
 
-/** Parse the count from a variety of HQL response shapes */
 const parseCountResult = (res: any): number => {
   const raw = res?.count || res?.Count?.[""]?.count || res?.[0]?.count || res?.[0] || 0;
   return typeof raw === "number" ? raw : parseInt(String(raw), 10) || 0;
 };
 
-/** Build a COUNT HQL query for a given graph element type */
 const buildCountHql = (prefix: string, typeName: string) => `QUERY Count${prefix}${typeName}() =>\n  count <- ${prefix}<${typeName}>::COUNT\n  RETURN count`;
 
 // ─── Stagger Animation Wrapper ───
-const Stagger = (p: { index: number; step?: number; children: any }) => (
-  <div class="stagger-in" style={{ "animation-delay": `${p.index * (p.step ?? 60)}ms` }}>
+const Stagger = (p: { index: number; step?: number; class?: string; children: any }) => (
+  <div class={`stagger-in ${p.class || ""}`} style={{ "animation-delay": `${p.index * (p.step ?? 60)}ms` }}>
     {p.children}
   </div>
 );
 
-// ─── Stat Card ───
-const StatCard = (p: { label: string; value: number; sublabel: string; loading?: boolean }) => (
-  <div class="relative flex flex-col gap-3 p-5 rounded-xl bg-native-elevated border border-native-subtle shadow-sm overflow-hidden group hover:border-native hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
-    <div class="flex items-center justify-between">
-      <span class="text-[11px] font-bold tracking-widest text-native-tertiary uppercase opacity-80">{p.label}</span>
-    </div>
+// ─── KPI Strip ───
+const KpiStrip = (p: { nodes: number; edges: number; vectors: number; queries: number; loading?: boolean }) => {
+  const items = [
+    { label: "Nodes", value: () => p.nodes, sub: "vertices", color: "#6366f1" },
+    { label: "Edges", value: () => p.edges, sub: "relationships", color: "#14b8a6" },
+    { label: "Vectors", value: () => p.vectors, sub: "embeddings", color: "#f59e0b" },
+    { label: "Queries", value: () => p.queries, sub: "HQL endpoints", color: "#ec4899" },
+  ];
 
-    <div class="flex flex-col gap-1 mt-1">
-      <Show when={!p.loading} fallback={<div class="animate-pulse h-8 w-24 rounded-md bg-native/10" />}>
-        <div class="flex items-baseline gap-2">
-          <span class="text-xl font-semibold font-mono tracking-tight text-native-primary leading-none">{p.value.toLocaleString()}</span>
-        </div>
-      </Show>
-      <span class="text-[11px] text-native-tertiary opacity-60 font-medium">{p.sublabel}</span>
+  return (
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-px p-px bg-native-subtle rounded-xl overflow-hidden shadow-sm">
+      <For each={items}>
+        {(item, i) => (
+          <Stagger index={i()}>
+            <div class="flex flex-col gap-2 px-6 py-5 bg-native-elevated group hover:bg-native-content transition-colors duration-150">
+              <div class="flex items-center gap-2">
+                <div class="w-1.5 h-1.5 rounded-full" style={{ "background-color": item.color }} />
+                <span class="text-[10px] font-bold tracking-tight text-native-tertiary">{item.label}</span>
+              </div>
+              <Show when={!p.loading} fallback={<div class="animate-pulse h-8 w-20 rounded bg-native/10" />}>
+                <span class="text-[28px] font-semibold tracking-tight text-native-primary leading-none tabular-nums">
+                  {item.value() > 9999 ? (item.value() / 1000).toFixed(1) + "k" : item.value().toLocaleString()}
+                </span>
+              </Show>
+              <span class="text-[10px] text-native-tertiary">{item.sub}</span>
+            </div>
+          </Stagger>
+        )}
+      </For>
     </div>
-  </div>
-);
-
-import * as echarts from "echarts";
+  );
+};
 
 // ─── Donut Chart (ECharts) ───
 const DonutChart = (p: { items: { type: string; count: number; queries: SchemaQuery[]; color?: string }[]; total: number }) => {
@@ -74,144 +68,130 @@ const DonutChart = (p: { items: { type: string; count: number; queries: SchemaQu
 
   createEffect(() => {
     if (!chartRef || p.items.length === 0) return;
-
     const chart = echarts.init(chartRef);
-
-    const validItems = p.items.filter((i) => i.count > 0);
-
-    const data = validItems.map((item, idx) => ({
-      value: item.count,
-      name: item.type,
-      itemStyle: { color: item.color || getHSLColor(idx) },
-    }));
-
-    // Theme-aware tooltip colors
     const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches || document.documentElement.classList.contains("dark");
 
-    const option = {
+    chart.setOption({
       tooltip: {
         trigger: "item",
-        formatter: '<div style="font-family: ui-sans-serif, system-ui, sans-serif;"><b>{b}</b>: {c} <span style="opacity: 0.6; font-size: 11px;">({d}%)</span></div>',
-        backgroundColor: isDark ? "rgba(23, 23, 23, 0.9)" : "rgba(255, 255, 255, 0.95)",
-        borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.08)",
+        formatter:
+          "<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;\"><b>{b}</b>: {c} <span style=\"opacity:0.6;font-size:11px;\">({d}%)</span></div>",
+        backgroundColor: isDark ? "rgba(23,23,23,0.9)" : "rgba(255,255,255,0.95)",
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
         borderWidth: 1,
         textStyle: { color: isDark ? "#f3f4f6" : "#1f2937", fontSize: 12 },
         padding: [8, 12],
         borderRadius: 6,
-        extraCssText: isDark
-          ? "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3); backdrop-filter: blur(4px);"
-          : "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); backdrop-filter: blur(4px);",
+        extraCssText: "box-shadow:0 4px 6px -1px rgba(0,0,0,0.3);backdrop-filter:blur(4px);",
       },
       series: [
         {
           type: "pie",
-          radius: ["80%", "95%"],
+          radius: ["78%", "94%"],
           center: ["50%", "50%"],
           avoidLabelOverlap: false,
-          itemStyle: {
-            borderRadius: 1,
-            borderWidth: 0,
-          },
-          label: {
-            show: false,
-          },
-          emphasis: {
-            scale: false,
-            itemStyle: {
-              shadowBlur: 0,
-              shadowColor: "transparent",
-            },
-          },
-          data: data,
+          itemStyle: { borderRadius: 2, borderWidth: 0 },
+          label: { show: false },
+          emphasis: { scale: false, itemStyle: { shadowBlur: 0, shadowColor: "transparent" } },
+          data: p.items
+            .filter((i) => i.count > 0)
+            .map((item, idx) => ({
+              value: item.count,
+              name: item.type,
+              itemStyle: { color: item.color || getHSLColor(idx) },
+            })),
         },
       ],
-    };
+    });
 
-    chart.setOption(option);
-
-    const resizeObserver = new ResizeObserver(() => chart.resize());
-    resizeObserver.observe(chartRef);
-
+    const ro = new ResizeObserver(() => chart.resize());
+    ro.observe(chartRef);
     onCleanup(() => {
-      resizeObserver.disconnect();
+      ro.disconnect();
       chart.dispose();
     });
   });
 
   return (
-    <div class="relative flex items-center justify-center">
-      <div ref={chartRef} style={{ width: "100px", height: "100px" }} />
+    <div class="relative flex items-center justify-center flex-shrink-0">
+      <div ref={chartRef} style={{ width: "88px", height: "88px" }} />
       <div class="absolute flex flex-col items-center justify-center pointer-events-none">
-        <span class="text-[14px] font-bold font-mono text-native-primary tabular-nums">{p.total > 9999 ? (p.total / 1000).toFixed(1) + "k" : p.total}</span>
+        <span class="text-[13px] font-bold text-native-primary tabular-nums">{p.total > 9999 ? (p.total / 1000).toFixed(1) + "k" : p.total}</span>
       </div>
     </div>
   );
 };
 
 // ─── Distribution Card ───
-const DistCard = (p: {
-  title: string;
-  subtitle: string;
-  totalCount: number;
-  items: { type: string; count: number; queries: SchemaQuery[] }[];
-  loading?: boolean;
-  onSelectQuery?: (q: SchemaQuery) => void;
-}) => {
+type TypeDistItem = { type: string; count: number; queries: SchemaQuery[] };
+
+const DistCard = (p: { title: string; subtitle: string; totalCount: number; items: TypeDistItem[]; loading?: boolean; onSelectQuery?: (q: SchemaQuery) => void }) => {
   const [expandedType, setExpandedType] = createSignal<string | null>(null);
 
   const processedItems = createMemo(() => {
     const sorted = [...p.items].filter((i) => i.count > 0).sort((a, b) => b.count - a.count);
-
-    if (sorted.length <= 16) {
-      return sorted.map((item, idx) => ({ ...item, color: getHSLColor(idx) }));
-    }
-
+    if (sorted.length <= 16) return sorted.map((item, idx) => ({ ...item, color: getHSLColor(idx) }));
     const top15 = sorted.slice(0, 15).map((item, idx) => ({ ...item, color: getHSLColor(idx) }));
     const others = sorted.slice(15);
-    const otherCount = others.reduce((sum, item) => sum + item.count, 0);
-
     return [
       ...top15,
       {
         type: `Other (${others.length})`,
-        count: otherCount,
+        count: others.reduce((s, i) => s + i.count, 0),
         queries: [] as SchemaQuery[],
         color: "#64748b",
       },
     ];
   });
 
+  const isEmpty = () => !p.loading && p.items.every((i) => i.count === 0);
+
   return (
     <div class="flex flex-col gap-4 p-5 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
+      {/* Header */}
       <div class="flex flex-col pb-3 border-b border-native-subtle">
         <div class="text-[13px] font-semibold text-native-primary">{p.title}</div>
         <div class="text-[11px] text-native-tertiary">{p.subtitle}</div>
       </div>
 
-      <div class="flex flex-col gap-5">
-        <div class="flex items-center gap-6 py-2">
-          <Show when={!p.loading} fallback={<div class="w-[100px] h-[100px] rounded-full animate-pulse bg-native/10" />}>
-            <DonutChart items={processedItems()} total={p.totalCount} />
-          </Show>
-          <div class="flex-1 flex flex-col gap-2.5">
-            <Show when={!p.loading} fallback={<div class="h-10 w-full animate-pulse bg-native/10 rounded-md" />}>
-              <div class="text-[16px] font-bold font-mono text-native-primary tracking-tight leading-none">{p.totalCount.toLocaleString()}</div>
-              <div class="text-[10px] uppercase font-bold text-native-quaternary tracking-wider">Total Records</div>
-            </Show>
+      {/* Empty state */}
+      <Show when={isEmpty()}>
+        <div class="flex flex-col items-center justify-center gap-2 py-10 text-center">
+          <div class="w-9 h-9 rounded-full bg-native/10 flex items-center justify-center">
+            <Database size={15} class="text-native-quaternary opacity-40" />
           </div>
+          <span class="text-[12px] text-native-tertiary opacity-50">No data yet</span>
+          <span class="text-[10px] text-native-quaternary opacity-30">Insert records to see distribution</span>
         </div>
+      </Show>
 
-        <div class="flex flex-col gap-3 overflow-y-scroll flex-1 pr-1 scrollbar-thin max-h-[280px]">
-          <Show
-            when={!p.loading}
-            fallback={
-              <div class="flex flex-col gap-3 py-1 animate-pulse">
-                <div class="h-6 w-full bg-native/10 rounded" />
-                <div class="h-6 w-4/5 bg-native/10 rounded" />
-              </div>
-            }
-          >
-            <Show when={processedItems().length > 0} fallback={<span class="text-xs text-native-tertiary italic py-3">No types defined</span>}>
+      {/* Content */}
+      <Show when={!isEmpty()}>
+        <div class="flex flex-col gap-5">
+          {/* Donut + total */}
+          <div class="flex items-center gap-5">
+            <Show when={!p.loading} fallback={<div class="w-[88px] h-[88px] rounded-full animate-pulse bg-native/10 flex-shrink-0" />}>
+              <DonutChart items={processedItems()} total={p.totalCount} />
+            </Show>
+            <div class="flex flex-col gap-1">
+              <Show when={!p.loading} fallback={<div class="h-8 w-24 animate-pulse bg-native/10 rounded" />}>
+                <div class="text-[22px] font-bold text-native-primary tracking-tight leading-none">{p.totalCount.toLocaleString()}</div>
+                <div class="text-[10px] items-center font-bold text-native-tertiary tracking-tight mt-1">Total Records</div>
+              </Show>
+            </div>
+          </div>
+
+          {/* Type list */}
+          <div class="flex flex-col gap-2.5 overflow-y-auto pr-1 scrollbar-thin max-h-[260px]">
+            <Show
+              when={!p.loading}
+              fallback={
+                <div class="flex flex-col gap-3 animate-pulse">
+                  <div class="h-5 w-full bg-native/10 rounded" />
+                  <div class="h-5 w-4/5 bg-native/10 rounded" />
+                </div>
+              }
+            >
               <For each={processedItems()}>
                 {(item) => {
                   const pct = Math.round((item.count / (p.totalCount || 1)) * 100);
@@ -219,30 +199,34 @@ const DistCard = (p: {
                   const canExpand = item.queries.length > 0;
 
                   return (
-                    <div class="flex flex-col gap-2 group">
-                      <div class={`flex flex-col gap-1.5 ${canExpand ? "cursor-pointer" : ""}`} onClick={() => canExpand && setExpandedType(isExpanded() ? null : item.type)}>
-                        <div class="flex justify-between items-center">
+                    <div class="flex flex-col gap-1.5 group">
+                      <div class={canExpand ? "cursor-pointer" : ""} onClick={() => canExpand && setExpandedType(isExpanded() ? null : item.type)}>
+                        <div class="flex justify-between items-center mb-1">
                           <div class="flex items-center gap-2">
-                            <div class="w-1.5 h-3 rounded-full" style={{ "background-color": item.color }} />
-                            <span class={`text-[12px] font-medium transition-colors ${isExpanded() ? "text-native-primary font-bold" : "text-native-secondary group-hover:text-native-primary"}`}>
+                            <div class="w-1.5 h-3 rounded-full flex-shrink-0" style={{ "background-color": item.color }} />
+                            <span
+                              class={`text-[12px] font-medium transition-colors truncate max-w-[120px] ${isExpanded() ? "text-native-primary font-semibold" : "text-native-secondary group-hover:text-native-primary"}`}
+                            >
                               {item.type}
                             </span>
                             <Show when={item.queries.length > 0}>
-                              <div class="flex items-center gap-1 text-[10px] text-native-tertiary opacity-40">
-                                {isExpanded() ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
-                                <span>{item.queries.length}</span>
-                              </div>
+                              <span class="text-[10px] text-native-quaternary opacity-40">{isExpanded() ? <ChevronUp size={10} /> : <ChevronDown size={10} />}</span>
                             </Show>
                           </div>
-                          <div class="flex items-center gap-2">
-                            <span class="text-[10px] font-mono text-native-tertiary opacity-60">{pct}%</span>
-                            <span class="text-[12px] font-bold font-mono text-native-primary tabular-nums">{item.count.toLocaleString()}</span>
+                          <div class="flex items-center gap-2 flex-shrink-0">
+                            <span class="text-[10px] text-native-tertiary">{pct}%</span>
+                            <span class="text-[12px] font-bold text-native-primary tabular-nums">{item.count.toLocaleString()}</span>
                           </div>
                         </div>
+                        {/* Progress bar */}
+                        <div class="w-full h-[2px] bg-native/10 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, "background-color": item.color }} />
+                        </div>
                       </div>
+
                       <Show when={isExpanded() && item.queries.length > 0}>
-                        <div class="flex flex-col gap-1.5 pl-3 border-l-2 border-native-subtle my-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                          <div class="text-[9px] uppercase font-bold text-native-quaternary tracking-widest mb-0.5">Associated Queries</div>
+                        <div class="flex flex-col gap-1.5 pl-3.5 border-l-2 border-native-subtle mt-1 mb-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                          <div class="text-[9px] font-bold text-native-tertiary tracking-tight mb-0.5">Associated Queries</div>
                           <div class="flex flex-wrap gap-1.5">
                             {item.queries.map((q) => (
                               <div
@@ -250,10 +234,10 @@ const DistCard = (p: {
                                   e.stopPropagation();
                                   p.onSelectQuery?.(q);
                                 }}
-                                class="flex items-center gap-1.5 px-2 py-0.5 rounded-[8px] bg-native-content border border-native-subtle hover:bg-hover hover:border-accent/40 active:scale-95 transition-all group/query cursor-pointer"
+                                class="flex items-center gap-1.5 px-2 py-0.5 rounded-[6px] bg-native-content border border-native-subtle hover:bg-hover hover:border-accent/40 active:scale-95 transition-all cursor-pointer group/q"
                               >
-                                <Terminal size={10} class="text-native-tertiary group-hover/query:text-accent transition-colors" />
-                                <span class="text-[10px] font-mono text-native-secondary group-hover/query:text-native-primary transition-colors">{q.name}</span>
+                                <Terminal size={10} class="text-native-tertiary group-hover/q:text-accent transition-colors" />
+                                <span class="text-[10px] font-mono text-native-secondary group-hover/q:text-native-primary transition-colors">{q.name}</span>
                               </div>
                             ))}
                           </div>
@@ -264,15 +248,15 @@ const DistCard = (p: {
                 }}
               </For>
             </Show>
-          </Show>
+          </div>
         </div>
-      </div>
+      </Show>
     </div>
   );
 };
 
-// ─── Storage Info & Health ───
-const StorageStats = (p: { stats: LocalStorageStats; loading?: boolean }) => {
+// ─── Storage Panel ───
+const StoragePanel = (p: { stats: LocalStorageStats; loading?: boolean }) => {
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return "0 B";
     const k = 1024;
@@ -281,105 +265,151 @@ const StorageStats = (p: { stats: LocalStorageStats; loading?: boolean }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const usagePct = () => Math.min(100, (p.stats.disk_size_bytes / p.stats.env_info.map_size) * 100);
   const dbEntries = () => Object.entries(p.stats.core_dbs).sort((a, b) => b[1].entries - a[1].entries);
 
   return (
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      {/* Disk Usage */}
-      <Stagger index={0}>
-        <div class="flex flex-col gap-4 p-5 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
-          <div class="flex items-center justify-between border-b border-native-subtle pb-3">
-            <div class="flex items-center gap-2">
-              <HardDrive size={16} class="text-accent" />
-              <span class="text-[13px] font-semibold text-native-primary">Physical Storage</span>
-            </div>
-            <span class="text-[10px] font-mono text-native-tertiary uppercase tracking-wider">Disk Info</span>
+    <div class="rounded-xl bg-native-elevated border border-native-subtle shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
+      {/* ── Top section: 3 metric columns ── */}
+      <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-native-subtle">
+        {/* Physical Storage */}
+        <div class="flex flex-col gap-3 p-5">
+          <div class="flex items-center gap-2 text-native-tertiary">
+            <HardDrive size={13} class="text-accent" />
+            <span class="text-[10px] font-bold tracking-tight">Physical Storage</span>
           </div>
-          <div class="flex flex-col gap-1">
-            <div class="text-base font-bold font-mono text-native-primary tracking-tight">{formatBytes(p.stats.disk_size_bytes)}</div>
-            <div class="text-[11px] text-native-tertiary opacity-60">Total data.mdb size</div>
+          <div class="flex flex-col gap-0.5">
+            <span class="text-[22px] font-bold text-native-primary tracking-tight leading-none">{formatBytes(p.stats.disk_size_bytes)}</span>
+            <span class="text-[10px] text-native-tertiary">data.mdb on disk</span>
           </div>
-          <div class="flex flex-col gap-2 pt-1">
-            <div class="flex justify-between text-[11px]">
-              <span class="text-native-tertiary">Environment Max</span>
-              <span class="text-native-secondary font-mono">{formatBytes(p.stats.env_info.map_size)}</span>
+          <div class="flex flex-col gap-1.5 mt-1">
+            <div class="flex justify-between text-[10px]">
+              <span class="text-native-tertiary">Env max</span>
+              <span class="text-native-tertiary">{formatBytes(p.stats.env_info.map_size)}</span>
             </div>
             <div class="w-full bg-native/10 h-1 rounded-full overflow-hidden">
-              <div class="bg-accent h-full transition-all duration-500" style={{ width: `${Math.min(100, (p.stats.disk_size_bytes / p.stats.env_info.map_size) * 100)}%` }} />
+              <div class="bg-accent h-full transition-all duration-700" style={{ width: `${usagePct()}%` }} />
+            </div>
+            <span class="text-[10px] text-native-tertiary">{usagePct().toFixed(1)}% used</span>
+          </div>
+        </div>
+
+        {/* Engine Health */}
+        <div class="flex flex-col gap-3 p-5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 text-native-tertiary">
+              <Activity size={13} class="text-emerald-500" />
+              <span class="text-[10px] font-bold tracking-tight">Engine Health</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500">
+              <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Healthy
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-3 mt-1">
+            <div>
+              <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Last Txn ID</div>
+              <div class="text-[15px] font-bold text-native-primary">{p.stats.env_info.last_txnid.toLocaleString()}</div>
+            </div>
+            <div>
+              <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Active Readers</div>
+              <div class="text-[15px] font-bold text-native-primary">
+                {p.stats.env_info.num_readers}
+                <span class="text-native-tertiary text-[11px] font-normal"> / {p.stats.env_info.max_readers}</span>
+              </div>
+            </div>
+            <div>
+              <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Last Page</div>
+              <div class="text-[15px] font-bold text-native-primary">{p.stats.env_info.last_pgno.toLocaleString()}</div>
             </div>
           </div>
         </div>
-      </Stagger>
 
-      {/* Database Activity */}
-      <Stagger index={1}>
-        <div class="flex flex-col gap-4 p-5 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
-          <div class="flex items-center justify-between border-b border-native-subtle pb-3">
-            <div class="flex items-center gap-2">
-              <Activity size={16} class="text-emerald-500" />
-              <span class="text-[13px] font-semibold text-native-primary">Engine Health</span>
-            </div>
-            <span class="text-[10px] font-mono text-native-tertiary uppercase tracking-wider">Environment</span>
+        {/* Core Subscriptions */}
+        <div class="flex flex-col gap-3 p-5">
+          <div class="flex items-center gap-2 text-native-tertiary">
+            <Database size={13} class="text-indigo-400" />
+            <span class="text-[10px] font-bold tracking-tight">Core Subscriptions</span>
           </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="flex flex-col gap-0.5">
-              <div class="text-[10px] text-native-quaternary uppercase font-bold tracking-tight">Last Txn ID</div>
-              <div class="text-[14px] font-mono font-bold text-native-primary">{p.stats.env_info.last_txnid.toLocaleString()}</div>
-            </div>
-            <div class="flex flex-col gap-0.5">
-              <div class="text-[10px] text-native-quaternary uppercase font-bold tracking-tight">Active Readers</div>
-              <div class="text-[14px] font-mono font-bold text-native-primary">
-                {p.stats.env_info.num_readers} / {p.stats.env_info.max_readers}
-              </div>
-            </div>
-            <div class="flex flex-col gap-0.5">
-              <div class="text-[10px] text-native-quaternary uppercase font-bold tracking-tight">Last Page ID</div>
-              <div class="text-[14px] font-mono font-bold text-native-primary">{p.stats.env_info.last_pgno.toLocaleString()}</div>
-            </div>
-            <div class="flex flex-col gap-0.5">
-              <div class="text-[10px] text-native-quaternary uppercase font-bold tracking-tight">Status</div>
-              <div class="text-[14px] font-bold text-emerald-500 flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Healthy
-              </div>
-            </div>
-          </div>
-        </div>
-      </Stagger>
-
-      {/* Core DBs breakdown */}
-      <Stagger index={2}>
-        <div class="flex flex-col gap-4 p-5 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
-          <div class="flex items-center justify-between border-b border-native-subtle pb-3">
-            <div class="flex items-center gap-2">
-              <Database size={16} class="text-indigo-500" />
-              <span class="text-[13px] font-semibold text-native-primary">Core Subscriptions</span>
-            </div>
-            <span class="text-[10px] font-mono text-native-tertiary uppercase tracking-wider">DB Entry Counts</span>
-          </div>
-          <div class="flex flex-col gap-2 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin">
+          <div class="flex flex-col gap-2 overflow-y-auto scrollbar-thin max-h-[140px] pr-1">
             <For each={dbEntries()}>
               {([name, stat]) => (
-                <div class="flex justify-between items-center text-[11px] group">
-                  <span class="text-native-secondary font-medium group-hover:text-native-primary transition-colors underline decoration-dotted decoration-native-tertiary underline-offset-2">
-                    {name}
-                  </span>
-                  <span class="text-native-primary font-mono font-bold bg-native/5 px-1.5 py-0.5 rounded">{stat.entries.toLocaleString()}</span>
+                <div class="flex justify-between items-center group">
+                  <span class="text-[11px] text-native-tertiary font-medium group-hover:text-native-secondary transition-colors truncate mr-3">{name}</span>
+                  <span class="text-[11px] font-bold text-native-primary flex-shrink-0">{stat.entries.toLocaleString()}</span>
                 </div>
               )}
             </For>
           </div>
         </div>
-      </Stagger>
+      </div>
+
+      {/* ── Bottom section: BM25 + HNSW (only if present) ── */}
+      <Show when={p.stats.bm25_stats || p.stats.hnsw_stats}>
+        <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-native-subtle border-t border-native-subtle">
+          {/* BM25 */}
+          <Show when={p.stats.bm25_stats}>
+            <div class="flex flex-col gap-3 p-5">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <Search size={13} class="text-pink-400" />
+                  <span class="text-[10px] font-bold tracking-tight text-native-tertiary">BM25 Search Index</span>
+                </div>
+                <span class="text-[9px] text-native-tertiary tracking-tight">Full-Text</span>
+              </div>
+              <div class="flex flex-col gap-2">
+                <For each={Object.entries(p.stats.bm25_stats!)}>
+                  {([field, stat]) => (
+                    <div class="flex flex-col gap-1 pb-2 border-b border-native-subtle last:border-0 last:pb-0">
+                      <div class="flex justify-between items-center">
+                        <span class="text-[11px] text-native-secondary truncate mr-2">{field.replace("bm25_metadata_", "")}</span>
+                        <span class="text-[11px] font-bold text-native-primary flex-shrink-0">{stat.total_docs.toLocaleString()} docs</span>
+                      </div>
+                      <div class="flex items-center gap-3 text-[10px] text-native-tertiary">
+                        <span>avgdl: {Math.round(stat.avgdl)}</span>
+                        <span>k1: {stat.k1.toFixed(1)}</span>
+                        <span>b: {stat.b.toFixed(1)}</span>
+                      </div>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </div>
+          </Show>
+
+          {/* HNSW */}
+          <Show when={p.stats.hnsw_stats}>
+            <div class="flex flex-col gap-3 p-5">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <Sparkles size={13} class="text-amber-400" />
+                  <span class="text-[10px] font-bold tracking-tight text-native-tertiary">HNSW Vector Index</span>
+                </div>
+                <span class="text-[9px] text-native-tertiary tracking-tight">Embeddings</span>
+              </div>
+              <div class="grid grid-cols-3 gap-4 mt-1">
+                <div>
+                  <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Vectors</div>
+                  <div class="text-[18px] font-bold text-native-primary">{p.stats.hnsw_stats!.vector_count.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Graph Nodes</div>
+                  <div class="text-[18px] font-bold text-native-primary">{p.stats.hnsw_stats!.vector_data_count.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Graph Edges</div>
+                  <div class="text-[18px] font-bold text-native-primary">{p.stats.hnsw_stats!.out_nodes_count.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+          </Show>
+        </div>
+      </Show>
     </div>
   );
 };
 
 // ─── Fetch helpers ───
-
-type TypeDistItem = { type: string; count: number; queries: SchemaQuery[] };
-
-/** Fetch counts for a list of schema types in parallel */
 const fetchTypeCounts = async (
   api: HelixApi,
   types: { name: string }[],
@@ -390,8 +420,7 @@ const fetchTypeCounts = async (
     types
       .filter((t) => t.name && t.name !== "Unknown")
       .map(async (t) => {
-        const hql = buildCountHql(prefix, t.name);
-        const res = await api.executeHQL(hql);
+        const res = await api.executeHQL(buildCountHql(prefix, t.name));
         const count = parseCountResult(res);
         return { type: t.name, count, queries: getAssociatedQueries(t.name) };
       })
@@ -410,6 +439,7 @@ const fetchTypeCounts = async (
   return { total, dist: dist.sort((a, b) => b.count - a.count) };
 };
 
+// ─── Dashboard ───
 interface DashboardProps {
   api: HelixApi;
   isConnected: boolean;
@@ -421,7 +451,6 @@ interface DashboardProps {
 export const Dashboard = (props: DashboardProps) => {
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
-
   const [totalNodes, setTotalNodes] = createSignal(0);
   const [totalEdges, setTotalEdges] = createSignal(0);
   const [totalVectors, setTotalVectors] = createSignal(0);
@@ -440,7 +469,6 @@ export const Dashboard = (props: DashboardProps) => {
       const schema = await props.api.fetchSchema();
       setTotalQueries(schema.queries?.length || 0);
 
-      // Build a query-association helper once per refresh
       const getAssociatedQueries = (typeName: string): SchemaQuery[] => {
         if (!schema.queries) return [];
         const lower = typeName.toLowerCase();
@@ -452,7 +480,6 @@ export const Dashboard = (props: DashboardProps) => {
         });
       };
 
-      // Fire all three type-count fetches in parallel
       const [nodeResult, edgeResult, vectorResult, storageResult] = await Promise.allSettled([
         fetchTypeCounts(props.api, schema.nodes || [], "N", getAssociatedQueries),
         fetchTypeCounts(props.api, schema.edges || [], "E", getAssociatedQueries),
@@ -460,7 +487,6 @@ export const Dashboard = (props: DashboardProps) => {
         props.dbPath ? props.api.getLocalDbStats(props.dbPath) : Promise.resolve(null),
       ]);
 
-      // Nodes
       if (nodeResult.status === "fulfilled") {
         let { total, dist } = nodeResult.value;
         if (total === 0) {
@@ -475,7 +501,6 @@ export const Dashboard = (props: DashboardProps) => {
         setNodeTypes(dist);
       }
 
-      // Edges
       if (edgeResult.status === "fulfilled") {
         let { total, dist } = edgeResult.value;
         if (total === 0) {
@@ -490,17 +515,15 @@ export const Dashboard = (props: DashboardProps) => {
         setEdgeTypes(dist);
       }
 
-      // Vectors
       if (vectorResult.status === "fulfilled") {
         setTotalVectors(vectorResult.value.total);
         setVectorTypes(vectorResult.value.dist);
       }
 
-      // Storage
       if (storageResult.status === "fulfilled" && storageResult.value) {
         setStorageStats(storageResult.value as LocalStorageStats);
       } else if (storageResult.status === "rejected") {
-        console.warn("[Dashboard] Failed to fetch local storage stats:", storageResult.reason);
+        console.warn("[Dashboard] Failed to fetch storage stats:", storageResult.reason);
       }
 
       setLastUpdated(new Date());
@@ -519,15 +542,15 @@ export const Dashboard = (props: DashboardProps) => {
 
   return (
     <div class="flex-1 flex flex-col overflow-y-scroll scrollbar-thin bg-native-content">
-      {/* Page Header with ToolbarLayout */}
+      {/* Toolbar */}
       <ToolbarLayout class="justify-between items-center">
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-[8px] bg-accent/10 border border-accent/20">
             <Globe size={10} class="text-accent" />
-            <span class="text-[10px] font-mono font-bold text-accent uppercase tracking-wider">{props.api.baseUrl}</span>
+            <span class="text-[10px] font-bold text-accent tracking-tighter">{props.api.baseUrl}</span>
           </div>
           <Show when={lastUpdated()}>
-            <div class="flex items-center gap-1.5 text-[11px] text-native-quaternary">
+            <div class="flex items-center gap-1.5 text-[11px] text-native-tertiary">
               <Clock size={10} class="opacity-60" />
               <span>Updated {formatTime(lastUpdated()!)}</span>
             </div>
@@ -536,13 +559,13 @@ export const Dashboard = (props: DashboardProps) => {
             <span class="text-[11px] text-native-tertiary animate-pulse">Loading statistics…</span>
           </Show>
         </div>
-        <Button variant="toolbar" onClick={loadStats} disabled={loading() || !props.isConnected} class="transition-all">
+        <Button variant="toolbar" onClick={loadStats} disabled={loading() || !props.isConnected}>
           <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : ""} text-accent`} />
           <span>Refresh</span>
         </Button>
       </ToolbarLayout>
 
-      <div class="flex-1 flex flex-col px-5 py-5 gap-6 w-full">
+      <div class="flex-1 flex flex-col px-5 py-5 gap-5 w-full">
         {/* Error */}
         <Show when={error()}>
           <div class="bg-error/10 border border-error/20 text-error px-4 py-3 rounded-lg text-xs flex items-center gap-2.5">
@@ -553,25 +576,16 @@ export const Dashboard = (props: DashboardProps) => {
           </div>
         </Show>
 
-        {/* KPI row */}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Stagger index={0}>
-            <StatCard label="Total Nodes" value={totalNodes()} sublabel="Vertex records" loading={loading()} />
-          </Stagger>
-          <Stagger index={1}>
-            <StatCard label="Total Edges" value={totalEdges()} sublabel="Relationship records" loading={loading()} />
-          </Stagger>
-          <Stagger index={2}>
-            <StatCard label="Total Vectors" value={totalVectors()} sublabel="Embedding records" loading={loading()} />
-          </Stagger>
-          <Stagger index={3}>
-            <StatCard label="Total Queries" value={totalQueries()} sublabel="HQL endpoints" loading={loading()} />
-          </Stagger>
-        </div>
+        {/* KPI Strip */}
+        <Stagger index={0}>
+          <KpiStrip nodes={totalNodes()} edges={totalEdges()} vectors={totalVectors()} queries={totalQueries()} loading={loading()} />
+        </Stagger>
 
-        {/* Storage Stats row */}
+        {/* Storage Panel */}
         <Show when={storageStats()}>
-          <StorageStats stats={storageStats()!} loading={loading()} />
+          <Stagger index={1}>
+            <StoragePanel stats={storageStats()!} loading={loading()} />
+          </Stagger>
         </Show>
 
         {/* Distribution row */}

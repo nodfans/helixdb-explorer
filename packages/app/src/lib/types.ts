@@ -113,9 +113,24 @@ export interface DBInfo {
   num_readers: number;
 }
 
+export interface BM25Metadata {
+  total_docs: number;
+  avgdl: number;
+  k1: number;
+  b: number;
+}
+
+export interface HnswStat {
+  vector_count: number;
+  vector_data_count: number;
+  out_nodes_count: number;
+}
+
 export interface LocalStorageStats {
   db_path: string;
   disk_size_bytes: number;
   env_info: DBInfo;
   core_dbs: Record<string, DBStat>;
+  bm25_stats?: Record<string, BM25Metadata>;
+  hnsw_stats?: HnswStat;
 }

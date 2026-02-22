@@ -90,7 +90,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
           {/* Sidebar */}
           <div class="w-[220px] flex-none flex flex-col border-r border-native bg-native-sidebar/50">
             <div class="p-4 border-b border-native flex items-center justify-between">
-              <h2 class="text-[11px] font-bold text-native-tertiary uppercase tracking-wider">Connections</h2>
+              <h2 class="text-[11px] font-bold text-native-tertiary tracking-tight">Connections</h2>
               <button
                 onMouseDown={handleAdd}
                 title="Add Connection"
@@ -204,7 +204,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
 
                 <div class="space-y-5">
                   <div class="space-y-2">
-                    <label class="text-[11px] font-semibold text-native-tertiary uppercase tracking-wide flex items-center gap-2">
+                    <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
                       <Server size={12} class="text-accent opacity-80" /> Connection Name
                     </label>
                     <Input fullWidth value={editingConn()!.name} onInput={(e) => updateEditing({ name: e.currentTarget.value })} placeholder="Production DB" />
@@ -212,13 +212,13 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
 
                   <div class="grid grid-cols-4 gap-4">
                     <div class="col-span-3 space-y-2">
-                      <label class="text-[11px] font-semibold text-native-tertiary uppercase tracking-wide flex items-center gap-2">
+                      <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
                         <Globe size={12} class="text-accent opacity-80" /> Host
                       </label>
                       <Input fullWidth value={editingConn()!.host} onInput={(e) => updateEditing({ host: e.currentTarget.value })} placeholder="127.0.0.1" />
                     </div>
                     <div class="col-span-1 space-y-2">
-                      <label class="text-[11px] font-semibold text-native-tertiary uppercase tracking-wide flex items-center gap-2">
+                      <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
                         <Hash size={12} class="text-accent opacity-80" /> Port
                       </label>
                       <Input fullWidth value={editingConn()!.port} onInput={(e) => updateEditing({ port: e.currentTarget.value })} placeholder="6969" />
@@ -226,14 +226,14 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                   </div>
 
                   <div class="space-y-2">
-                    <label class="text-[11px] font-semibold text-native-tertiary uppercase tracking-wide flex items-center gap-2">
+                    <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
                       <ShieldCheck size={12} class="text-accent opacity-80" /> API Key
                     </label>
                     <Input fullWidth type="password" value={editingConn()!.apiKey} onInput={(e) => updateEditing({ apiKey: e.currentTarget.value })} placeholder="Optional for local instances" />
                   </div>
 
                   <div class="space-y-2">
-                    <label class="text-[11px] font-semibold text-native-tertiary uppercase tracking-wide flex items-center gap-2">
+                    <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
                       <Database size={12} class="text-accent opacity-80" /> Local Workspace Path
                     </label>
                     <div class="flex gap-2 w-full">

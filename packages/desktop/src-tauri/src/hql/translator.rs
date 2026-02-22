@@ -4,7 +4,7 @@ use helix_db::helixc::parser::types::{
     Traversal, StartNode, StepType, GraphStepType, Expression, ExpressionType, 
     Object, FieldValue, FieldValueType, IdType, ValueType, BooleanOpType
 };
-use crate::tool_args::{ToolArgs, EdgeType, FilterProperties, FilterTraversal, Operator, Order};
+use crate::hql::tool_args::{ToolArgs, EdgeType, FilterProperties, FilterTraversal, Operator, Order};
 
 
 

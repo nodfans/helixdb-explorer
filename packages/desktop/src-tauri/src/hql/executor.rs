@@ -1,6 +1,6 @@
 
-use crate::tool_args::{ToolArgs, FilterProperties, FilterTraversal, Operator};
-use crate::hql_translator::{map_traversal_to_tools, FinalAction};
+use crate::hql::tool_args::{ToolArgs, FilterProperties, FilterTraversal, Operator};
+use crate::hql::translator::{map_traversal_to_tools, FinalAction};
 use helix_db::protocol::value::Value;
 
 pub async fn execute_pipeline(

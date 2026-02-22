@@ -11,7 +11,7 @@ export function Input(props: InputProps) {
 
   if (local.variant === "search") {
     return (
-      <div class={`relative ${local.fullWidth ? "w-full" : "w-64"} ${local.class || ""}`}>
+      <div class={`relative ${local.fullWidth ? "w-full" : "w-64"}`}>
         <input
           {...others}
           type="text"

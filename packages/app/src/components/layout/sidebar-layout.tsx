@@ -13,7 +13,7 @@ export function SidebarSection(props: { title?: string; children: any }) {
   return (
     <div class="py-2">
       <Show when={props.title}>
-        <div class="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-native-tertiary">{props.title}</div>
+        <div class="px-3 py-1 text-[11px] font-semibold tracking-tight text-native-tertiary">{props.title}</div>
       </Show>
       <div class="px-2">{props.children}</div>
     </div>

@@ -323,8 +323,8 @@ export const Queries = (props: QueriesProps) => {
       <div class="flex h-full overflow-hidden relative w-full" classList={{ "cursor-col-resize": isResizing() }}>
         <Show when={props.isConnected}>
           <div class="w-[200px] flex-none flex flex-col border-r border-native relative macos-vibrant-sidebar overflow-hidden" style={{ width: `${sidebarWidth()}px` }}>
-            <div class="px-3 py-4 flex-none border-b border-native">
-              <div class="flex items-center justify-between mb-3 px-1">
+            <div class="px-3 py-2 flex-none border-b border-native">
+              <div class="flex items-center justify-between mb-1.5 px-1">
                 <h2 class="text-[12px] font-semibold text-native-secondary/80 flex items-center gap-2">Workbench</h2>
               </div>
 
@@ -332,7 +332,6 @@ export const Queries = (props: QueriesProps) => {
                 <Input variant="search" placeholder="Search queries..." value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} fullWidth class="h-8" />
               </div>
             </div>
-
             <div class="flex-1 overflow-y-auto py-2 scrollbar-thin">
               <For each={filteredEndpoints()}>
                 {(endpoint) => (
@@ -347,7 +346,7 @@ export const Queries = (props: QueriesProps) => {
                   >
                     <div class="flex items-center gap-2.5">
                       <span
-                        class="text-[9px] font-bold px-1.5 py-0.5 rounded-md shrink-0 w-[38px] text-center uppercase tracking-wide"
+                        class="text-[9px] font-bold px-1.5 py-0.5 rounded-md shrink-0 w-[38px] text-center tracking-wide capitalize"
                         classList={{
                           "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400": endpoint.method.toUpperCase() === "GET",
                           "bg-blue-500/15 text-blue-600 dark:text-blue-400": endpoint.method.toUpperCase() === "POST",
@@ -396,7 +395,7 @@ export const Queries = (props: QueriesProps) => {
           >
             <ToolbarLayout class="justify-between items-center pl-1">
               <div class="flex items-center gap-4 min-w-0">
-                <Show when={selectedEndpoint()} fallback={<span class="text-[10px] font-semibold text-native-quaternary tracking-wider uppercase">Overview</span>}>
+                <Show when={selectedEndpoint()} fallback={<span class="text-[10px] font-semibold text-native-tertiary tracking-tight">Overview</span>}>
                   <div
                     class="flex items-center gap-1.5 cursor-pointer hover:bg-native-hover/60 px-1.5 py-0.5 rounded transition-colors group/path"
                     onClick={() => {
@@ -484,7 +483,7 @@ export const Queries = (props: QueriesProps) => {
                   <div class="flex-1 flex items-center justify-center">
                     <div class="flex flex-col items-center gap-4">
                       <div class="w-6 h-6 border-2 border-accent/20 border-t-accent rounded-full animate-spin"></div>
-                      <span class="text-[12px] font-semibold text-native-tertiary uppercase tracking-wide">Executing...</span>
+                      <span class="text-[12px] font-semibold text-native-tertiary tracking-tight">Executing...</span>
                     </div>
                   </div>
                 </Show>
@@ -529,7 +528,7 @@ export const Queries = (props: QueriesProps) => {
                             <div class="flex flex-col gap-2" classList={{ "flex-1 min-h-[200px]": tableCount() === 1 }}>
                               <div class="flex items-center gap-2 px-1">
                                 <Table size={12} class="text-accent" />
-                                <span class="text-[11px] font-bold uppercase tracking-wider text-native-secondary">{name}</span>
+                                <span class="text-[11px] font-bold tracking-tight text-native-secondary capitalize">{name}</span>
                                 <span class="text-[10px] text-native-quaternary tabular-nums">({rows.length})</span>
                               </div>
                               <div
@@ -582,7 +581,7 @@ export const Queries = (props: QueriesProps) => {
                           <label class="flex items-center gap-2 text-[11px] font-medium text-native-secondary">
                             <span>{param.name}</span>
 
-                            <span class="text-[9px] uppercase font-semibold text-native-quaternary bg-native-content/40 px-1.5 py-0.5 rounded tracking-wide">{param.param_type}</span>
+                            <span class="text-[9px] font-semibold text-native-tertiary bg-native-content/40 px-1.5 py-0.5 rounded tracking-wide capitalize">{param.param_type}</span>
 
                             <Show when={!params()[param.name] && params()[param.name] !== false}>
                               <span class="text-[#ff9500] text-[10px] font-bold">required</span>

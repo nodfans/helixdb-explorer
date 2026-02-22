@@ -23,7 +23,7 @@ const formatName = (name: string) => {
 const PropertyList = (props: PropertyListProps) => (
   <div class="mt-2.5">
     <div class="flex items-center gap-1.5 px-0.5 mb-1.5">
-      <span class="text-[10px] uppercase font-bold text-native-quaternary tracking-wider">Properties</span>
+      <span class="text-[10px] font-bold text-native-tertiary tracking-tight">Properties</span>
     </div>
     <div class="rounded-md border border-native-subtle overflow-hidden shadow-sm">
       <For each={Object.entries(props.properties || {})}>
@@ -141,10 +141,10 @@ const EdgeCard = (props: { edge: EdgeType; expanded: boolean; onToggle: () => vo
       hasProperties={hasProperties()}
       extraHeader={
         <div class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md bg-native-content/30 italic">
-          <span class="text-[9px] uppercase font-bold text-native-quaternary/70 not-italic">From</span>
+          <span class="text-[10px] font-bold text-native-tertiary not-italic">From</span>
           <span class="text-[11px] font-medium text-emerald-600 truncate max-w-[80px]">{props.edge.from_node}</span>
           <ArrowRight size={10} class="text-native-quaternary shrink-0" />
-          <span class="text-[9px] uppercase font-bold text-native-quaternary/70 not-italic">To</span>
+          <span class="text-[10px] font-bold text-native-tertiary not-italic">To</span>
           <span class="text-[11px] font-medium text-emerald-600 truncate max-w-[80px]">{props.edge.to_node}</span>
         </div>
       }
