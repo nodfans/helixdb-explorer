@@ -109,7 +109,6 @@ pub fn get_local_db_stats(path: &str) -> Result<LocalStorageStats, String> {
                 if let Ok((key_bytes, _)) = result {
                     if let Ok(raw_name) = std::str::from_utf8(key_bytes) {
                         let db_name = raw_name.trim_matches('\0');
-                        println!("[DEBUG] Found LMDB Sub-Database: {}", db_name);
                         if let Ok(Some(db)) = env.open_database::<Bytes, Bytes>(&txn, Some(db_name)) {
                             let db: Database<Bytes, Bytes> = db;
                             if let Ok(stat) = db.stat(&txn) {
