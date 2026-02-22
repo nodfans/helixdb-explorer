@@ -17,6 +17,10 @@ import { Vectors } from "./components/vectors";
 import { EmptyState } from "./components/ui/empty-state";
 import { Button } from "./components/ui/button";
 import { CircleAlert, PanelTopDashed, Layers, MessageSquareCode, GitGraph, Terminal, Sparkles } from "lucide-solid";
+import { SchemaQuery } from "./lib/types";
+import { workbenchState, setWorkbenchState, queryStateCache } from "./stores/workbench";
+import { batch } from "solid-js";
+import { activeConnection } from "./stores/connection";
 
 function App() {
   const connection = createConnection();
@@ -92,6 +96,53 @@ function App() {
     }
   };
 
+  const handleSelectQuery = (q: SchemaQuery) => {
+    const endpoint = workbenchState.endpoints.find((ep) => ep.name === q.name);
+    if (!endpoint) {
+      console.warn("Could not find endpoint for query:", q.name);
+      setCurrentView("queries");
+      return;
+    }
+
+    batch(() => {
+      // Save current if any
+      const current = workbenchState.selectedEndpoint;
+      if (current) {
+        queryStateCache.set(current.id, {
+          params: JSON.parse(JSON.stringify(workbenchState.params)),
+          result: workbenchState.result,
+          rawResult: JSON.parse(JSON.stringify(workbenchState.rawResult)),
+          error: workbenchState.error,
+          viewMode: workbenchState.viewMode,
+        });
+      }
+
+      // Select new
+      setWorkbenchState("selectedEndpoint", JSON.parse(JSON.stringify(endpoint)));
+      setWorkbenchState("showParamsSidebar", endpoint.params && endpoint.params.length > 0);
+
+      const cached = queryStateCache.get(endpoint.id);
+      if (cached) {
+        setWorkbenchState("params", JSON.parse(JSON.stringify(cached.params)));
+        setWorkbenchState("result", cached.result);
+        setWorkbenchState("rawResult", JSON.parse(JSON.stringify(cached.rawResult)));
+        setWorkbenchState("error", cached.error);
+        setWorkbenchState("viewMode", cached.viewMode);
+      } else {
+        const initialParams: Record<string, any> = {};
+        endpoint.params.forEach((p) => {
+          initialParams[p.name] = p.param_type.toLowerCase().includes("bool") ? false : "";
+        });
+        setWorkbenchState("params", initialParams);
+        setWorkbenchState("result", null);
+        setWorkbenchState("rawResult", null);
+        setWorkbenchState("error", null);
+      }
+
+      setCurrentView("queries");
+    });
+  };
+
   return (
     <>
       <Show when={showSplash()}>
@@ -144,7 +195,13 @@ function App() {
             </div>
 
             <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "dashboard", "view-enter": currentView() === "dashboard" }}>
-              <Dashboard api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
+              <Dashboard
+                api={connection.apiClient()}
+                isConnected={connection.isConnected()}
+                dbPath={activeConnection().localPath}
+                onConnect={connection.openSettings}
+                onSelectQuery={handleSelectQuery}
+              />
             </div>
 
             <Show when={currentView() === "graph"}>

@@ -3,7 +3,6 @@ export interface DataItem {
   label?: string;
   name?: string;
   title?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
@@ -95,4 +94,28 @@ export interface EndpointConfig {
   body?: any;
   labels?: string[];
   definition?: string;
+}
+
+export interface DBStat {
+  entries: number;
+  psize: number;
+  depth: number;
+  branch_pages: number;
+  leaf_pages: number;
+  overflow_pages: number;
+}
+
+export interface DBInfo {
+  map_size: number;
+  last_pgno: number;
+  last_txnid: number;
+  max_readers: number;
+  num_readers: number;
+}
+
+export interface LocalStorageStats {
+  db_path: string;
+  disk_size_bytes: number;
+  env_info: DBInfo;
+  core_dbs: Record<string, DBStat>;
 }

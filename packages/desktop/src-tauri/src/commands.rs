@@ -17,6 +17,11 @@ pub fn terminate_app() {
     std::process::exit(0);
 }
 
+#[tauri::command]
+pub async fn get_local_db_stats(path: String) -> Result<crate::stats::LocalStorageStats, String> {
+    crate::stats::get_local_db_stats(&path)
+}
+
 pub fn map_reqwest_error(e: reqwest::Error, prefix: &str) -> String {
     if e.is_connect() {
         if let Some(url) = e.url() {

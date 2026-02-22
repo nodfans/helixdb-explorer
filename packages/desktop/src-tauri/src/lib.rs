@@ -1,4 +1,5 @@
 pub mod hql_translator;
+pub mod stats;
 pub mod tool_args;
 pub mod commands;
 pub mod config;
@@ -181,7 +182,8 @@ pub fn run() {
             validate_hql,
             get_hql_completion,
             format_hql,
-            get_vector_projections
+            get_vector_projections,
+            get_local_db_stats
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {

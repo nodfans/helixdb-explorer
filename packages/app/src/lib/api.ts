@@ -1,4 +1,4 @@
-import { NodesEdgesResponse, SchemaInfo, ConnectionData, NodeDetailsResponse, EndpointConfig } from "./types";
+import { NodesEdgesResponse, SchemaInfo, ConnectionData, NodeDetailsResponse, EndpointConfig, LocalStorageStats } from "./types";
 import { invoke } from "@tauri-apps/api/core";
 
 // Helper to check if we are running inside Tauri
@@ -687,5 +687,12 @@ export class HelixApi {
   // Deprecated: use executeEndpoint
   async runQuery(queryName: string, params: Record<string, any>): Promise<any> {
     return this.request(`/${queryName}`, "POST", params);
+  }
+
+  async getLocalDbStats(path: string): Promise<LocalStorageStats> {
+    if (isTauri()) {
+      return await invoke<LocalStorageStats>("get_local_db_stats", { path });
+    }
+    throw new Error("Local DB stats are only available in the desktop application.");
   }
 }
