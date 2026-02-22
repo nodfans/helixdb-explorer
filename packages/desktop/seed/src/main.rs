@@ -5,25 +5,36 @@ use rand::{Rng, thread_rng, seq::SliceRandom};
 
 const HELIX_URL: &str = "http://127.0.0.1:6969";
 
-const DOMAINS: [&str; 3] = ["Fashion", "Electronics", "Wellness"];
+// ─── Config ───────────────────────────────────────────────────────────────────
+//
+// FOLLOWS_PER_USER: how many Follows edges each user creates (outgoing).
+//   Min: 1  →  15 total edges   (sparse graph)
+//   Max: 14 →  up to 210 edges  (everyone follows everyone else)
+//
+const FOLLOWS_PER_USER: usize = 1;
+
+// VECTOR_DIM: dimensionality of each UserEmbedding vector.
 const VECTOR_DIM: usize = 8;
 
-fn generate_vector(domain_idx: usize, item_idx: usize) -> Vec<f64> {
-    let mut rng = thread_rng();
+// ─────────────────────────────────────────────────────────────────────────────
 
-    // Each domain occupies its own "strong" dimensions:
-    // Fashion:     dims 0,1,2  → high signal
-    // Electronics: dims 3,4,5  → high signal
-    // Wellness:    dims 5,6,7  → high signal
+// Interest groups — drive the embedding signal
+// Tech:      dims 0,1,2  → high
+// Art:       dims 3,4,5  → high
+// Wellness:  dims 5,6,7  → high
+const INTERESTS: [&str; 3] = ["Tech", "Art", "Wellness"];
+
+fn generate_vector(interest_idx: usize, user_idx: usize) -> Vec<f64> {
+    let mut rng = thread_rng();
     (0..VECTOR_DIM).map(|i| {
-        let is_domain_dim = match domain_idx {
+        let is_signal = match interest_idx {
             0 => i < 3,
             1 => i >= 3 && i < 6,
             2 => i >= 5,
             _ => false,
         };
-        let base = if is_domain_dim {
-            (0.7 + item_idx as f64 * 0.05).min(0.95)
+        let base = if is_signal {
+            (0.70 + user_idx as f64 * 0.03).min(0.95)
         } else {
             0.05
         };
@@ -34,7 +45,6 @@ fn generate_vector(domain_idx: usize, item_idx: usize) -> Vec<f64> {
 
 fn get_now() -> String { Utc::now().to_rfc3339() }
 fn days_ago(days: i64) -> String { (Utc::now() - Duration::days(days)).to_rfc3339() }
-fn round2(v: f64) -> f64 { (v * 100.0).round() / 100.0 }
 
 fn check_resp(resp: reqwest::blocking::Response, ctx: &str) -> Result<Value, Box<dyn std::error::Error>> {
     let status = resp.status();
@@ -56,165 +66,151 @@ fn extract_id(v: &Value) -> Result<String, String> {
     Err(format!("No id in: {:?}", v))
 }
 
-struct SeededNode { id: String, domain_idx: usize, name: String }
+struct SeededUser {
+    id: String,
+    name: String,
+    interest_idx: usize,
+}
 
-fn seed_users(client: &Client) -> Result<Vec<SeededNode>, Box<dyn std::error::Error>> {
-    println!(">>> Seeding 10 Users...");
+// ─── Seed Users ───────────────────────────────────────────────────────────────
+
+fn seed_users(client: &Client) -> Result<Vec<SeededUser>, Box<dyn std::error::Error>> {
+    println!(">>> Seeding 15 Users...");
     let mut rng = thread_rng();
-    let tiers = ["Bronze", "Silver", "Gold", "Platinum"];
     let regions = ["North", "South", "East", "West"];
 
+    // 5 users per interest group
     let users_def: Vec<(&str, usize)> = vec![
         ("Alice",   0),
         ("Bob",     0),
         ("Carol",   0),
         ("Dave",    0),
-        ("Eve",     1),
+        ("Eve",     0),
         ("Frank",   1),
         ("Grace",   1),
-        ("Hank",    2),
-        ("Ivy",     2),
-        ("Jack",    2),
+        ("Hank",    1),
+        ("Ivy",     1),
+        ("Jack",    1),
+        ("Karen",   2),
+        ("Leo",     2),
+        ("Mia",     2),
+        ("Noah",    2),
+        ("Olivia",  2),
     ];
 
-    let mut nodes = Vec::new();
-    for (i, (name, domain_idx)) in users_def.iter().enumerate() {
+    let mut users = Vec::new();
+    for (i, (name, interest_idx)) in users_def.iter().enumerate() {
+        let bio = format!(
+            "{} is a {} enthusiast from the {} region.",
+            name,
+            INTERESTS[*interest_idx],
+            regions[rng.gen_range(0..regions.len())]
+        );
         let payload = json!({
             "name": name,
-            "age": rng.gen_range(18..65_i32),
+            "age": rng.gen_range(18..55_i32),
             "region": regions[rng.gen_range(0..regions.len())],
-            "tier": tiers[rng.gen_range(0..tiers.len())],
-            "lifetime_value": round2(rng.gen_range(500.0..5000.0_f64)),
-            "created_at": days_ago(rng.gen_range(1..180_i64))
+            "bio": bio
         });
         let resp = client.post(format!("{}/create_user", HELIX_URL)).json(&payload).send()?;
         let id = extract_id(&check_resp(resp, "create_user")?)?;
-        println!("  [User {:02}] {} ({}) → {}", i, name, DOMAINS[*domain_idx], id);
-        nodes.push(SeededNode { id, domain_idx: *domain_idx, name: name.to_string() });
+        println!("  [User {:02}] {} ({}) → {}", i, name, INTERESTS[*interest_idx], id);
+        users.push(SeededUser { id, name: name.to_string(), interest_idx: *interest_idx });
     }
-    println!("  Total users: {}\n", nodes.len());
-    Ok(nodes)
+    println!("  Total users: {}\n", users.len());
+    Ok(users)
 }
 
-fn seed_products(client: &Client) -> Result<Vec<SeededNode>, Box<dyn std::error::Error>> {
-    println!(">>> Seeding 10 Products...");
+// ─── Seed Follows ─────────────────────────────────────────────────────────────
+
+fn seed_follows(client: &Client, users: &[SeededUser]) -> Result<(), Box<dyn std::error::Error>> {
+    let per_user = FOLLOWS_PER_USER.min(users.len() - 1);
+    let max_possible = users.len() * (users.len() - 1);
+    println!(">>> Seeding Follows edges ({} per user, {} total, max possible {})...", per_user, users.len() * per_user, max_possible);
+
     let mut rng = thread_rng();
+    let mut total = 0;
 
-    let products_def: Vec<(&str, &str, usize, f64, f64)> = vec![
-        ("SKU-0000", "Zara Jacket",        0, 20.0,  300.0),
-        ("SKU-0001", "H&M Dress",          0, 20.0,  300.0),
-        ("SKU-0002", "Uniqlo Tee",         0, 20.0,  300.0),
-        ("SKU-0003", "Zara Boots",         0, 20.0,  300.0),
-        ("SKU-0004", "Apple AirPods",      1, 100.0, 2000.0),
-        ("SKU-0005", "Samsung Monitor",    1, 100.0, 2000.0),
-        ("SKU-0006", "Sony Headphones",    1, 100.0, 2000.0),
-        ("SKU-0007", "Lush Bath Bomb",     2, 10.0,  150.0),
-        ("SKU-0008", "Nivea Cream",        2, 10.0,  150.0),
-        ("SKU-0009", "The Ordinary Serum", 2, 10.0,  150.0),
-    ];
+    for user in users.iter() {
+        // Pick `per_user` distinct targets (not self)
+        let mut candidates: Vec<&SeededUser> = users.iter().filter(|u| u.id != user.id).collect();
+        candidates.shuffle(&mut rng);
+        let targets = &candidates[..per_user];
 
-    let mut nodes = Vec::new();
-    for (i, (sku, name, domain_idx, min_p, max_p)) in products_def.iter().enumerate() {
-        let payload = json!({
-            "sku": sku,
-            "name": name,
-            "category": DOMAINS[*domain_idx],
-            "price": round2(rng.gen_range(*min_p..*max_p))
-        });
-        let resp = client.post(format!("{}/create_product", HELIX_URL)).json(&payload).send()?;
-        let id = extract_id(&check_resp(resp, "create_product")?)?;
-        println!("  [Product {:02}] {} ({}) → {}", i, name, DOMAINS[*domain_idx], id);
-        nodes.push(SeededNode { id, domain_idx: *domain_idx, name: name.to_string() });
-    }
-    println!("  Total products: {}\n", nodes.len());
-    Ok(nodes)
-}
-
-fn seed_purchases(
-    client: &Client,
-    users: &[SeededNode],
-    products: &[SeededNode],
-) -> Result<(), Box<dyn std::error::Error>> {
-    println!(">>> Seeding 10 Purchased edges (1 per user)...");
-    let mut rng = thread_rng();
-
-    let mut product_pool: Vec<&SeededNode> = products.iter().collect();
-    product_pool.shuffle(&mut rng);
-
-    for (i, (user, product)) in users.iter().zip(product_pool.iter()).enumerate() {
-        let amount = round2(rng.gen_range(10.0..2000.0_f64));
-        let resp = client.post(format!("{}/connect_purchased", HELIX_URL)).json(&json!({
-            "from_id": &user.id,
-            "to_id": &product.id,
-            "date": days_ago(rng.gen_range(1..180_i64)),
-            "amount": amount,
-            "quantity": rng.gen_range(1..4_i32)
-        })).send()?;
-        check_resp(resp, "connect_purchased")?;
-        println!("  [Purchase {:02}] {} → \"{}\" ${}", i, user.name, product.name, amount);
+        for target in targets {
+            let resp = client.post(format!("{}/follow_user", HELIX_URL)).json(&json!({
+                "from_id": &user.id,
+                "to_id":   &target.id,
+                "followed_at": days_ago(rng.gen_range(1..365_i64))
+            })).send()?;
+            check_resp(resp, "follow_user")?;
+            println!("  [Follow] {} → {}", user.name, target.name);
+            total += 1;
+        }
     }
 
-    println!("  Total Purchased edges: {}\n", users.len());
+    println!("  Total Follows edges: {}\n", total);
     Ok(())
 }
 
-fn seed_product_embeddings(
-    client: &Client,
-    products: &[SeededNode],
-) -> Result<(), Box<dyn std::error::Error>> {
-    println!(">>> Seeding 10 ProductEmbeddings (1 per product)...");
+// ─── Seed User Embeddings ─────────────────────────────────────────────────────
 
-    for (i, product) in products.iter().enumerate() {
-        let vector = generate_vector(product.domain_idx, i);
-        println!("  [Embed {:02}] \"{}\" → {:?}", i, product.name, vector);
+fn seed_embeddings(client: &Client, users: &[SeededUser]) -> Result<(), Box<dyn std::error::Error>> {
+    println!(">>> Seeding {} UserEmbeddings (1 per user)...", users.len());
+
+    for (i, user) in users.iter().enumerate() {
+        let vector = generate_vector(user.interest_idx, i);
+        println!("  [Embed {:02}] \"{}\" → {:?}", i, user.name, vector);
 
         let payload = json!({
-            "product_id": product.id,
-            "name": format!("{} Embedding", product.name),
-            "description": format!("Semantic embedding for {}", product.name),
+            "user_id": user.id,
+            "bio_text": format!("{} | interest: {}", user.name, INTERESTS[user.interest_idx]),
             "vec_data": vector,
             "created_at": get_now()
         });
-        let resp = client.post(format!("{}/add_product_embedding", HELIX_URL)).json(&payload).send()?;
-        check_resp(resp, "add_product_embedding")?;
+        let resp = client.post(format!("{}/add_user_embedding", HELIX_URL)).json(&payload).send()?;
+        check_resp(resp, "add_user_embedding")?;
     }
 
-    println!("  Total ProductEmbeddings: {}\n", products.len());
+    println!("  Total UserEmbeddings: {}\n", users.len());
     Ok(())
 }
+
+// ─── Clear ────────────────────────────────────────────────────────────────────
 
 fn clear_all_data(client: &Client) -> Result<(), Box<dyn std::error::Error>> {
     println!(">>> Clearing all data...");
     let resp = client.post(format!("{}/clear_all_data", HELIX_URL)).json(&json!({})).send()?;
     check_resp(resp, "clear_all_data")?;
-    println!(">>> Cleared.");
+    println!(">>> Cleared.\n");
     Ok(())
 }
 
+// ─── Main ─────────────────────────────────────────────────────────────────────
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
+
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(120))
+        .user_agent("HelixSeed/4.0.0")
+        .no_proxy()
+        .build()?;
+
     if args.iter().any(|a| a == "--clean") {
-        let client = Client::builder().timeout(std::time::Duration::from_secs(60)).no_proxy().build()?;
         clear_all_data(&client)?;
         return Ok(());
     }
 
-    let client = Client::builder()
-        .timeout(std::time::Duration::from_secs(120))
-        .user_agent("HelixSeed/3.0.0")
-        .no_proxy()
-        .build()?;
+    let per_user = FOLLOWS_PER_USER.min(14);
+    println!("=== Helix Social Seed ===");
+    println!("    Users:      15 (5 Tech, 5 Art, 5 Wellness)");
+    println!("    Follows:    {} per user = {} total edges  (max possible: 210)", per_user, 15 * per_user);
+    println!("    Embeddings: 15 (1 per user, grouped by interest)\n");
 
-    println!("=== Helix Simple Seed ===");
-    println!("    Users:      10 (4 Fashion, 3 Electronics, 3 Wellness)");
-    println!("    Products:   10 (4 Fashion, 3 Electronics, 3 Wellness)");
-    println!("    Purchases:  10 (1 per user, each product bought once)");
-    println!("    Embeddings: 10 (1 per product, clean 1:1)\n");
-
-    let users    = seed_users(&client)?;
-    let products = seed_products(&client)?;
-    seed_purchases(&client, &users, &products)?;
-    seed_product_embeddings(&client, &products)?;
+    let users = seed_users(&client)?;
+    seed_follows(&client, &users)?;
+    seed_embeddings(&client, &users)?;
 
     println!("=== Done ===");
     Ok(())
