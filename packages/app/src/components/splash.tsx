@@ -480,7 +480,7 @@ export const SplashScreen = (props: SplashScreenProps) => {
           display: inline-flex; align-items: center; gap: 6px;
           height: 28px;
           padding: 0 14px 0 16px;
-          border-radius: 6px;
+          border-radius: 10px;
           background: var(--accent);
           border: none;
           color: #fff;

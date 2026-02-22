@@ -28,10 +28,18 @@ const MODERN_PALETTE = [
 // ─── Utilities ───
 const getHSLColor = (index: number) => {
   if (index < MODERN_PALETTE.length) return MODERN_PALETTE[index];
-  // Procedural generation using Golden Angle (approx 137.5 degrees) for infinite distinct highlights
   const hue = (index * 137.508) % 360;
   return `hsl(${hue}, 65%, 55%)`;
 };
+
+/** Parse the count from a variety of HQL response shapes */
+const parseCountResult = (res: any): number => {
+  const raw = res?.count || res?.Count?.[""]?.count || res?.[0]?.count || res?.[0] || 0;
+  return typeof raw === "number" ? raw : parseInt(String(raw), 10) || 0;
+};
+
+/** Build a COUNT HQL query for a given graph element type */
+const buildCountHql = (prefix: string, typeName: string) => `QUERY Count${prefix}${typeName}() =>\n  count <- ${prefix}<${typeName}>::COUNT\n  RETURN count`;
 
 // ─── Stagger Animation Wrapper ───
 const Stagger = (p: { index: number; step?: number; children: any }) => (
@@ -50,7 +58,7 @@ const StatCard = (p: { label: string; value: number; sublabel: string; loading?:
     <div class="flex flex-col gap-1 mt-1">
       <Show when={!p.loading} fallback={<div class="animate-pulse h-8 w-24 rounded-md bg-native/10" />}>
         <div class="flex items-baseline gap-2">
-          <span class="text-3xl font-semibold font-mono tracking-tight text-native-primary leading-none">{p.value.toLocaleString()}</span>
+          <span class="text-xl font-semibold font-mono tracking-tight text-native-primary leading-none">{p.value.toLocaleString()}</span>
         </div>
       </Show>
       <span class="text-[11px] text-native-tertiary opacity-60 font-medium">{p.sublabel}</span>
@@ -74,37 +82,41 @@ const DonutChart = (p: { items: { type: string; count: number; queries: SchemaQu
     const data = validItems.map((item, idx) => ({
       value: item.count,
       name: item.type,
-      // Use provided color or fallback to our modern palette
       itemStyle: { color: item.color || getHSLColor(idx) },
     }));
+
+    // Theme-aware tooltip colors
+    const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches || document.documentElement.classList.contains("dark");
 
     const option = {
       tooltip: {
         trigger: "item",
         formatter: '<div style="font-family: ui-sans-serif, system-ui, sans-serif;"><b>{b}</b>: {c} <span style="opacity: 0.6; font-size: 11px;">({d}%)</span></div>',
-        backgroundColor: "rgba(23, 23, 23, 0.9)", // Very dark gray, almost black
-        borderColor: "rgba(255, 255, 255, 0.08)",
+        backgroundColor: isDark ? "rgba(23, 23, 23, 0.9)" : "rgba(255, 255, 255, 0.95)",
+        borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.08)",
         borderWidth: 1,
-        textStyle: { color: "#f3f4f6", fontSize: 12 },
+        textStyle: { color: isDark ? "#f3f4f6" : "#1f2937", fontSize: 12 },
         padding: [8, 12],
         borderRadius: 6,
-        extraCssText: "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3); backdrop-filter: blur(4px);",
+        extraCssText: isDark
+          ? "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3); backdrop-filter: blur(4px);"
+          : "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); backdrop-filter: blur(4px);",
       },
       series: [
         {
           type: "pie",
-          radius: ["80%", "95%"], // Thinner ring for a much sleeker look
+          radius: ["80%", "95%"],
           center: ["50%", "50%"],
           avoidLabelOverlap: false,
           itemStyle: {
-            borderRadius: 4, // Subtle rounded corners
-            borderWidth: 0, // Removed borders completely
+            borderRadius: 1,
+            borderWidth: 0,
           },
           label: {
             show: false,
           },
           emphasis: {
-            scale: false, // Disables the scale enlargement completely
+            scale: false,
             itemStyle: {
               shadowBlur: 0,
               shadowColor: "transparent",
@@ -117,7 +129,6 @@ const DonutChart = (p: { items: { type: string; count: number; queries: SchemaQu
 
     chart.setOption(option);
 
-    // Responsive handling
     const resizeObserver = new ResizeObserver(() => chart.resize());
     resizeObserver.observe(chartRef);
 
@@ -129,7 +140,6 @@ const DonutChart = (p: { items: { type: string; count: number; queries: SchemaQu
 
   return (
     <div class="relative flex items-center justify-center">
-      {/* Container must have explicit dimensions for ECharts */}
       <div ref={chartRef} style={{ width: "100px", height: "100px" }} />
       <div class="absolute flex flex-col items-center justify-center pointer-events-none">
         <span class="text-[14px] font-bold font-mono text-native-primary tabular-nums">{p.total > 9999 ? (p.total / 1000).toFixed(1) + "k" : p.total}</span>
@@ -149,16 +159,13 @@ const DistCard = (p: {
 }) => {
   const [expandedType, setExpandedType] = createSignal<string | null>(null);
 
-  // Grouping logic: Top 15 + "Other"
   const processedItems = createMemo(() => {
-    // 1. Filter out zeros and sort descending
     const sorted = [...p.items].filter((i) => i.count > 0).sort((a, b) => b.count - a.count);
 
     if (sorted.length <= 16) {
       return sorted.map((item, idx) => ({ ...item, color: getHSLColor(idx) }));
     }
 
-    // 2. Slice Top 15
     const top15 = sorted.slice(0, 15).map((item, idx) => ({ ...item, color: getHSLColor(idx) }));
     const others = sorted.slice(15);
     const otherCount = others.reduce((sum, item) => sum + item.count, 0);
@@ -168,8 +175,8 @@ const DistCard = (p: {
       {
         type: `Other (${others.length})`,
         count: otherCount,
-        queries: [],
-        color: "#64748b", // Neutral slate for "Other"
+        queries: [] as SchemaQuery[],
+        color: "#64748b",
       },
     ];
   });
@@ -188,7 +195,7 @@ const DistCard = (p: {
           </Show>
           <div class="flex-1 flex flex-col gap-2.5">
             <Show when={!p.loading} fallback={<div class="h-10 w-full animate-pulse bg-native/10 rounded-md" />}>
-              <div class="text-[20px] font-bold font-mono text-native-primary tracking-tight leading-none">{p.totalCount.toLocaleString()}</div>
+              <div class="text-[16px] font-bold font-mono text-native-primary tracking-tight leading-none">{p.totalCount.toLocaleString()}</div>
               <div class="text-[10px] uppercase font-bold text-native-quaternary tracking-wider">Total Records</div>
             </Show>
           </div>
@@ -279,87 +286,128 @@ const StorageStats = (p: { stats: LocalStorageStats; loading?: boolean }) => {
   return (
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
       {/* Disk Usage */}
-      <div class="flex flex-col gap-4 p-5 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
-        <div class="flex items-center justify-between border-b border-native-subtle pb-3">
-          <div class="flex items-center gap-2">
-            <HardDrive size={16} class="text-accent" />
-            <span class="text-[13px] font-semibold text-native-primary">Physical Storage</span>
+      <Stagger index={0}>
+        <div class="flex flex-col gap-4 p-5 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
+          <div class="flex items-center justify-between border-b border-native-subtle pb-3">
+            <div class="flex items-center gap-2">
+              <HardDrive size={16} class="text-accent" />
+              <span class="text-[13px] font-semibold text-native-primary">Physical Storage</span>
+            </div>
+            <span class="text-[10px] font-mono text-native-tertiary uppercase tracking-wider">Disk Info</span>
           </div>
-          <span class="text-[10px] font-mono text-native-tertiary uppercase tracking-wider">Disk Info</span>
-        </div>
-        <div class="flex flex-col gap-1">
-          <div class="text-2xl font-bold font-mono text-native-primary tracking-tight">{formatBytes(p.stats.disk_size_bytes)}</div>
-          <div class="text-[11px] text-native-tertiary opacity-60">Total data.mdb size</div>
-        </div>
-        <div class="flex flex-col gap-2 pt-1">
-          <div class="flex justify-between text-[11px]">
-            <span class="text-native-tertiary">Environment Max</span>
-            <span class="text-native-secondary font-mono">{formatBytes(p.stats.env_info.map_size)}</span>
+          <div class="flex flex-col gap-1">
+            <div class="text-base font-bold font-mono text-native-primary tracking-tight">{formatBytes(p.stats.disk_size_bytes)}</div>
+            <div class="text-[11px] text-native-tertiary opacity-60">Total data.mdb size</div>
           </div>
-          <div class="w-full bg-native/10 h-1 rounded-full overflow-hidden">
-            <div class="bg-accent h-full transition-all duration-500" style={{ width: `${Math.min(100, (p.stats.disk_size_bytes / p.stats.env_info.map_size) * 100)}%` }} />
+          <div class="flex flex-col gap-2 pt-1">
+            <div class="flex justify-between text-[11px]">
+              <span class="text-native-tertiary">Environment Max</span>
+              <span class="text-native-secondary font-mono">{formatBytes(p.stats.env_info.map_size)}</span>
+            </div>
+            <div class="w-full bg-native/10 h-1 rounded-full overflow-hidden">
+              <div class="bg-accent h-full transition-all duration-500" style={{ width: `${Math.min(100, (p.stats.disk_size_bytes / p.stats.env_info.map_size) * 100)}%` }} />
+            </div>
           </div>
         </div>
-      </div>
+      </Stagger>
 
       {/* Database Activity */}
-      <div class="flex flex-col gap-4 p-5 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
-        <div class="flex items-center justify-between border-b border-native-subtle pb-3">
-          <div class="flex items-center gap-2">
-            <Activity size={16} class="text-emerald-500" />
-            <span class="text-[13px] font-semibold text-native-primary">Engine Health</span>
+      <Stagger index={1}>
+        <div class="flex flex-col gap-4 p-5 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
+          <div class="flex items-center justify-between border-b border-native-subtle pb-3">
+            <div class="flex items-center gap-2">
+              <Activity size={16} class="text-emerald-500" />
+              <span class="text-[13px] font-semibold text-native-primary">Engine Health</span>
+            </div>
+            <span class="text-[10px] font-mono text-native-tertiary uppercase tracking-wider">Environment</span>
           </div>
-          <span class="text-[10px] font-mono text-native-tertiary uppercase tracking-wider">Environment</span>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="flex flex-col gap-0.5">
-            <div class="text-[10px] text-native-quaternary uppercase font-bold tracking-tight">Last Txn ID</div>
-            <div class="text-lg font-mono font-bold text-native-primary">{p.stats.env_info.last_txnid.toLocaleString()}</div>
-          </div>
-          <div class="flex flex-col gap-0.5">
-            <div class="text-[10px] text-native-quaternary uppercase font-bold tracking-tight">Active Readers</div>
-            <div class="text-lg font-mono font-bold text-native-primary">
-              {p.stats.env_info.num_readers} / {p.stats.env_info.max_readers}
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-0.5">
+              <div class="text-[10px] text-native-quaternary uppercase font-bold tracking-tight">Last Txn ID</div>
+              <div class="text-[14px] font-mono font-bold text-native-primary">{p.stats.env_info.last_txnid.toLocaleString()}</div>
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <div class="text-[10px] text-native-quaternary uppercase font-bold tracking-tight">Active Readers</div>
+              <div class="text-[14px] font-mono font-bold text-native-primary">
+                {p.stats.env_info.num_readers} / {p.stats.env_info.max_readers}
+              </div>
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <div class="text-[10px] text-native-quaternary uppercase font-bold tracking-tight">Last Page ID</div>
+              <div class="text-[14px] font-mono font-bold text-native-primary">{p.stats.env_info.last_pgno.toLocaleString()}</div>
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <div class="text-[10px] text-native-quaternary uppercase font-bold tracking-tight">Status</div>
+              <div class="text-[14px] font-bold text-emerald-500 flex items-center gap-1.5">
+                <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Healthy
+              </div>
             </div>
           </div>
-          <div class="flex flex-col gap-0.5">
-            <div class="text-[10px] text-native-quaternary uppercase font-bold tracking-tight">Last Page ID</div>
-            <div class="text-lg font-mono font-bold text-native-primary">{p.stats.env_info.last_pgno.toLocaleString()}</div>
-          </div>
-          <div class="flex flex-col gap-0.5">
-            <div class="text-[10px] text-native-quaternary uppercase font-bold tracking-tight">Status</div>
-            <div class="text-lg font-bold text-emerald-500 flex items-center gap-1.5">
-              <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Healthy
-            </div>
-          </div>
         </div>
-      </div>
+      </Stagger>
 
       {/* Core DBs breakdown */}
-      <div class="flex flex-col gap-4 p-5 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
-        <div class="flex items-center justify-between border-b border-native-subtle pb-3">
-          <div class="flex items-center gap-2">
-            <Database size={16} class="text-indigo-500" />
-            <span class="text-[13px] font-semibold text-native-primary">Core Subscriptions</span>
+      <Stagger index={2}>
+        <div class="flex flex-col gap-4 p-5 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
+          <div class="flex items-center justify-between border-b border-native-subtle pb-3">
+            <div class="flex items-center gap-2">
+              <Database size={16} class="text-indigo-500" />
+              <span class="text-[13px] font-semibold text-native-primary">Core Subscriptions</span>
+            </div>
+            <span class="text-[10px] font-mono text-native-tertiary uppercase tracking-wider">DB Entry Counts</span>
           </div>
-          <span class="text-[10px] font-mono text-native-tertiary uppercase tracking-wider">DB Entry Counts</span>
+          <div class="flex flex-col gap-2 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin">
+            <For each={dbEntries()}>
+              {([name, stat]) => (
+                <div class="flex justify-between items-center text-[11px] group">
+                  <span class="text-native-secondary font-medium group-hover:text-native-primary transition-colors underline decoration-dotted decoration-native-tertiary underline-offset-2">
+                    {name}
+                  </span>
+                  <span class="text-native-primary font-mono font-bold bg-native/5 px-1.5 py-0.5 rounded">{stat.entries.toLocaleString()}</span>
+                </div>
+              )}
+            </For>
+          </div>
         </div>
-        <div class="flex flex-col gap-2 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin">
-          <For each={dbEntries()}>
-            {([name, stat]) => (
-              <div class="flex justify-between items-center text-[11px] group">
-                <span class="text-native-secondary font-medium group-hover:text-native-primary transition-colors underline decoration-dotted decoration-native-tertiary underline-offset-2">
-                  {name}
-                </span>
-                <span class="text-native-primary font-mono font-bold bg-native/5 px-1.5 py-0.5 rounded">{stat.entries.toLocaleString()}</span>
-              </div>
-            )}
-          </For>
-        </div>
-      </div>
+      </Stagger>
     </div>
   );
+};
+
+// ─── Fetch helpers ───
+
+type TypeDistItem = { type: string; count: number; queries: SchemaQuery[] };
+
+/** Fetch counts for a list of schema types in parallel */
+const fetchTypeCounts = async (
+  api: HelixApi,
+  types: { name: string }[],
+  prefix: string,
+  getAssociatedQueries: (typeName: string) => SchemaQuery[]
+): Promise<{ total: number; dist: TypeDistItem[] }> => {
+  const results = await Promise.allSettled(
+    types
+      .filter((t) => t.name && t.name !== "Unknown")
+      .map(async (t) => {
+        const hql = buildCountHql(prefix, t.name);
+        const res = await api.executeHQL(hql);
+        const count = parseCountResult(res);
+        return { type: t.name, count, queries: getAssociatedQueries(t.name) };
+      })
+  );
+
+  let total = 0;
+  const dist: TypeDistItem[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled") {
+      total += r.value.count;
+      dist.push(r.value);
+    } else {
+      console.warn(`[Dashboard] Failed to count ${prefix} type:`, r.reason);
+    }
+  }
+  return { total, dist: dist.sort((a, b) => b.count - a.count) };
 };
 
 interface DashboardProps {
@@ -377,9 +425,9 @@ export const Dashboard = (props: DashboardProps) => {
   const [totalNodes, setTotalNodes] = createSignal(0);
   const [totalEdges, setTotalEdges] = createSignal(0);
   const [totalVectors, setTotalVectors] = createSignal(0);
-  const [nodeTypes, setNodeTypes] = createSignal<{ type: string; count: number; queries: SchemaQuery[] }[]>([]);
-  const [edgeTypes, setEdgeTypes] = createSignal<{ type: string; count: number; queries: SchemaQuery[] }[]>([]);
-  const [vectorTypes, setVectorTypes] = createSignal<{ type: string; count: number; queries: SchemaQuery[] }[]>([]);
+  const [nodeTypes, setNodeTypes] = createSignal<TypeDistItem[]>([]);
+  const [edgeTypes, setEdgeTypes] = createSignal<TypeDistItem[]>([]);
+  const [vectorTypes, setVectorTypes] = createSignal<TypeDistItem[]>([]);
   const [totalQueries, setTotalQueries] = createSignal(0);
   const [lastUpdated, setLastUpdated] = createSignal<Date | null>(null);
   const [storageStats, setStorageStats] = createSignal<LocalStorageStats | null>(null);
@@ -389,102 +437,72 @@ export const Dashboard = (props: DashboardProps) => {
     setLoading(true);
     setError(null);
     try {
-      let nodes = 0;
-      let edges = 0;
-      let vectors = 0;
-      const nodeDist: { type: string; count: number; queries: SchemaQuery[] }[] = [];
-      const edgeDist: { type: string; count: number; queries: SchemaQuery[] }[] = [];
-      const vectorDist: { type: string; count: number; queries: SchemaQuery[] }[] = [];
+      const schema = await props.api.fetchSchema();
+      setTotalQueries(schema.queries?.length || 0);
 
-      try {
-        const schema = await props.api.fetchSchema();
+      // Build a query-association helper once per refresh
+      const getAssociatedQueries = (typeName: string): SchemaQuery[] => {
+        if (!schema.queries) return [];
+        const lower = typeName.toLowerCase();
+        const singular = lower.endsWith("s") ? lower.slice(0, -1) : lower;
+        return schema.queries.filter((q) => {
+          const name = q.name.toLowerCase();
+          const returns = (q.returns || []).map((r) => r.toLowerCase());
+          return name.includes(lower) || name.includes(singular) || returns.some((r) => r.includes(lower) || r.includes(singular));
+        });
+      };
 
-        setTotalQueries(schema.queries?.length || 0);
+      // Fire all three type-count fetches in parallel
+      const [nodeResult, edgeResult, vectorResult, storageResult] = await Promise.allSettled([
+        fetchTypeCounts(props.api, schema.nodes || [], "N", getAssociatedQueries),
+        fetchTypeCounts(props.api, schema.edges || [], "E", getAssociatedQueries),
+        fetchTypeCounts(props.api, schema.vectors || [], "V", getAssociatedQueries),
+        props.dbPath ? props.api.getLocalDbStats(props.dbPath) : Promise.resolve(null),
+      ]);
 
-        const getAssociatedQueries = (typeName: string) => {
-          if (!schema.queries) return [];
-          const lowerType = typeName.toLowerCase();
-          const singularType = lowerType.endsWith("s") ? lowerType.slice(0, -1) : lowerType;
-          return schema.queries.filter((q) => {
-            const name = q.name.toLowerCase();
-            const returns = (q.returns || []).map((r) => r.toLowerCase());
-            return name.includes(lowerType) || name.includes(singularType) || returns.some((r) => r.includes(lowerType) || r.includes(singularType));
-          });
-        };
-
-        for (const n of schema.nodes || []) {
-          const typeName = n.name || "Unknown";
-          if (typeName === "Unknown") continue;
-          try {
-            const hql = `QUERY CountN${typeName}() =>\n  count <- N<${typeName}>::COUNT\n  RETURN count`;
-            const res = await props.api.executeHQL(hql);
-            const countStr = res?.count || res?.Count?.[""]?.count || res?.[0]?.count || res?.[0] || 0;
-            const count = typeof countStr === "number" ? countStr : parseInt(countStr as string, 10) || 0;
-            nodes += count;
-            nodeDist.push({ type: typeName, count, queries: getAssociatedQueries(typeName) });
-          } catch (e) {}
-        }
-
-        for (const e of schema.edges || []) {
-          const typeName = e.name || "Unknown";
-          if (typeName === "Unknown") continue;
-          try {
-            const hql = `QUERY CountE${typeName}() =>\n  count <- E<${typeName}>::COUNT\n  RETURN count`;
-            const res = await props.api.executeHQL(hql);
-            const countStr = res?.count || res?.Count?.[""]?.count || res?.[0]?.count || res?.[0] || 0;
-            const count = typeof countStr === "number" ? countStr : parseInt(countStr as string, 10) || 0;
-            edges += count;
-            edgeDist.push({ type: typeName, count, queries: getAssociatedQueries(typeName) });
-          } catch (e) {}
-        }
-
-        for (const v of schema.vectors || []) {
-          const typeName = v.name || "Unknown";
-          if (typeName === "Unknown") continue;
-          try {
-            const hql = `QUERY CountV${typeName}() =>\n  count <- V<${typeName}>::COUNT\n  RETURN count`;
-            const res = await props.api.executeHQL(hql);
-            const countStr = res?.count || res?.Count?.[""]?.count || res?.[0]?.count || res?.[0] || 0;
-            const count = typeof countStr === "number" ? countStr : parseInt(countStr as string, 10) || 0;
-            vectors += count;
-            vectorDist.push({ type: typeName, count, queries: getAssociatedQueries(typeName) });
-          } catch (e) {}
-        }
-
-        if (nodes === 0) {
+      // Nodes
+      if (nodeResult.status === "fulfilled") {
+        let { total, dist } = nodeResult.value;
+        if (total === 0) {
           try {
             const res = await props.api.executeHQL(`QUERY CountAllN() =>\n count <- N::COUNT\n RETURN count`);
-            const c = res?.count || res?.[0] || 0;
-            nodes += typeof c === "number" ? c : parseInt(String(c), 10) || 0;
-          } catch (e) {}
-        }
-        if (edges === 0) {
-          try {
-            const res = await props.api.executeHQL(`QUERY CountAllE() =>\n count <- E::COUNT\n RETURN count`);
-            const c = res?.count || res?.[0] || 0;
-            edges += typeof c === "number" ? c : parseInt(String(c), 10) || 0;
-          } catch (e) {}
-        }
-
-        // Fetch Local Storage Stats if path is available
-        if (props.dbPath) {
-          try {
-            const stats = await props.api.getLocalDbStats(props.dbPath);
-            setStorageStats(stats);
+            total = parseCountResult(res);
           } catch (e) {
-            console.warn("Failed to fetch local storage stats", e);
+            console.warn("[Dashboard] Fallback N::COUNT failed:", e);
           }
         }
-      } catch (e) {
-        console.warn("Failed to fetch schema for distribution", e);
+        setTotalNodes(total);
+        setNodeTypes(dist);
       }
 
-      setTotalNodes(nodes);
-      setTotalEdges(edges);
-      setTotalVectors(vectors);
-      setNodeTypes(nodeDist.sort((a, b) => b.count - a.count));
-      setEdgeTypes(edgeDist.sort((a, b) => b.count - a.count));
-      setVectorTypes(vectorDist.sort((a, b) => b.count - a.count));
+      // Edges
+      if (edgeResult.status === "fulfilled") {
+        let { total, dist } = edgeResult.value;
+        if (total === 0) {
+          try {
+            const res = await props.api.executeHQL(`QUERY CountAllE() =>\n count <- E::COUNT\n RETURN count`);
+            total = parseCountResult(res);
+          } catch (e) {
+            console.warn("[Dashboard] Fallback E::COUNT failed:", e);
+          }
+        }
+        setTotalEdges(total);
+        setEdgeTypes(dist);
+      }
+
+      // Vectors
+      if (vectorResult.status === "fulfilled") {
+        setTotalVectors(vectorResult.value.total);
+        setVectorTypes(vectorResult.value.dist);
+      }
+
+      // Storage
+      if (storageResult.status === "fulfilled" && storageResult.value) {
+        setStorageStats(storageResult.value as LocalStorageStats);
+      } else if (storageResult.status === "rejected") {
+        console.warn("[Dashboard] Failed to fetch local storage stats:", storageResult.reason);
+      }
+
       setLastUpdated(new Date());
     } catch (e: any) {
       setError(e.toString());
