@@ -157,11 +157,15 @@ export const HQLIcon = (props: IconProps) => {
     <svg width={size()} height={size()} viewBox="-8 -8 80 80" fill="none" class={local.class} {...others}>
       <defs>
         <linearGradient id="hql-screen" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#1f2937" />
-          <stop offset="100%" stop-color="#0f172a" />
+          <stop offset="0%" stop-color="#1e3a3a" />
+          <stop offset="100%" stop-color="#0f1f2a" />
         </linearGradient>
         <radialGradient id="hql-scanline">
           <stop offset="0%" stop-color="#10b981" stop-opacity="0.3" />
+          <stop offset="100%" stop-color="#10b981" stop-opacity="0" />
+        </radialGradient>
+        <radialGradient id="hql-ambient">
+          <stop offset="0%" stop-color="#10b981" stop-opacity="0.15" />
           <stop offset="100%" stop-color="#10b981" stop-opacity="0" />
         </radialGradient>
         <filter id="hql-glow">
@@ -171,35 +175,45 @@ export const HQLIcon = (props: IconProps) => {
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        <filter id="hql-outer-glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
 
       <g transform="translate(32, 34) scale(1.15) translate(-32,-34)">
+        {/* Ambient Green Glow Behind Screen */}
+        <rect x="6" y="10" width="52" height="44" rx="8" fill="url(#hql-ambient)" />
+
         {/* Screen Frame */}
         <rect x="10" y="14" width="44" height="36" rx="4" fill="#0f172a" />
-        <rect x="10" y="14" width="44" height="36" rx="4" fill="url(#hql-screen)" opacity="0.8" />
+        <rect x="10" y="14" width="44" height="36" rx="4" fill="url(#hql-screen)" opacity="0.85" />
 
-        {/* Frame Highlight */}
-        <rect x="10" y="14" width="44" height="36" rx="4" fill="none" stroke="#334155" stroke-width="1" />
-        <rect x="11" y="15" width="42" height="34" rx="3" fill="none" stroke="#1e293b" stroke-width="0.5" />
+        {/* Frame Highlight - brighter border */}
+        <rect x="10" y="14" width="44" height="36" rx="4" fill="none" stroke="#4b6a5e" stroke-width="1.2" filter="url(#hql-outer-glow)" />
+        <rect x="11" y="15" width="42" height="34" rx="3" fill="none" stroke="#2a3f3a" stroke-width="0.5" />
 
         {/* Scanline Effect */}
         <rect x="12" y="16" width="40" height="32" rx="2" fill="url(#hql-scanline)" opacity="0.2">
           <animate attributeName="y" values="16;48;16" dur="3s" repeatCount="indefinite" />
         </rect>
 
-        {/* Neon Green Code Lines */}
+        {/* Neon Green Code Lines - brighter */}
         <g filter="url(#hql-glow)">
-          <rect x="16" y="22" width="3" height="2" rx="0.5" fill="#10b981" opacity="0.9" />
-          <rect x="21" y="22" width="18" height="2" rx="0.5" fill="#34d399" opacity="0.6" />
+          <rect x="16" y="22" width="3" height="2" rx="0.5" fill="#34d399" opacity="1" />
+          <rect x="21" y="22" width="18" height="2" rx="0.5" fill="#6ee7b7" opacity="0.75" />
 
-          <rect x="16" y="28" width="8" height="2" rx="0.5" fill="#34d399" opacity="0.7" />
-          <rect x="26" y="28" width="14" height="2" rx="0.5" fill="#10b981" opacity="0.5" />
+          <rect x="16" y="28" width="8" height="2" rx="0.5" fill="#6ee7b7" opacity="0.85" />
+          <rect x="26" y="28" width="14" height="2" rx="0.5" fill="#34d399" opacity="0.65" />
 
-          <rect x="16" y="34" width="12" height="2" rx="0.5" fill="#10b981" opacity="0.8" />
-          <rect x="30" y="34" width="10" height="2" rx="0.5" fill="#6ee7b7" opacity="0.6" />
+          <rect x="16" y="34" width="12" height="2" rx="0.5" fill="#34d399" opacity="0.9" />
+          <rect x="30" y="34" width="10" height="2" rx="0.5" fill="#a7f3d0" opacity="0.7" />
 
-          <rect x="16" y="40" width="3" height="2" rx="0.5" fill="#10b981" opacity="0.9" />
-          <rect x="21" y="40" width="8" height="2" rx="0.5" fill="#34d399" opacity="0.5" />
+          <rect x="16" y="40" width="3" height="2" rx="0.5" fill="#34d399" opacity="1" />
+          <rect x="21" y="40" width="8" height="2" rx="0.5" fill="#6ee7b7" opacity="0.65" />
         </g>
 
         {/* Blinking Cursor */}
@@ -212,7 +226,7 @@ export const HQLIcon = (props: IconProps) => {
           <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite" />
         </circle>
 
-        <rect x="10" y="50" width="44" height="2" rx="1" fill="#1e293b" opacity="0.6" />
+        <rect x="10" y="50" width="44" height="2" rx="1" fill="#2a4a3e" opacity="0.7" />
       </g>
     </svg>
   );

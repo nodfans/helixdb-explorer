@@ -15,43 +15,49 @@ const NAV_ITEMS = [
     id: "dashboard",
     label: "Dashboard",
     icon: DashboardIcon,
-    size: 46,
+    size: 42,
     color: "text-rose-400",
+    glow: "rgba(59,130,246,0.35)",
   },
   {
     id: "hql",
     label: "HQL",
     icon: HQLIcon,
-    size: 46,
+    size: 42,
     color: "text-emerald-500",
+    glow: "rgba(16,185,129,0.35)",
   },
   {
     id: "queries",
     label: "Queries",
     icon: QueriesIcon,
-    size: 46,
+    size: 42,
     color: "text-yellow-500",
+    glow: "rgba(245,158,11,0.35)",
   },
   {
     id: "editor",
     label: "Modeler",
     icon: ModelerIcon,
-    size: 46,
+    size: 42,
     color: "text-orange-500",
+    glow: "rgba(249,115,22,0.35)",
   },
   {
     id: "schema",
     label: "Schema",
     icon: SchemaIcon,
-    size: 46,
+    size: 42,
     color: "text-indigo-500",
+    glow: "rgba(99,102,241,0.35)",
   },
   {
     id: "graph",
     label: "Graph",
     icon: GraphIcon,
-    size: 46,
+    size: 42,
     color: "text-purple-500",
+    glow: "rgba(168,85,247,0.35)",
   },
 ] as const;
 
@@ -66,15 +72,15 @@ const ConnectionButton = (props: { isConnected: boolean; onClick: () => void }) 
         style={{ "-webkit-tap-highlight-color": "transparent" }}
         title={props.isConnected ? `Connected to ${active.name} - Click to disconnect` : "Disconnected - Click to configure"}
       >
-        <div class="relative w-12 h-12 flex items-center justify-center">
+        <div class="relative w-12 h-11 flex items-center justify-center">
           <ConnectionIcon
             connected={props.isConnected}
-            size={46}
+            size={42}
             class={`transition-all duration-300 ${props.isConnected ? "scale-105 drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "text-native-tertiary grayscale"} group-hover:scale-110`}
           />
         </div>
         <span
-          class={`text-[11px] font-medium leading-tight transition-colors duration-300 ${props.isConnected ? "text-emerald-500 font-semibold" : "text-native-tertiary"} group-hover:text-native-primary`}
+          class={`text-[12px] font-medium leading-tight transition-colors duration-300 ${props.isConnected ? "text-emerald-500 font-semibold" : "text-native-tertiary"} group-hover:text-native-primary`}
         >
           Connection
         </span>
@@ -83,19 +89,22 @@ const ConnectionButton = (props: { isConnected: boolean; onClick: () => void }) 
   );
 };
 
-const NavButton = (props: { label: string; icon: any; color: string; size?: number; isActive: boolean; onClick: () => void }) => {
+const NavButton = (props: { label: string; icon: any; color: string; glow?: string; size?: number; isActive: boolean; onClick: () => void }) => {
   return (
     <button
       onClick={props.onClick}
       class="flex flex-col items-center justify-center min-w-[72px] h-[52px] pb-px transition-all group relative outline-none select-none"
       style={{ "-webkit-tap-highlight-color": "transparent" }}
     >
-      <div class={`relative w-12 h-12 flex items-center justify-center transition-all duration-300 ${props.isActive ? "text-accent scale-110" : props.color + " group-hover:scale-110"}`}>
-        <props.icon size={props.size || 46} theme={props.isActive ? "dark" : "light"} />
+      <div
+        class={`relative w-12 h-11 flex items-center justify-center transition-all duration-300 ${props.isActive ? "text-accent scale-110" : props.color + " group-hover:scale-110"}`}
+        style={{ filter: props.glow ? `drop-shadow(0 2px 6px ${props.glow})` : undefined }}
+      >
+        <props.icon size={props.size || 42} theme={props.isActive ? "dark" : "light"} />
       </div>
 
       <span
-        class={`text-[11px] font-medium tracking-tight leading-tight transition-colors duration-300 ${props.isActive ? "text-accent font-semibold" : "text-native-secondary group-hover:text-native-primary"}`}
+        class={`text-[12px] font-medium tracking-tight leading-tight transition-colors duration-300 ${props.isActive ? "text-accent font-semibold" : "text-native-secondary group-hover:text-native-primary"}`}
       >
         {props.label}
       </span>
@@ -119,18 +128,20 @@ export const TopNav = (props: TopNavProps) => {
       </div>
 
       {/* Main Toolbar */}
-      <div class="flex-1 flex items-center px-2 gap-1">
+      <div class="flex-1 flex items-center px-3 gap-2">
         {/* Connection Button */}
         <ConnectionButton isConnected={props.isConnected} onClick={props.onOpenSettings} />
 
         <Divider />
 
         {/* View Switchers */}
-        <For each={NAV_ITEMS}>
-          {(item) => <NavButton label={item.label} icon={item.icon} color={item.color} size={item.size} isActive={props.activeView === item.id} onClick={() => props.onSelectView(item.id)} />}
-        </For>
-
-        <Divider />
+        <div class="flex items-center gap-0.5">
+          <For each={NAV_ITEMS}>
+            {(item) => (
+              <NavButton label={item.label} icon={item.icon} color={item.color} glow={item.glow} size={item.size} isActive={props.activeView === item.id} onClick={() => props.onSelectView(item.id)} />
+            )}
+          </For>
+        </div>
       </div>
     </div>
   );
