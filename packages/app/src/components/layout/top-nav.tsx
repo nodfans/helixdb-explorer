@@ -1,7 +1,7 @@
 import { For } from "solid-js";
-import { Plug, DraftingCompass, Layers, Terminal, ChevronDown, MessageSquareCode, GitGraph, PanelTopDashed } from "lucide-solid";
 
 import { activeConnection } from "../../stores/connection";
+import { ConnectionIcon, DashboardIcon, HQLIcon, QueriesIcon, ModelerIcon, SchemaIcon, GraphIcon } from "../ui/icons";
 
 interface TopNavProps {
   activeView: string;
@@ -14,45 +14,45 @@ const NAV_ITEMS = [
   {
     id: "dashboard",
     label: "Dashboard",
-    icon: PanelTopDashed,
+    icon: DashboardIcon,
+    size: 46,
     color: "text-rose-400",
   },
   {
     id: "hql",
     label: "HQL",
-    icon: Terminal,
+    icon: HQLIcon,
+    size: 46,
     color: "text-emerald-500",
   },
   {
     id: "queries",
     label: "Queries",
-    icon: MessageSquareCode,
+    icon: QueriesIcon,
+    size: 46,
     color: "text-yellow-500",
   },
   {
     id: "editor",
     label: "Modeler",
-    icon: DraftingCompass,
+    icon: ModelerIcon,
+    size: 46,
     color: "text-orange-500",
   },
   {
     id: "schema",
     label: "Schema",
-    icon: Layers,
+    icon: SchemaIcon,
+    size: 46,
     color: "text-indigo-500",
   },
   {
     id: "graph",
     label: "Graph",
-    icon: GitGraph,
+    icon: GraphIcon,
+    size: 46,
     color: "text-purple-500",
   },
-  // {
-  //   id: "vectors",
-  //   label: "Vectors",
-  //   icon: VectorSquare,
-  //   color: "text-amber-500",
-  // },
 ] as const;
 
 const ConnectionButton = (props: { isConnected: boolean; onClick: () => void }) => {
@@ -62,19 +62,19 @@ const ConnectionButton = (props: { isConnected: boolean; onClick: () => void }) 
     <div class="relative">
       <button
         onClick={() => props.onClick()}
-        class="flex flex-col items-center justify-center min-w-[72px] h-[52px] transition-all duration-300 group relative outline-none select-none tap-highlight-transparent"
+        class="flex flex-col items-center justify-center min-w-[72px] h-[52px] pb-px transition-all duration-300 group relative outline-none select-none tap-highlight-transparent"
         style={{ "-webkit-tap-highlight-color": "transparent" }}
         title={props.isConnected ? `Connected to ${active.name} - Click to disconnect` : "Disconnected - Click to configure"}
       >
-        <div class="relative">
-          <Plug size={22} class={`transition-all duration-300 ${props.isConnected ? "text-emerald-500 scale-105" : "text-native-tertiary"} group-hover:scale-110`} />
-          <div
-            class={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border-2 transition-colors duration-500 ${props.isConnected ? "bg-emerald-500" : "bg-status-error"}`}
-            style={{ "border-color": "var(--bg-toolbar)" }}
+        <div class="relative w-12 h-12 flex items-center justify-center">
+          <ConnectionIcon
+            connected={props.isConnected}
+            size={46}
+            class={`transition-all duration-300 ${props.isConnected ? "scale-105 drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "text-native-tertiary grayscale"} group-hover:scale-110`}
           />
         </div>
         <span
-          class={`text-[11px] mt-1 font-medium leading-tight transition-colors duration-300 ${props.isConnected ? "text-emerald-500 font-semibold" : "text-native-tertiary"} group-hover:text-native-primary`}
+          class={`text-[11px] font-medium leading-tight transition-colors duration-300 ${props.isConnected ? "text-emerald-500 font-semibold" : "text-native-tertiary"} group-hover:text-native-primary`}
         >
           Connection
         </span>
@@ -83,19 +83,19 @@ const ConnectionButton = (props: { isConnected: boolean; onClick: () => void }) 
   );
 };
 
-const NavButton = (props: { label: string; icon: any; color: string; isActive: boolean; onClick: () => void }) => {
+const NavButton = (props: { label: string; icon: any; color: string; size?: number; isActive: boolean; onClick: () => void }) => {
   return (
     <button
       onClick={props.onClick}
-      class="flex flex-col items-center justify-center min-w-[72px] h-[52px] transition-all group relative outline-none select-none"
+      class="flex flex-col items-center justify-center min-w-[72px] h-[52px] pb-px transition-all group relative outline-none select-none"
       style={{ "-webkit-tap-highlight-color": "transparent" }}
     >
-      <div class={`transition-all duration-300 ${props.isActive ? "text-accent scale-110" : props.color + " group-hover:scale-110"}`}>
-        <props.icon size={22} strokeWidth={props.isActive ? 2.5 : 2} />
+      <div class={`relative w-12 h-12 flex items-center justify-center transition-all duration-300 ${props.isActive ? "text-accent scale-110" : props.color + " group-hover:scale-110"}`}>
+        <props.icon size={props.size || 46} theme={props.isActive ? "dark" : "light"} />
       </div>
 
       <span
-        class={`text-[11px] mt-1 font-medium tracking-tight leading-tight transition-colors duration-300 ${props.isActive ? "text-accent font-semibold" : "text-native-secondary group-hover:text-native-primary"}`}
+        class={`text-[11px] font-medium tracking-tight leading-tight transition-colors duration-300 ${props.isActive ? "text-accent font-semibold" : "text-native-secondary group-hover:text-native-primary"}`}
       >
         {props.label}
       </span>
@@ -108,7 +108,7 @@ const Divider = () => <div class="w-px h-8 mx-1 shrink-0 bg-native-subtle" />;
 export const TopNav = (props: TopNavProps) => {
   return (
     <div
-      class="h-[84px] flex flex-col select-none border-b border-native shrink-0 backdrop-blur-[30px] saturate-[180%]"
+      class="h-[96px] flex flex-col select-none border-b border-native shrink-0 backdrop-blur-[30px] saturate-[180%]"
       style={{
         "background-color": "var(--bg-toolbar)",
       }}
@@ -126,19 +126,11 @@ export const TopNav = (props: TopNavProps) => {
         <Divider />
 
         {/* View Switchers */}
-        <For each={NAV_ITEMS}>{(item) => <NavButton label={item.label} icon={item.icon} color={item.color} isActive={props.activeView === item.id} onClick={() => props.onSelectView(item.id)} />}</For>
+        <For each={NAV_ITEMS}>
+          {(item) => <NavButton label={item.label} icon={item.icon} color={item.color} size={item.size} isActive={props.activeView === item.id} onClick={() => props.onSelectView(item.id)} />}
+        </For>
 
         <Divider />
-
-        {/* Others (Disabled) */}
-        <div class="flex flex-col items-center justify-center min-w-[72px] h-[52px] opacity-25 cursor-not-allowed grayscale">
-          <div class="flex items-end gap-0.5 text-native-tertiary mb-1">
-            <div class="w-1.5 h-3.5 bg-current rounded-sm" />
-            <div class="w-1.5 h-2.5 bg-current rounded-sm" />
-            <ChevronDown size={12} class="mb-0.5" />
-          </div>
-          <span class="text-[11px] font-medium text-native-secondary">Others</span>
-        </div>
       </div>
     </div>
   );

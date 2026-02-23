@@ -17,7 +17,6 @@ export const helixTheme = EditorView.theme(
       color: "var(--text-primary)",
       whiteSpace: "pre !important",
       tabSize: 4,
-      minWidth: "100%",
     },
     ".cm-scroller": {
       overflowX: "auto",
@@ -231,7 +230,6 @@ export const helixThemeDark = EditorView.theme(
       color: "var(--text-primary)",
       whiteSpace: "pre !important",
       tabSize: 4,
-      minWidth: "100%",
     },
     ".cm-scroller": {
       overflowX: "auto",
