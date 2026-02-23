@@ -1,73 +1,11 @@
 import { onMount, onCleanup, createEffect } from "solid-js";
-import { EditorView, keymap, highlightSpecialChars, lineNumbers, highlightActiveLineGutter, placeholder, WidgetType, Decoration, ViewPlugin, ViewUpdate } from "@codemirror/view";
+import { EditorView, keymap, highlightSpecialChars, lineNumbers, highlightActiveLineGutter, placeholder, drawSelection } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from "@codemirror/commands";
 import { indentOnInput, syntaxHighlighting, bracketMatching, foldGutter, foldKeymap, indentUnit } from "@codemirror/language";
 import { autocompletion, completionKeymap, acceptCompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { searchKeymap, search } from "@codemirror/search";
-import { Diagnostic, forEachDiagnostic } from "@codemirror/lint";
-import { setDiagnostics } from "@codemirror/lint";
 
-class DiagnosticInlineWidget extends WidgetType {
-  constructor(readonly message: string) {
-    super();
-  }
-  eq(other: DiagnosticInlineWidget) {
-    return other.message == this.message;
-  }
-  toDOM() {
-    let wrap = document.createElement("span");
-    wrap.className = "cm-diagnostic-inline";
-    wrap.textContent = ` // ${this.message}`;
-    return wrap;
-  }
-  ignoreEvent() {
-    return true;
-  }
-}
-
-const diagnosticInlineAnnotation = ViewPlugin.fromClass(
-  class {
-    decorations: any;
-
-    constructor(view: EditorView) {
-      this.decorations = this.getDecorations(view);
-    }
-
-    update(update: ViewUpdate) {
-      // Only update when doc changes, viewport changes, or if the selection moved to a different line
-      const lineChanged = update.selectionSet && update.state.doc.lineAt(update.state.selection.main.head).number !== update.startState.doc.lineAt(update.startState.selection.main.head).number;
-
-      if (update.docChanged || update.viewportChanged || lineChanged) {
-        this.decorations = this.getDecorations(update.view);
-      }
-    }
-
-    getDecorations(view: EditorView) {
-      let widgets: any[] = [];
-      let sel = view.state.selection.main;
-      if (!sel.empty) return Decoration.none;
-
-      let line = view.state.doc.lineAt(sel.head);
-      forEachDiagnostic(view.state, (d, from, to) => {
-        // If the diagnostic overlaps with the current line, show the widget at the end of the line
-        if (from <= line.to && to >= line.from) {
-          widgets.push(
-            Decoration.widget({
-              widget: new DiagnosticInlineWidget(d.message),
-              side: 1,
-            }).range(line.to)
-          );
-        }
-      });
-
-      return Decoration.set(widgets, true);
-    }
-  },
-  {
-    decorations: (v) => v.decorations,
-  }
-);
 import { invoke } from "@tauri-apps/api/core";
 import { useTheme } from "./theme";
 import { helixTheme, helixThemeDark, helixHighlightStyle, helixHighlightStyleDark, themeConfig, highlightConfig } from "./hql-theme";
@@ -91,7 +29,6 @@ export interface HQLEditorProps {
     vectors: any[];
   };
   readOnly?: boolean;
-  diagnostics?: Diagnostic[];
   placeholder?: string;
   language?: any;
 }
@@ -100,7 +37,9 @@ export const HQLEditor = (props: HQLEditorProps) => {
   let editorParent: HTMLDivElement | undefined;
   let view: EditorView | undefined;
   let gutterObserver: ResizeObserver | undefined;
-  let lintTimeout: ReturnType<typeof setTimeout>;
+  let lastLocalCode = props.code;
+  let codeSyncTimeout: ReturnType<typeof setTimeout> | null = null;
+  let isInternalChange = false;
   const { theme: appTheme } = useTheme();
 
   // Helper to get current theme-specific extensions
@@ -121,6 +60,7 @@ export const HQLEditor = (props: HQLEditorProps) => {
         EditorState.tabSize.of(4),
         indentUnit.of("    "),
         lineNumbers(),
+        drawSelection(),
         highlightActiveLineGutter(),
         highlightSpecialChars(),
         history(),
@@ -128,7 +68,6 @@ export const HQLEditor = (props: HQLEditorProps) => {
         indentOnInput(),
         bracketMatching(),
         closeBrackets(),
-        diagnosticInlineAnnotation,
         search({ top: true }),
         autocompletion({
           override: [
@@ -148,16 +87,98 @@ export const HQLEditor = (props: HQLEditorProps) => {
                   schema: props.schema || null,
                 });
 
-                if (!suggestions || suggestions.length === 0) return null;
+                if (!suggestions) return null;
+
+                // Detect current query block boundaries (based on empty lines or keywords)
+                const fullDoc = context.state.doc.toString();
+                const pos = context.pos;
+                const lines = fullDoc.split("\n");
+
+                // Find current line index
+                let currentLineIdx = 0;
+                let charAcc = 0;
+                for (let i = 0; i < lines.length; i++) {
+                  const lineLen = lines[i].length + 1; // +1 for newline
+                  if (charAcc + lineLen > pos) {
+                    currentLineIdx = i;
+                    break;
+                  }
+                  charAcc += lineLen;
+                }
+
+                // Walk back to find block start
+                let startLine = currentLineIdx;
+                while (startLine > 0) {
+                  const line = lines[startLine - 1].trim();
+                  if (line === "" || /^\s*(QUERY|FUNC)\b/i.test(line)) {
+                    // If it's a keyword line, include it as start
+                    if (/^\s*(QUERY|FUNC)\b/i.test(line)) startLine--;
+                    break;
+                  }
+                  startLine--;
+                }
+
+                // Walk forward to find block end
+                let endLine = currentLineIdx;
+                while (endLine < lines.length - 1) {
+                  const line = lines[endLine + 1].trim();
+                  if (line === "" || /^\s*(QUERY|FUNC)\b/i.test(line)) break;
+                  endLine++;
+                }
+
+                // Extract text for current block
+                const blockText = lines.slice(startLine, endLine + 1).join("\n");
+                const localVars = new Set<string>();
+
+                // Extract variables ONLY from the current block
+                // 1. Capture aliases/assignments: user <- N...
+                const aliasRegex = /(\w+)\s*<-/g;
+                let match;
+                while ((match = aliasRegex.exec(blockText)) !== null) {
+                  localVars.add(match[1]);
+                }
+
+                // 2. Capture query arguments: QUERY Name(abc: String)
+                const argRegex = /(?:QUERY|FUNC)\s+\w+\s*\(([^)]+)\)/gi;
+                let argMatch;
+                while ((argMatch = argRegex.exec(blockText)) !== null) {
+                  const argsPart = argMatch[1];
+                  const individualArgs = argsPart.split(",");
+                  for (const arg of individualArgs) {
+                    const parts = arg.trim().split(":");
+                    if (parts[0]) {
+                      const argName = parts[0].trim().split(/\s+/).pop();
+                      if (argName && /^\w+$/.test(argName)) {
+                        localVars.add(argName);
+                      }
+                    }
+                  }
+                }
+
+                const currentText = word.text.toLowerCase();
+
+                // Merge backend suggestions with local variables
+                const allCompletions = [
+                  ...suggestions,
+                  ...Array.from(localVars).map((name) => ({
+                    label: name,
+                    kind: "variable",
+                    detail: "local",
+                  })),
+                ];
+
+                const filtered = allCompletions.filter((s) => s.label.toLowerCase().startsWith(currentText)).sort((a, b) => a.label.localeCompare(b.label));
+
+                if (filtered.length === 0) return null;
 
                 return {
                   from: word.from,
-                  options: suggestions.map((s) => ({
+                  options: filtered.map((s: any) => ({
                     label: s.label,
                     type: s.kind,
                     detail: s.detail || undefined,
                   })),
-                  // validFor: /^\w*$/, // Let backend decide
+                  filter: false, // Disable default fuzzy filter
                 };
               } catch (e) {
                 console.error("Autocomplete failed", e);
@@ -235,30 +256,23 @@ export const HQLEditor = (props: HQLEditorProps) => {
           },
         }),
         EditorView.updateListener.of((update) => {
-          if (update.docChanged && props.onCodeChange) {
-            props.onCodeChange(update.state.doc.toString());
+          if (update.docChanged) {
+            isInternalChange = true;
+            if (codeSyncTimeout) clearTimeout(codeSyncTimeout);
+            codeSyncTimeout = setTimeout(() => {
+              const newCode = update.state.doc.toString();
+              if (newCode !== lastLocalCode) {
+                lastLocalCode = newCode;
+                props.onCodeChange?.(newCode);
+              }
+              isInternalChange = false;
+              codeSyncTimeout = null;
+            }, 300); // Decouple typing from Store/UI re-renders
           }
           if (update.selectionSet && props.onSelectionChange) {
             const selection = update.state.selection.main;
             const text = selection.empty ? "" : update.state.sliceDoc(selection.from, selection.to);
             props.onSelectionChange(text);
-          }
-
-          if (update.docChanged) {
-            clearTimeout(lintTimeout);
-            lintTimeout = setTimeout(async () => {
-              const code = update.state.doc.toString();
-              if (!code.trim()) {
-                update.view.dispatch(setDiagnostics(update.view.state, []));
-                return;
-              }
-              try {
-                const diagnostics = await invoke<Diagnostic[]>("validate_hql", { code });
-                update.view.dispatch(setDiagnostics(update.view.state, diagnostics));
-              } catch (e) {
-                console.error("Validation failed:", e);
-              }
-            }, 1000);
           }
         }),
       ],
@@ -306,14 +320,13 @@ export const HQLEditor = (props: HQLEditorProps) => {
   // Keep editor content in sync with external property changes
   createEffect(() => {
     const externalCode = props.code;
-    if (view && view.state.doc.toString() !== externalCode) {
+    if (view && !isInternalChange && externalCode !== lastLocalCode) {
+      lastLocalCode = externalCode;
       // Save current state
       const scroll = view.scrollDOM.scrollTop;
 
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: externalCode },
-        // CodeMirror will attempt to map the selection,
-        // which usually works well for formatting.
       });
 
       // Restore scroll position

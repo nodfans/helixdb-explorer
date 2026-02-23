@@ -17,6 +17,10 @@ export const helixTheme = EditorView.theme(
       color: "var(--text-primary)",
       whiteSpace: "pre !important",
       tabSize: 4,
+      minWidth: "100%",
+    },
+    ".cm-scroller": {
+      overflowX: "auto",
     },
     ".cm-line": {
       display: "block",
@@ -40,8 +44,14 @@ export const helixTheme = EditorView.theme(
     ".cm-cursor": {
       borderLeft: "2px solid var(--accent)",
     },
-    "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
-      backgroundColor: "var(--bg-selected)",
+    ".cm-selectionBackground": {
+      backgroundColor: "var(--bg-selected) !important",
+    },
+    ".cm-selectionLayer .cm-selectionBackground": {
+      right: "0 !important",
+    },
+    "&.cm-focused .cm-selectionBackground, .cm-content ::selection": {
+      backgroundColor: "var(--bg-selected) !important",
     },
     ".cm-panels-top": {
       borderBottom: "none",
@@ -221,6 +231,10 @@ export const helixThemeDark = EditorView.theme(
       color: "var(--text-primary)",
       whiteSpace: "pre !important",
       tabSize: 4,
+      minWidth: "100%",
+    },
+    ".cm-scroller": {
+      overflowX: "auto",
     },
     ".cm-line": {
       display: "block",
@@ -244,8 +258,14 @@ export const helixThemeDark = EditorView.theme(
     ".cm-cursor": {
       borderLeft: "2px solid var(--accent)",
     },
-    "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
-      backgroundColor: "var(--bg-selected)",
+    ".cm-selectionBackground": {
+      backgroundColor: "var(--bg-selected) !important",
+    },
+    ".cm-selectionLayer .cm-selectionBackground": {
+      right: "0 !important",
+    },
+    "&.cm-focused .cm-selectionBackground, .cm-content ::selection": {
+      backgroundColor: "var(--bg-selected) !important",
     },
     ".cm-panels-top": {
       borderBottom: "none",

@@ -10,7 +10,6 @@ export interface HqlTab {
   queryStatus: "idle" | "loading" | "success" | "error";
   syncStatus: "idle" | "loading" | "success" | "error";
   executionTime?: number;
-  diagnostics?: any[];
   viewMode?: "table" | "json" | "log";
   logs?: string;
   tableData?: any[];
@@ -36,7 +35,6 @@ const defaultTab: HqlTab = {
   status: "idle",
   queryStatus: "idle",
   syncStatus: "idle",
-  diagnostics: [],
   viewMode: "table",
   logs: "",
   tableData: [],

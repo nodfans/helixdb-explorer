@@ -6,7 +6,16 @@ import type { HqlTab } from "../../stores/hql";
 import { invoke } from "@tauri-apps/api/core";
 
 export interface HqlPanelProps {
-  activeTab: HqlTab;
+  viewMode?: "table" | "json" | "log";
+  queryStatus?: "idle" | "loading" | "success" | "error";
+  status?: "idle" | "loading" | "success" | "error";
+  output?: string;
+  logs?: string;
+  rawOutput?: any;
+  multiTableData?: Record<string, any[]>;
+  executionTime?: number;
+  tableData?: any[];
+  selectedRows?: any[];
   isConnected: boolean;
   onConnect: () => void;
   updateActiveTab: (updates: Partial<HqlTab>) => void;
@@ -64,36 +73,36 @@ export const HqlPanel = (props: HqlPanelProps) => {
             </button>
           </div>
 
-          <Show when={!props.activeTab.viewMode || props.activeTab.viewMode === "table"}>
+          <Show when={!props.viewMode || props.viewMode === "table"}>
             <div class="flex items-center gap-2.5 h-full" style={{ "padding-left": `${props.gutterWidth() + 20}px` }}>
               <Switch>
-                <Match when={props.activeTab.queryStatus === "loading"}>
+                <Match when={props.queryStatus === "loading"}>
                   <div class="flex items-center gap-1.5">
                     <LoaderCircle size={11} class="animate-spin text-accent" />
                     <span class="text-[10px] text-accent font-medium">Running...</span>
                   </div>
                 </Match>
-                <Match when={props.activeTab.queryStatus === "success"}>
+                <Match when={props.queryStatus === "success"}>
                   <div class="flex items-center gap-1.5">
                     <CircleCheck size={11} class="text-emerald-500" />
                     <span class="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Success</span>
-                    <Show when={props.activeTab.rawOutput}>
+                    <Show when={props.rawOutput}>
                       <div class="w-[3.5px] h-[3.5px] rounded-full bg-[var(--text-tertiary)] mx-1.5 shrink-0 opacity-60" />
                       <span class="text-[10px] text-native-tertiary font-mono">
                         {(() => {
-                          const multi = props.activeTab.multiTableData;
-                          const count = multi ? Object.values(multi).reduce((acc: number, rows: any[]) => acc + rows.length, 0) : 0;
+                          const multi = props.multiTableData;
+                          const count = multi ? Object.values(multi).reduce((acc: number, rows: any[]) => acc + (Array.isArray(rows) ? rows.length : 0), 0) : 0;
                           return `${count} ${count === 1 ? "result" : "results"}`;
                         })()}
                       </span>
                     </Show>
-                    <Show when={props.activeTab.executionTime}>
+                    <Show when={props.executionTime}>
                       <div class="w-[3.5px] h-[3.5px] rounded-full bg-[var(--text-tertiary)] mx-1.5 shrink-0 opacity-60" />
-                      <span class="text-[10px] text-native-tertiary font-mono">{props.activeTab.executionTime}ms</span>
+                      <span class="text-[10px] text-native-tertiary font-mono">{props.executionTime}ms</span>
                     </Show>
                   </div>
                 </Match>
-                <Match when={props.activeTab.queryStatus === "error"}>
+                <Match when={props.queryStatus === "error"}>
                   <div class="flex items-center gap-1.5">
                     <X size={11} class="text-red-500" />
                     <span class="text-[10px] font-medium text-red-600 dark:text-red-400">Error</span>
@@ -106,20 +115,20 @@ export const HqlPanel = (props: HqlPanelProps) => {
 
         {/* Center: View Toggle */}
         <div class="flex items-center gap-1 shrink-0 z-10 px-2">
-          <Button variant="toolbar" size="sm" active={!props.activeTab.viewMode || props.activeTab.viewMode === "table"} onMouseDown={() => props.updateActiveTab({ viewMode: "table" })}>
+          <Button variant="toolbar" size="sm" active={!props.viewMode || props.viewMode === "table"} onMouseDown={() => props.updateActiveTab({ viewMode: "table" })}>
             Table
           </Button>
-          <Button variant="toolbar" size="sm" active={props.activeTab.viewMode === "json"} onMouseDown={() => props.updateActiveTab({ viewMode: "json" })}>
+          <Button variant="toolbar" size="sm" active={props.viewMode === "json"} onMouseDown={() => props.updateActiveTab({ viewMode: "json" })}>
             Json
           </Button>
-          <Button variant="toolbar" size="sm" active={props.activeTab.viewMode === "log"} onMouseDown={() => props.updateActiveTab({ viewMode: "log" })}>
+          <Button variant="toolbar" size="sm" active={props.viewMode === "log"} onMouseDown={() => props.updateActiveTab({ viewMode: "log" })}>
             Logs
           </Button>
         </div>
 
         {/* Right Side: Actions */}
         <div class="flex items-center gap-2 flex-1 justify-end pr-4 min-w-0">
-          <Show when={props.activeTab.output}>
+          <Show when={props.output}>
             <Button variant="toolbar" size="sm" onMouseDown={props.copyOutput} class="flex items-center gap-1.5">
               <Show when={props.copied()} fallback={<Copy size={11} />}>
                 <CircleCheck size={11} class="text-emerald-500" />
@@ -145,7 +154,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
           </Match>
 
           {/* 3. Loading (Initial) */}
-          <Match when={props.activeTab.status === "loading" && !props.activeTab.rawOutput && props.activeTab.viewMode !== "log"}>
+          <Match when={props.status === "loading" && !props.rawOutput && props.viewMode !== "log"}>
             <div class="h-full flex flex-col items-center justify-center">
               <LoaderCircle size={24} class="animate-spin text-accent mb-2" />
               <div class="text-[12px] text-native-primary font-medium">Executing HQL...</div>
@@ -153,33 +162,33 @@ export const HqlPanel = (props: HqlPanelProps) => {
           </Match>
 
           {/* 4. Results Display */}
-          <Match when={props.activeTab.status !== "idle" || props.activeTab.logs}>
+          <Match when={props.status !== "idle" || props.logs}>
             <div class="flex-1 min-h-0 flex flex-col">
               <Switch>
-                <Match when={props.activeTab.viewMode === "log"}>
-                  <div class="flex-1 overflow-auto p-3 text-native-primary font-mono text-[12px] whitespace-pre-wrap select-text leading-relaxed">{props.activeTab.logs || "No logs available."}</div>
+                <Match when={props.viewMode === "log"}>
+                  <div class="flex-1 overflow-auto p-3 text-native-primary font-mono text-[12px] whitespace-pre-wrap select-text leading-relaxed">{props.logs || "No logs available."}</div>
                 </Match>
-                <Match when={props.activeTab.viewMode === "json"}>
+                <Match when={props.viewMode === "json"}>
                   <div class="flex-1 overflow-auto overscroll-behavior-y-contain min-h-0 select-text bg-[var(--bg-workbench-content)]">
-                    <div class="p-3 text-native-primary font-mono text-[12px] whitespace-pre-wrap leading-relaxed">{props.activeTab.output || "No output available."}</div>
+                    <div class="p-3 text-native-primary font-mono text-[12px] whitespace-pre-wrap leading-relaxed">{props.output || "No output available."}</div>
                   </div>
                 </Match>
                 <Match when={true}>
                   <div class="flex-1 min-h-0 flex flex-col overflow-hidden">
                     <Switch>
-                      <Match when={props.activeTab.queryStatus === "error"}>
+                      <Match when={props.queryStatus === "error"}>
                         <div class="flex-1 overflow-auto overscroll-behavior-y-contain min-h-0 select-text">
                           <div class="p-3 text-native-primary font-mono text-[12px] whitespace-pre-wrap leading-relaxed">
-                            {props.activeTab.output}
+                            {props.output}
                             <SupportedOperationsHelp />
                           </div>
                         </div>
                       </Match>
-                      <Match when={props.activeTab.multiTableData && Object.keys(props.activeTab.multiTableData).length > 0}>
+                      <Match when={props.multiTableData && Object.keys(props.multiTableData).length > 0}>
                         <div class="flex-1 overflow-auto h-full space-y-5 px-0 pt-2 pb-0 scrollbar-thin flex flex-col">
-                          <For each={Object.entries(props.activeTab.multiTableData || {})}>
+                          <For each={Object.entries(props.multiTableData || {})}>
                             {([name, rows]: [string, any[]]) => {
-                              const tableCount = () => Object.keys(props.activeTab.multiTableData || {}).length;
+                              const tableCount = () => Object.keys(props.multiTableData || {}).length;
                               return (
                                 <div class="flex flex-col gap-2" classList={{ "flex-1 min-h-[200px]": tableCount() === 1 }}>
                                   <div class="flex items-center gap-2 px-1">
@@ -194,7 +203,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
                                       "flex-1": tableCount() === 1,
                                     }}
                                   >
-                                    <ResultTable data={rows} onSelect={(rows) => props.updateActiveTab({ selectedRows: rows })} selectedRows={props.activeTab.selectedRows} />
+                                    <ResultTable data={rows} onSelect={(rows) => props.updateActiveTab({ selectedRows: rows })} selectedRows={props.selectedRows} />
                                   </div>
                                 </div>
                               );
@@ -202,13 +211,9 @@ export const HqlPanel = (props: HqlPanelProps) => {
                           </For>
                         </div>
                       </Match>
-                      <Match when={props.activeTab.tableData || (Array.isArray(props.activeTab.rawOutput) ? props.activeTab.rawOutput : null)}>
+                      <Match when={props.tableData || (Array.isArray(props.rawOutput) ? props.rawOutput : null)}>
                         <div class="flex-1 min-h-0 flex flex-col px-0.5 pt-2 pb-0">
-                          <ResultTable
-                            data={props.activeTab.tableData || props.activeTab.rawOutput}
-                            selectedRows={props.activeTab.selectedRows}
-                            onSelect={(rows) => props.updateActiveTab({ selectedRows: rows })}
-                          />
+                          <ResultTable data={props.tableData || props.rawOutput} selectedRows={props.selectedRows} onSelect={(rows) => props.updateActiveTab({ selectedRows: rows })} />
                         </div>
                       </Match>
                       <Match when={true}>

@@ -229,12 +229,10 @@ body {
   background-color: var(--bg-content);
   color: var(--text-primary);
   overflow: hidden;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: subpixel-antialiased; /* Better for прозрачный WKWebView, antialiased is too heavy */
+  -moz-osx-font-smoothing: auto;
   letter-spacing: -0.012em;
-  transition:
-    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.3s ease;
+  transition: none; /* Disable global Transitions to avoid layout recalcs during store updates */
 }
 
 button,
@@ -390,4 +388,21 @@ input {
 }
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* Performance Surgery for Tauri */
+.tauri-performance-fix {
+  contain: paint;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.cm-editor {
+  contain: content;
+  background-color: var(--bg-content) !important;
+  transform: translateZ(0);
+}
+
+.cm-scroller {
+  contain: size style;
 }

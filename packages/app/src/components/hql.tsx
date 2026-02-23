@@ -122,7 +122,6 @@ export const HQL = (props: HQLProps) => {
       rawOutput: null,
       executionTime: undefined,
       logs: "",
-      diagnostics: [],
     });
   };
 
@@ -162,7 +161,6 @@ export const HQL = (props: HQLProps) => {
       queryStatus: "loading",
       output: "⏳ Compiling and executing HQL...\nThis may take a moment.",
       rawOutput: null,
-      diagnostics: [],
     });
     setHqlStore("showResults", true);
 
@@ -197,25 +195,7 @@ export const HQL = (props: HQLProps) => {
         errorMsg = `Execution Failed: ${err}`;
       }
 
-      let diagnostics: any[] = [];
-      const lineMatch = errorMsg.match(/line\s+(\d+)/i) || errorMsg.match(/At: \((\d+)/i) || errorMsg.match(/-->\s+(\d+):/);
-      if (lineMatch) {
-        try {
-          const lineOneBased = parseInt(lineMatch[1]);
-          if (!isNaN(lineOneBased) && lineOneBased > 0) {
-            const lines = currentTab.code.split(/\r?\n/);
-            if (lineOneBased <= lines.length) {
-              let from = 0;
-              for (let i = 0; i < lineOneBased - 1; i++) {
-                from += lines[i].length + 1;
-              }
-              const lineContent = lines[lineOneBased - 1];
-              diagnostics.push({ from: from, to: from + lineContent.length, severity: "error", message: errorMsg });
-            }
-          }
-        } catch (e) {}
-      }
-      updateTargetTab({ status: "error", queryStatus: "error", output: `❌ ${errorMsg}`, diagnostics });
+      updateTargetTab({ status: "error", queryStatus: "error", output: `❌ ${errorMsg}` });
     } finally {
       setExecuting(false);
     }
@@ -225,7 +205,7 @@ export const HQL = (props: HQLProps) => {
     const text = activeTab().viewMode === "log" ? activeTab().logs : activeTab().output;
     navigator.clipboard.writeText(text || "");
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 800);
   };
 
   const beautifyCode = async () => {
@@ -286,7 +266,7 @@ export const HQL = (props: HQLProps) => {
             {activeConnection().host}:{activeConnection().port}
           </span>
         </div>
-        <div class="w-px h-3.5 bg-[var(--border-subtle)]" />
+        <div class="w-px h-3.5 bg-[var(--border-subtle)] ml-2 mr-1" />
         <button onClick={beautifyCode} class="h-7 w-7 p-0 flex items-center justify-center rounded-md transition-colors" title="Format Query">
           <Show when={formatted()} fallback={<Sparkles size={16} class="text-purple-500" strokeWidth={2} />}>
             <Check size={16} class="text-emerald-500 animate-in fade-in zoom-in duration-200" strokeWidth={2} />
@@ -339,6 +319,7 @@ export const HQL = (props: HQLProps) => {
           }}
           disabled={!activeTab().code.trim() || syncing()}
           class="h-7 w-7 p-0 flex items-center justify-center rounded-md transition-colors disabled:opacity-40"
+          title={syncing() ? "Syncing..." : "Sync to Project"}
         >
           <Show when={syncing()} fallback={<Upload size={16} class={activeConnection().localPath ? "text-accent" : "text-native-quaternary"} strokeWidth={2} />}>
             <div class="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
@@ -356,7 +337,6 @@ export const HQL = (props: HQLProps) => {
             onFormat={beautifyCode}
             onSelectionChange={setSelectedText}
             onGutterWidthChange={setGutterWidth}
-            diagnostics={activeTab().diagnostics || []}
             language={hqlLanguage}
             schema={hqlStore.schema}
           />
@@ -367,7 +347,16 @@ export const HQL = (props: HQLProps) => {
           </div>
         </Show>
         <HqlPanel
-          activeTab={activeTab()}
+          viewMode={activeTab().viewMode}
+          queryStatus={activeTab().queryStatus}
+          status={activeTab().status}
+          output={activeTab().output}
+          logs={activeTab().logs}
+          rawOutput={activeTab().rawOutput}
+          multiTableData={activeTab().multiTableData}
+          tableData={activeTab().tableData}
+          executionTime={activeTab().executionTime}
+          selectedRows={activeTab().selectedRows}
           isConnected={props.isConnected}
           onConnect={handleConnect}
           updateActiveTab={updateActiveTab}
