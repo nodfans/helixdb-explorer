@@ -5,7 +5,7 @@ import { EndpointConfig } from "../lib/types";
 import { workbenchState, setWorkbenchState, queryStateCache } from "../stores/workbench";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Copy, Check, ChevronRight, CircleAlert, Plus, Minus, Play, LoaderCircle, X, Table, Braces, Search, Link, MessageSquareCode } from "lucide-solid";
+import { Copy, Check, ChevronRight, CircleAlert, Plus, Minus, Play, LoaderCircle, X, Table, Braces, Search, Link, MessageSquareCode, RotateCcw } from "lucide-solid";
 import { ResultTable } from "./ui/result-table";
 import { ToolbarLayout } from "./ui/toolbar-layout";
 import { EmptyState } from "./ui/empty-state";
@@ -163,6 +163,23 @@ export const Queries = (props: QueriesProps) => {
     }
   };
 
+  const handleReset = () => {
+    const endpoint = selectedEndpoint();
+    if (!endpoint) return;
+
+    const initialParams: Record<string, any> = {};
+    if (endpoint.params) {
+      endpoint.params.forEach((p) => {
+        if (p.param_type.toLowerCase() === "boolean" || p.param_type.toLowerCase() === "bool") {
+          initialParams[p.name] = false;
+        } else {
+          initialParams[p.name] = "";
+        }
+      });
+    }
+    setParams(initialParams);
+  };
+
   const [runId, setRunId] = createSignal(0);
 
   const executeQuery = async () => {
@@ -204,19 +221,6 @@ export const Queries = (props: QueriesProps) => {
         setSelectedRows([res[0]]);
       } else if (typeof res === "object" && res !== null) {
         setSelectedRows([res]);
-      }
-
-      // Clear parameters on success
-      if (endpoint.params) {
-        const clearedParams: Record<string, any> = {};
-        endpoint.params.forEach((p) => {
-          if (p.param_type.toLowerCase() === "boolean" || p.param_type.toLowerCase() === "bool") {
-            clearedParams[p.name] = false;
-          } else {
-            clearedParams[p.name] = "";
-          }
-        });
-        setParams(clearedParams);
       }
     } catch (err: any) {
       // GUARD: If user switched endpoints or started new run, DISCARD the error
@@ -565,13 +569,22 @@ export const Queries = (props: QueriesProps) => {
                 <div class="w-[260px] flex-none flex flex-col border-l border-native macos-vibrant-sidebar overflow-hidden" style={{ width: `${rightSidebarWidth()}px` }}>
                   <div class="h-[44px] px-4 border-b border-native flex items-center justify-between macos-vibrant-sidebar">
                     <h3 class="text-[12px] font-semibold text-native-primary">Parameters</h3>
-                    <button
-                      onClick={() => setShowParamsSidebar(false)}
-                      class="p-1.5 hover:bg-native-content rounded-md text-native-tertiary hover:text-native-primary transition-all active:scale-95"
-                      title="Close (Esc)"
-                    >
-                      <X size={14} stroke-width={2} />
-                    </button>
+                    <div class="flex items-center gap-1">
+                      <button
+                        onClick={handleReset}
+                        class="p-1.5 hover:bg-native-content rounded-md text-native-tertiary hover:text-native-primary transition-all active:scale-95 group/reset"
+                        title="Reset to defaults"
+                      >
+                        <RotateCcw size={14} class="group-active/reset:rotate-[-180deg] transition-transform duration-500" />
+                      </button>
+                      <button
+                        onClick={() => setShowParamsSidebar(false)}
+                        class="p-1.5 hover:bg-native-content rounded-md text-native-tertiary hover:text-native-primary transition-all active:scale-95"
+                        title="Close (Esc)"
+                      >
+                        <X size={14} stroke-width={2} />
+                      </button>
+                    </div>
                   </div>
 
                   <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4">

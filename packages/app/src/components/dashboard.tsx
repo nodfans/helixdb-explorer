@@ -125,7 +125,16 @@ const DonutChart = (p: { items: { type: string; count: number; queries: SchemaQu
 // ─── Distribution Card ───
 type TypeDistItem = { type: string; count: number; queries: SchemaQuery[] };
 
-const DistCard = (p: { title: string; subtitle: string; totalCount: number; items: TypeDistItem[]; loading?: boolean; onSelectQuery?: (q: SchemaQuery) => void }) => {
+const DistCard = (p: {
+  title: string;
+  subtitle: string;
+  totalCount: number;
+  items: TypeDistItem[];
+  loading?: boolean;
+  onSelectQuery?: (q: SchemaQuery) => void;
+  emptyTitle?: string;
+  emptySubtitle?: string;
+}) => {
   const [expandedType, setExpandedType] = createSignal<string | null>(null);
 
   const processedItems = createMemo(() => {
@@ -160,8 +169,7 @@ const DistCard = (p: { title: string; subtitle: string; totalCount: number; item
           <div class="w-9 h-9 rounded-full bg-native/10 flex items-center justify-center">
             <Database size={15} class="text-native-quaternary opacity-40" />
           </div>
-          <span class="text-[12px] text-native-tertiary opacity-50">No data yet</span>
-          <span class="text-[10px] text-native-quaternary opacity-30">Insert records to see distribution</span>
+          <span class="text-[12px] text-native-tertiary opacity-50">{p.emptyTitle || "No data yet"}</span>
         </div>
       </Show>
 
@@ -597,7 +605,15 @@ export const Dashboard = (props: DashboardProps) => {
             <DistCard title="Edge Types" subtitle="Count by label" totalCount={totalEdges()} items={edgeTypes()} loading={loading()} onSelectQuery={props.onSelectQuery} />
           </Stagger>
           <Stagger index={2} step={80}>
-            <DistCard title="Vector Types" subtitle="Count by label" totalCount={totalVectors()} items={vectorTypes()} loading={loading()} onSelectQuery={props.onSelectQuery} />
+            <DistCard
+              title="Vector Types"
+              subtitle="Count by label"
+              totalCount={totalVectors()}
+              items={vectorTypes()}
+              loading={loading()}
+              onSelectQuery={props.onSelectQuery}
+              emptyTitle="Vector count PR is merging..."
+            />
           </Stagger>
         </div>
       </div>
