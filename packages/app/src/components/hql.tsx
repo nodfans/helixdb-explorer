@@ -223,7 +223,7 @@ export const HQL = (props: HQLProps) => {
 
   return (
     <div class="flex-1 flex flex-col bg-native-content min-h-0 min-w-0 overflow-hidden" classList={{ "cursor-row-resize": isResizing() }}>
-      <div class="flex items-center h-9 bg-native-sidebar-vibrant/40 border-b border-native px-5 gap-1.5 overflow-x-auto scrollbar-hide shrink-0">
+      <div class="flex items-center h-9 bg-native-sidebar-vibrant/40 border-b border-native-subtle px-5 gap-1.5 overflow-x-auto scrollbar-hide shrink-0">
         <For each={hqlStore.tabs}>
           {(tab) => (
             <div
@@ -254,10 +254,10 @@ export const HQL = (props: HQLProps) => {
         </button>
       </div>
 
-      <div class="h-9 border-b border-native bg-native-sidebar-vibrant/40 flex items-center px-5 gap-2 shrink-0">
+      <div class="h-9 border-b border-native-subtle bg-native-sidebar-vibrant/40 flex items-center px-5 gap-2 shrink-0">
         <div
           onClick={handleConnect}
-          class="flex items-center h-[26px] bg-[var(--bg-input)] border border-native rounded-md px-2 gap-2 hover:border-native-active transition-colors min-w-[160px] max-w-[240px] group cursor-default select-none"
+          class="flex items-center h-[26px] bg-[var(--bg-input)] border border-native-subtle rounded-md px-2 gap-2 hover:border-native-active transition-colors min-w-[160px] max-w-[240px] group cursor-default select-none"
         >
           <div class="flex items-center justify-center w-4 h-4 bg-accent/10 rounded p-0.5">
             <PanelTopDashed size={11} strokeWidth={2.5} class="text-accent" />

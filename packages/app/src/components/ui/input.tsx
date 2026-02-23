@@ -19,7 +19,7 @@ export function Input(props: InputProps) {
           autocorrect="off"
           autocapitalize="off"
           spellcheck={false}
-          class={`w-full h-[26px] pl-7 pr-3 rounded-md text-[12px] outline-none transition-all relative z-0 bg-native-elevated border border-native text-native-primary focus:border-accent ${local.class || ""}`}
+          class={`w-full h-[26px] pl-7 pr-3 rounded-md text-[12px] outline-none transition-all relative z-0 bg-native-elevated border border-native text-native-primary focus:border-accent focus:ring-4 focus:ring-accent/15 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.12)] ${local.class || ""}`}
         />
         <Search size={13} stroke-width={2} class="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none z-10 text-native-tertiary" />
       </div>
@@ -33,7 +33,7 @@ export function Input(props: InputProps) {
       autocorrect="off"
       autocapitalize="off"
       spellcheck={false}
-      class={`h-[26px] px-2.5 rounded-md text-[12px] outline-none transition-all bg-native-elevated border border-native text-native-primary focus:border-accent ${local.fullWidth ? "w-full" : ""} ${local.class || ""}`}
+      class={`h-[26px] px-2.5 rounded-md text-[12px] outline-none transition-all bg-native-elevated border border-native text-native-primary focus:border-accent focus:ring-4 focus:ring-accent/15 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.12)] disabled:opacity-50 disabled:cursor-not-allowed ${local.fullWidth ? "w-full" : ""} ${local.class || ""}`}
     />
   );
 }
@@ -48,7 +48,7 @@ export function Textarea(props: TextareaProps) {
   return (
     <textarea
       {...others}
-      class={`px-3 py-2 rounded-md text-[13px] outline-none transition-all resize-none bg-native-elevated border border-native text-native-primary focus:border-accent font-sans ${local.fullWidth ? "w-full" : ""} ${local.class || ""}`}
+      class={`px-3 py-2 rounded-md text-[13px] outline-none transition-all resize-none bg-native-elevated border border-native text-native-primary focus:border-accent focus:ring-4 focus:ring-accent/15 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.12)] font-sans disabled:opacity-50 disabled:cursor-not-allowed ${local.fullWidth ? "w-full" : ""} ${local.class || ""}`}
     />
   );
 }

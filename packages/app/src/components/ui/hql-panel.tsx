@@ -44,7 +44,7 @@ export interface HqlPanelProps {
 
 export const HqlPanel = (props: HqlPanelProps) => {
   return (
-    <div class="absolute left-0 right-0 bottom-0 bg-[var(--bg-elevated)] border-t border-native flex flex-col z-40" style={{ height: props.showResults() ? `${props.resultsHeight()}px` : "0" }}>
+    <div class="absolute left-0 right-0 bottom-0 bg-[var(--bg-elevated)] flex flex-col z-40" style={{ height: props.showResults() ? `${props.resultsHeight()}px` : "0" }}>
       {/* Resizer Handle */}
       <Show when={props.showResults()}>
         <div class="absolute inset-x-0 h-1 -top-0.5 cursor-row-resize z-[60] group" onMouseDown={props.startResizing}>
@@ -53,7 +53,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
       </Show>
 
       {/* Panel Header */}
-      <div class="h-9 border-b border-native flex items-center justify-between bg-native-sidebar-vibrant/40 shrink-0 relative overflow-hidden">
+      <div class="h-9 border-b border-native-subtle flex items-center justify-between bg-native-sidebar-vibrant/40 shrink-0 relative overflow-hidden">
         {/* Left Side: Toggle & Status */}
         <div class="flex items-center min-w-0 flex-1 h-full pl-0">
           <div
@@ -166,10 +166,12 @@ export const HqlPanel = (props: HqlPanelProps) => {
             <div class="flex-1 min-h-0 flex flex-col">
               <Switch>
                 <Match when={props.viewMode === "log"}>
-                  <div class="flex-1 overflow-auto p-3 text-native-primary font-mono text-[12px] whitespace-pre-wrap select-text leading-relaxed">{props.logs || "No logs available."}</div>
+                  <div class="flex-1 overflow-auto p-3 text-native-primary font-mono text-[12px] whitespace-pre-wrap select-text leading-relaxed scrollbar-thin">
+                    {props.logs || "No logs available."}
+                  </div>
                 </Match>
                 <Match when={props.viewMode === "json"}>
-                  <div class="flex-1 overflow-auto overscroll-behavior-y-contain min-h-0 select-text bg-[var(--bg-workbench-content)]">
+                  <div class="flex-1 overflow-auto overscroll-behavior-y-contain min-h-0 select-text bg-[var(--bg-workbench-content)] scrollbar-thin">
                     <div class="p-3 text-native-primary font-mono text-[12px] whitespace-pre-wrap leading-relaxed">{props.output || "No output available."}</div>
                   </div>
                 </Match>
@@ -177,7 +179,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
                   <div class="flex-1 min-h-0 flex flex-col overflow-hidden">
                     <Switch>
                       <Match when={props.queryStatus === "error"}>
-                        <div class="flex-1 overflow-auto overscroll-behavior-y-contain min-h-0 select-text">
+                        <div class="flex-1 overflow-auto overscroll-behavior-y-contain min-h-0 select-text scrollbar-thin">
                           <div class="p-3 text-native-primary font-mono text-[12px] whitespace-pre-wrap leading-relaxed">
                             {props.output}
                             <SupportedOperationsHelp />
