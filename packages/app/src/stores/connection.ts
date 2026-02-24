@@ -1,14 +1,20 @@
 import { createStore } from "solid-js/store";
 import { invoke } from "@tauri-apps/api/core";
 
+export type ConnectionType = "local" | "cloud";
+
 export interface ConnectionInfo {
   id: string;
   name: string;
+  type?: ConnectionType;
   host: string;
   port: string;
+  cloudHost?: string;
   apiKey: string;
   localPath?: string;
 }
+
+export const CLOUD_URL = "https://cloud.helix-db.com";
 
 interface ConnectionState {
   connections: ConnectionInfo[];
@@ -51,13 +57,40 @@ export const saveConnections = () => {
 };
 
 export const getConnectionUrl = (conn: ConnectionInfo) => {
-  if (!conn || !conn.host) return "";
-  let host = conn.host.trim();
-  if (!host.startsWith("http://") && !host.startsWith("https://")) {
-    host = `http://${host}`;
+  if (conn.type === "cloud") {
+    // Priority 1: Direct instance URL (cloudHost)
+    let host = (conn.cloudHost || "").trim();
+    if (host) {
+      if (!host.startsWith("http")) host = `https://${host}`;
+      return host.replace(/\/+$/, "");
+    }
+
+    // Fallback: Use official cloud URL if no host specified
+    return CLOUD_URL;
   }
-  host = host.replace(/\/+$/, "");
-  return conn.port ? `${host}:${conn.port}` : host;
+
+  // Local mode: use user host/port or default
+  const host = conn.host?.trim() || "127.0.0.1";
+  const port = conn.port?.trim() || "6969";
+  return `http://${host}:${port}`;
+};
+
+export const validateConnection = (conn: ConnectionInfo) => {
+  if (conn.type === "cloud") {
+    if (!conn.cloudHost?.trim()) {
+      throw new Error("Cloud Instance URL required");
+    }
+    if (!conn.apiKey?.trim()) {
+      throw new Error("Cluster API Key required");
+    }
+  } else {
+    if (!conn.host?.trim()) {
+      throw new Error("Host address required");
+    }
+    if (!conn.port?.trim()) {
+      throw new Error("Port number required");
+    }
+  }
 };
 
 export const activeConnection = () => {

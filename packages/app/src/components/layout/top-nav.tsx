@@ -17,8 +17,6 @@ const NAV_ITEMS = [
     icon: DashboardIcon,
     size: 24,
     color: "text-rose-500",
-    glow: "rgba(244,63,94,0.1)",
-    activeGlow: "rgba(244,63,94,0.25)",
   },
   {
     id: "hql",
@@ -26,8 +24,6 @@ const NAV_ITEMS = [
     icon: HQLIcon,
     size: 24,
     color: "text-emerald-500",
-    glow: "rgba(16,185,129,0.1)",
-    activeGlow: "rgba(16,185,129,0.25)",
   },
   {
     id: "queries",
@@ -35,8 +31,6 @@ const NAV_ITEMS = [
     icon: QueriesIcon,
     size: 24,
     color: "text-amber-500",
-    glow: "rgba(245,158,11,0.1)",
-    activeGlow: "rgba(245,158,11,0.25)",
   },
   {
     id: "editor",
@@ -44,8 +38,6 @@ const NAV_ITEMS = [
     icon: ModelerIcon,
     size: 24,
     color: "text-orange-500",
-    glow: "rgba(249,115,22,0.1)",
-    activeGlow: "rgba(249,115,22,0.25)",
   },
   {
     id: "schema",
@@ -53,8 +45,6 @@ const NAV_ITEMS = [
     icon: SchemaIcon,
     size: 24,
     color: "text-indigo-500",
-    glow: "rgba(99,102,241,0.1)",
-    activeGlow: "rgba(99,102,241,0.25)",
   },
   {
     id: "graph",
@@ -62,8 +52,6 @@ const NAV_ITEMS = [
     icon: GraphIcon,
     size: 24,
     color: "text-purple-500",
-    glow: "rgba(168,85,247,0.1)",
-    activeGlow: "rgba(168,85,247,0.25)",
   },
 ] as const;
 
@@ -79,11 +67,7 @@ const ConnectionButton = (props: { isConnected: boolean; onClick: () => void }) 
         title={props.isConnected ? `Connected to ${active.name} - Click to disconnect` : "Disconnected - Click to configure"}
       >
         <div class="relative w-12 h-9 flex items-center justify-center">
-          <ConnectionIcon
-            connected={props.isConnected}
-            size={24}
-            class={`transition-all duration-300 ${props.isConnected ? "scale-105 drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "text-native-tertiary grayscale"} group-hover:scale-110`}
-          />
+          <ConnectionIcon connected={props.isConnected} size={24} class={`transition-all duration-300 ${props.isConnected ? "scale-105" : "text-native-tertiary grayscale"} group-hover:scale-110`} />
         </div>
         <span
           class={`text-[12px] font-medium leading-tight transition-colors duration-300 ${props.isConnected ? "text-emerald-500 font-semibold" : "text-native-tertiary"} group-hover:text-native-primary`}
@@ -95,19 +79,14 @@ const ConnectionButton = (props: { isConnected: boolean; onClick: () => void }) 
   );
 };
 
-const NavButton = (props: { label: string; icon: any; color: string; glow: string; activeGlow: string; size?: number; isActive: boolean; onClick: () => void }) => {
+const NavButton = (props: { label: string; icon: any; color: string; size?: number; isActive: boolean; onClick: () => void }) => {
   return (
     <button
       onClick={props.onClick}
       class="flex flex-col items-center justify-center min-w-[72px] h-[52px] pb-px transition-all group relative outline-none select-none"
       style={{ "-webkit-tap-highlight-color": "transparent" }}
     >
-      <div
-        class={`relative w-12 h-9 flex items-center justify-center transition-all duration-300 ${props.isActive ? "text-accent scale-110" : props.color + " group-hover:scale-110"}`}
-        style={{
-          filter: `drop-shadow(0 2px ${props.isActive ? "6px" : "3px"} ${props.isActive ? props.activeGlow : props.glow})`,
-        }}
-      >
+      <div class={`relative w-12 h-9 flex items-center justify-center transition-all duration-300 ${props.isActive ? "text-accent scale-110" : props.color + " group-hover:scale-110"}`}>
         <props.icon size={props.size || 24} theme={props.isActive ? "dark" : "light"} />
       </div>
 
@@ -145,18 +124,7 @@ export const TopNav = (props: TopNavProps) => {
         {/* View Switchers */}
         <div class="flex items-center gap-0.5">
           <For each={NAV_ITEMS}>
-            {(item) => (
-              <NavButton
-                label={item.label}
-                icon={item.icon}
-                color={item.color}
-                glow={item.glow}
-                activeGlow={item.activeGlow}
-                size={item.size}
-                isActive={props.activeView === item.id}
-                onClick={() => props.onSelectView(item.id)}
-              />
-            )}
+            {(item) => <NavButton label={item.label} icon={item.icon} color={item.color} size={item.size} isActive={props.activeView === item.id} onClick={() => props.onSelectView(item.id)} />}
           </For>
         </div>
       </div>

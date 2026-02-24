@@ -55,6 +55,7 @@ const tauriFetch = async (url: string, method: string = "GET", headers: Record<s
 export class HelixApi {
   public baseUrl: string;
   private apiKey: string | null;
+  private static inflightRequests: Map<string, Promise<any>> = new Map();
 
   constructor(baseUrl: string, apiKey: string | null) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
@@ -71,7 +72,29 @@ export class HelixApi {
     if (this.apiKey) {
       headers["x-api-key"] = this.apiKey;
     }
-    return tauriFetch(url, method, headers, body);
+
+    // Deduplication logic: Use URL + Method + Body as key
+    const requestKey = `${method}:${url}:${JSON.stringify(body)}`;
+    const existing = HelixApi.inflightRequests.get(requestKey);
+    if (existing) {
+      console.log(`[HelixApi] Deduplicating request: ${requestKey}`);
+      return existing;
+    }
+
+    const requestPromise = tauriFetch(url, method, headers, body);
+    HelixApi.inflightRequests.set(requestKey, requestPromise);
+
+    try {
+      const result = await requestPromise;
+      return result;
+    } finally {
+      // Small delay to prevent micro-duplicates but allowing eventual fresh data
+      setTimeout(() => HelixApi.inflightRequests.delete(requestKey), 100);
+    }
+  }
+
+  async ping(): Promise<void> {
+    await this.request("/mcp/init", "POST", {});
   }
 
   async fetchSchema(): Promise<SchemaInfo> {
@@ -166,6 +189,7 @@ export class HelixApi {
       if (isTauri()) {
         data = await invoke<any>("fetch_mcp_schema", {
           url: this.baseUrl,
+          apiKey: this.apiKey,
         });
       } else {
         // Browser fallback for MCP (manually executing init & schema_resource rest calls)
@@ -184,88 +208,33 @@ export class HelixApi {
         if (data === "no schema") data = {};
       }
 
-      const normalized = processData(data);
-      return normalized;
+      return processData(data);
     } catch (introspectErr: any) {
-      console.warn("HelixApi: /introspect failed, trying /nodes-edges sampling fallback...", introspectErr);
-
-      try {
-        const res = await this.request("/nodes-edges");
-        const rawData = res.data || res || { nodes: [], edges: [], vectors: [] };
-
-        const nodes: Record<string, any> = {};
-        const edges: Record<string, any> = {};
-        const vectors: Record<string, any> = {};
-
-        const nodeList = Array.isArray(rawData.nodes) ? rawData.nodes : [];
-        const edgeList = Array.isArray(rawData.edges) ? rawData.edges : [];
-
-        // Discovery: Since /nodes-edges might be bare (ids only), sample some items
-        // to find their actual labels and properties via /node-details
-        const sampledNodes = nodeList.slice(0, 10);
-        for (const s of sampledNodes) {
-          try {
-            const detail = await this.request(`/node-details?id=${encodeURIComponent(s.id)}`);
-            const n = detail.node || detail.data || s;
-            const label = n.label || n.name || "Unknown";
-            if (!nodes[label]) nodes[label] = { name: label, properties: {} };
-
-            // Extract properties from the sample
-            const propsSource = n.properties || n.fields || n;
-            Object.entries(propsSource).forEach(([k, v]) => {
-              if (!["id", "title", "label", "name", "properties", "fields"].includes(k)) {
-                nodes[label].properties[k] = typeof v;
-              }
-            });
-          } catch (e) {
-            console.warn("Sampling node failed", s.id, e);
-          }
-        }
-
-        // Handle edges (if bare)
-        edgeList.forEach((e: any) => {
-          const label = e.label || e.name || "Edge";
-          if (!edges[label]) {
-            edges[label] = {
-              name: label,
-              from_node: e.from_node || e.from || "Unknown",
-              to_node: e.to_node || e.to || "Unknown",
-              properties: {},
-            };
-          }
-        });
-
-        // Ensure we have at least something if sampling found nothing
-        if (Object.keys(nodes).length === 0 && nodeList.length > 0) {
-          nodes["Node"] = { name: "Node", properties: { id: "ID" } };
-        }
-
-        const result = {
-          nodes: Object.values(nodes),
-          edges: Object.values(edges),
-          vectors: Object.values(vectors),
-          queries: [],
-        };
-
-        console.log("HelixApi: Inferred schema result", result);
-        return result;
-      } catch (fallbackErr: any) {
-        console.error("HelixApi: All discovery methods failed", { introspectErr, fallbackErr });
-        throw new Error(`Failed to fetch schema: ${introspectErr.message || String(introspectErr)}`);
-      }
+      console.warn("HelixApi: Introspection failed, returning empty schema.", introspectErr);
+      return {
+        nodes: [],
+        edges: [],
+        vectors: [],
+        queries: [],
+      };
     }
   }
 
   async fetchEndpoints(): Promise<Record<string, EndpointConfig>> {
-    const res = await this.request("/introspect");
+    const endpoints: Record<string, EndpointConfig> = {};
+    let res: any;
+    try {
+      res = await this.request("/introspect");
+    } catch (e) {
+      console.warn("HelixApi: /introspect failed in fetchEndpoints, returning empty endpoints.", e);
+      return endpoints;
+    }
 
     // queries is an Array of objects based on dashboard analysis
     // @ts-ignore
     const rawQueries: any[] = Array.isArray(res.queries) ? res.queries : Object.values(res.queries || {});
 
     console.log("Raw queries from /introspect:", rawQueries);
-
-    const endpoints: Record<string, EndpointConfig> = {};
 
     rawQueries.forEach((query) => {
       const queryName = query.name || query.query_name;
@@ -433,6 +402,7 @@ export class HelixApi {
         url: this.baseUrl,
         code: hql,
         params,
+        apiKey: this.apiKey,
       });
       return res;
     } catch (e) {

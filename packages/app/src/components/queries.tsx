@@ -13,6 +13,7 @@ import { extractMultiTableData } from "../lib/result-helper";
 
 interface QueriesProps {
   api: HelixApi;
+  isActive: boolean;
   isExecuting: boolean;
   onRegisterExecute: (fn: (() => Promise<void>) | undefined) => void;
   isConnected: boolean;
@@ -71,6 +72,8 @@ export const Queries = (props: QueriesProps) => {
     return ep?.params && ep.params.length > 0;
   };
 
+  const [fetchedByBaseUrl, setFetchedByBaseUrl] = createSignal<string | null>(null);
+
   createEffect(() => {
     if (selectedEndpoint()) {
       props.onRegisterExecute(executeQuery);
@@ -81,16 +84,26 @@ export const Queries = (props: QueriesProps) => {
 
   // Fetch endpoints when connected (reactive to connection state changes)
   createEffect(async () => {
-    if (props.isConnected && endpoints().length === 0) {
+    const url = props.api.baseUrl;
+    const isConnected = props.isConnected;
+    const isActive = props.isActive;
+
+    // Only fetch if connected, has a URL, NOT fetched for this URL yet, AND the view is ACTIVE
+    if (isConnected && url && isActive && fetchedByBaseUrl() !== url) {
       try {
         setLoading(true);
         const endpointsData = await props.api.fetchEndpoints();
-        setEndpoints(Object.values(endpointsData));
+        const eps = Object.values(endpointsData);
+        setEndpoints(eps);
+        setFetchedByBaseUrl(url);
       } catch (err) {
         console.error("Failed to fetch workbench data", err);
+        setFetchedByBaseUrl(url);
       } finally {
         setLoading(false);
       }
+    } else if (!isConnected) {
+      setFetchedByBaseUrl(null);
     }
   });
 
@@ -326,7 +339,7 @@ export const Queries = (props: QueriesProps) => {
     <div class="flex h-full overflow-hidden bg-[var(--bg-workbench)]">
       <div class="flex h-full overflow-hidden relative w-full" classList={{ "cursor-col-resize": isResizing() }}>
         <Show when={props.isConnected}>
-          <div class="w-[200px] flex-none flex flex-col border-r border-native relative macos-vibrant-sidebar overflow-hidden" style={{ width: `${sidebarWidth()}px` }}>
+          <div class="w-[280px] flex-none flex flex-col border-r border-native macos-vibrant-sidebar overflow-hidden" style={{ width: `${sidebarWidth()}px` }}>
             <div class="px-3 py-2 flex-none border-b border-native">
               <div class="flex items-center justify-between mb-1.5 px-1">
                 <h2 class="text-[12px] font-semibold text-native-secondary/80 flex items-center gap-2">Workbench</h2>
@@ -452,7 +465,6 @@ export const Queries = (props: QueriesProps) => {
                     variant="search"
                     fullWidth
                     placeholder="Search..."
-                    value={resultSearchQuery()}
                     onFocus={() => setSearchFocused(true)}
                     onBlur={() => setSearchFocused(false)}
                     onInput={(e) => setResultSearchQuery(e.currentTarget.value)}
@@ -481,7 +493,7 @@ export const Queries = (props: QueriesProps) => {
               </div>
             </ToolbarLayout>
 
-            <div class="flex-1 flex overflow-hidden">
+            <div class="flex-1 flex flex-col overflow-hidden">
               <div class="flex-1 flex flex-col overflow-hidden relative">
                 <Show when={props.isExecuting || isRunning()}>
                   <div class="flex-1 flex items-center justify-center">
@@ -520,7 +532,7 @@ export const Queries = (props: QueriesProps) => {
                             </Show>
                           </button>
                         </div>
-                        <pre class="px-5 py-3 m-0 font-mono text-[12px] text-native-primary whitespace-pre-wrap select-text cursor-text leading-relaxed">{result()}</pre>
+                        <pre class="px-5 py-3 m-0 font-mono text-[12px] text-native-primary whitespace-pre-wrap leading-relaxed">{result()}</pre>
                       </div>
                     }
                   >

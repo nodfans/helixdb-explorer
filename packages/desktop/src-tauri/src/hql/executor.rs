@@ -8,7 +8,8 @@ pub async fn execute_pipeline(
     url: &str,
     connection_id: &str,
     traversal: &helix_db::helixc::parser::types::Traversal,
-    params: &serde_json::Value
+    params: &serde_json::Value,
+    api_key: Option<String>
 ) -> Result<serde_json::Value, String> {
     
     // 1. Map to tools
@@ -42,8 +43,8 @@ pub async fn execute_pipeline(
         let start_tool = &tools[0];
         let remaining_tools = &tools[1..];
 
-        send_tool(client, url, connection_id, start_tool).await?;
-        let all_items = collect_results(client, url, connection_id, None).await?;
+        send_tool(client, url, connection_id, start_tool, api_key.clone()).await?;
+        let all_items = collect_results(client, url, connection_id, None, api_key.clone()).await?;
         let filtered = filter_by_ids(&all_items, &id_filters);
 
         let prop_filter = if let Some(item) = filtered.as_array().and_then(|a| a.first()) {
@@ -87,22 +88,22 @@ pub async fn execute_pipeline(
         let init_body = init_resp.text().await.map_err(|e| format!("Failed to read init body: {}", e))?;
         let conn2: String = serde_json::from_str(&init_body).map_err(|e| format!("Failed to parse connection_id: {}", e))?;
 
-        send_tool(client, url, &conn2, start_tool).await?;
+        send_tool(client, url, &conn2, start_tool, api_key.clone()).await?;
         if let Some(pf) = &prop_filter {
-            send_tool(client, url, &conn2, pf).await?;
+            send_tool(client, url, &conn2, pf, api_key.clone()).await?;
         }
         for tool in remaining_tools {
-            send_tool(client, url, &conn2, tool).await?;
+            send_tool(client, url, &conn2, tool, api_key.clone()).await?;
         }
 
-        execute_final_action(client, url, &conn2, final_action).await
+        execute_final_action(client, url, &conn2, final_action, api_key.clone()).await
     } else {
         // STANDARD EXECUTION
         for tool in &tools {
-            send_tool(client, url, connection_id, tool).await?;
+            send_tool(client, url, connection_id, tool, api_key.clone()).await?;
         }
 
-        let result = execute_final_action(client, url, connection_id, final_action).await?;
+        let result = execute_final_action(client, url, connection_id, final_action, api_key.clone()).await?;
 
         if !id_filters.is_empty() {
             Ok(filter_by_ids(&result, &id_filters))
@@ -116,7 +117,8 @@ pub async fn execute_search_tool(
     client: &reqwest::Client,
     url: &str,
     connection_id: &str,
-    tool: &ToolArgs
+    tool: &ToolArgs,
+    api_key: Option<String>
 ) -> Result<serde_json::Value, String> {
     let (endpoint, body) = match tool {
         ToolArgs::SearchKeyword { query, limit, label } => ("search_keyword", serde_json::json!({ "connection_id": connection_id, "data": { "query": query, "limit": limit, "label": label } })),
@@ -125,9 +127,14 @@ pub async fn execute_search_tool(
         _ => return Err("Not a search tool".to_string()),
     };
 
-    let resp = client.post(format!("{}/mcp/{}", url, endpoint))
-        .json(&body)
-        .send()
+    let mut req = client.post(format!("{}/mcp/{}", url, endpoint))
+        .json(&body);
+
+    if let Some(key) = &api_key {
+        req = req.header("x-api-key", key);
+    }
+
+    let resp = req.send()
         .await
         .map_err(|e| format!("Search request failed: {}", e))?;
 
@@ -138,7 +145,7 @@ pub async fn execute_search_tool(
     }
 }
 
-async fn send_tool(client: &reqwest::Client, url: &str, connection_id: &str, tool: &ToolArgs) -> Result<(), String> {
+async fn send_tool(client: &reqwest::Client, url: &str, connection_id: &str, tool: &ToolArgs, api_key: Option<String>) -> Result<(), String> {
     let is_search = matches!(tool, ToolArgs::SearchKeyword { .. } | ToolArgs::SearchVec { .. } | ToolArgs::SearchVecText { .. });
     
     if is_search {
@@ -149,13 +156,21 @@ async fn send_tool(client: &reqwest::Client, url: &str, connection_id: &str, too
             _ => unreachable!(),
         };
 
-        let tool_resp = client.post(format!("{}/mcp/{}", url, endpoint)).json(&body).send().await
+        let mut req = client.post(format!("{}/mcp/{}", url, endpoint)).json(&body);
+        if let Some(key) = &api_key {
+            req = req.header("x-api-key", key);
+        }
+        let tool_resp = req.send().await
             .map_err(|e| format!("Search call failed: {}", e))?;
         if !tool_resp.status().is_success() {
             return Err(format!("Search error ({}): {}", tool_resp.status(), tool_resp.text().await.unwrap_or_default()));
         }
     } else {
-        let tool_resp = client.post(format!("{}/mcp/tool_call", url)).json(&serde_json::json!({ "connection_id": connection_id, "tool": tool })).send().await
+        let mut req = client.post(format!("{}/mcp/tool_call", url)).json(&serde_json::json!({ "connection_id": connection_id, "tool": tool }));
+        if let Some(key) = &api_key {
+            req = req.header("x-api-key", key);
+        }
+        let tool_resp = req.send().await
             .map_err(|e| format!("Tool call failed: {}", e))?;
         if !tool_resp.status().is_success() {
             return Err(format!("Tool call error ({}): {}", tool_resp.status(), tool_resp.text().await.unwrap_or_default()));
@@ -164,11 +179,15 @@ async fn send_tool(client: &reqwest::Client, url: &str, connection_id: &str, too
     Ok(())
 }
 
-async fn execute_final_action(client: &reqwest::Client, url: &str, conn: &str, action: FinalAction) -> Result<serde_json::Value, String> {
+async fn execute_final_action(client: &reqwest::Client, url: &str, conn: &str, action: FinalAction, api_key: Option<String>) -> Result<serde_json::Value, String> {
     match action {
-        FinalAction::Collect { range } => collect_results(client, url, conn, range).await,
+        FinalAction::Collect { range } => collect_results(client, url, conn, range, api_key.clone()).await,
         FinalAction::Count => {
-            let resp = client.post(format!("{}/mcp/aggregate_by", url)).json(&serde_json::json!({ "connection_id": conn, "properties": Vec::<String>::new(), "drop": true })).send().await
+            let mut req = client.post(format!("{}/mcp/aggregate_by", url)).json(&serde_json::json!({ "connection_id": conn, "properties": Vec::<String>::new(), "drop": true }));
+            if let Some(key) = &api_key {
+                req = req.header("x-api-key", key);
+            }
+            let resp = req.send().await
                 .map_err(|e| format!("Count failed: {}", e))?;
             
             if resp.status().is_success() { 
@@ -191,19 +210,27 @@ async fn execute_final_action(client: &reqwest::Client, url: &str, conn: &str, a
             }
         }
         FinalAction::Aggregate { properties } => {
-            let resp = client.post(format!("{}/mcp/aggregate_by", url)).json(&serde_json::json!({ "connection_id": conn, "properties": properties, "drop": true })).send().await
+            let mut req = client.post(format!("{}/mcp/aggregate_by", url)).json(&serde_json::json!({ "connection_id": conn, "properties": properties, "drop": true }));
+            if let Some(key) = &api_key {
+                req = req.header("x-api-key", key);
+            }
+            let resp = req.send().await
                 .map_err(|e| format!("Aggregate failed: {}", e))?;
             if resp.status().is_success() { resp.json().await.map_err(|e| e.to_string()) } else { Err(format!("Aggregate error: {}", resp.status())) }
         }
         FinalAction::GroupBy { properties } => {
-            let resp = client.post(format!("{}/mcp/group_by", url)).json(&serde_json::json!({ "connection_id": conn, "properties": properties, "drop": true })).send().await
+            let mut req = client.post(format!("{}/mcp/group_by", url)).json(&serde_json::json!({ "connection_id": conn, "properties": properties, "drop": true }));
+            if let Some(key) = &api_key {
+                req = req.header("x-api-key", key);
+            }
+            let resp = req.send().await
                 .map_err(|e| format!("GroupBy failed: {}", e))?;
             if resp.status().is_success() { resp.json().await.map_err(|e| e.to_string()) } else { Err(format!("GroupBy error: {}", resp.status())) }
         }
     }
 }
 
-async fn collect_results(client: &reqwest::Client, url: &str, connection_id: &str, range: Option<(usize, Option<usize>)>) -> Result<serde_json::Value, String> {
+async fn collect_results(client: &reqwest::Client, url: &str, connection_id: &str, range: Option<(usize, Option<usize>)>, api_key: Option<String>) -> Result<serde_json::Value, String> {
     let range_json = if let Some((start, end)) = range {
         let e = end.unwrap_or(1_000_000); // Backend requires 'end', fallback to a large limit if None
         serde_json::json!({ "start": start, "end": e })
@@ -211,7 +238,11 @@ async fn collect_results(client: &reqwest::Client, url: &str, connection_id: &st
         serde_json::json!(null)
     };
 
-    let resp = client.post(format!("{}/mcp/collect", url)).json(&serde_json::json!({ "connection_id": connection_id, "range": range_json, "drop": true })).send().await
+    let mut req = client.post(format!("{}/mcp/collect", url)).json(&serde_json::json!({ "connection_id": connection_id, "range": range_json, "drop": true }));
+    if let Some(key) = &api_key {
+        req = req.header("x-api-key", key);
+    }
+    let resp = req.send().await
         .map_err(|e| format!("Collect failed: {}", e))?;
 
     if resp.status().is_success() { resp.json().await.map_err(|e| format!("Failed to parse results: {}", e)) }

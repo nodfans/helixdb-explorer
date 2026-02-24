@@ -165,7 +165,7 @@ const DistCard = (p: {
 
       {/* Empty state */}
       <Show when={isEmpty()}>
-        <div class="flex flex-col items-center justify-center gap-2 py-10 text-center">
+        <div class="flex flex-col items-center justify-center gap-2 py-10 text-center select-none">
           <div class="w-9 h-9 rounded-full bg-native/10 flex items-center justify-center">
             <Database size={15} class="text-native-quaternary opacity-40" />
           </div>
@@ -469,8 +469,15 @@ export const Dashboard = (props: DashboardProps) => {
   const [lastUpdated, setLastUpdated] = createSignal<Date | null>(null);
   const [storageStats, setStorageStats] = createSignal<LocalStorageStats | null>(null);
 
+  let inFlightRequest: string | null = null;
+
   const loadStats = async () => {
     if (!props.isConnected) return;
+
+    const currentUrl = props.api.baseUrl;
+    if (inFlightRequest === currentUrl) return;
+    inFlightRequest = currentUrl;
+
     setLoading(true);
     setError(null);
     try {
@@ -539,11 +546,16 @@ export const Dashboard = (props: DashboardProps) => {
       setError(e.toString());
     } finally {
       setLoading(false);
+      inFlightRequest = null;
     }
   };
 
   createEffect(() => {
-    if (props.isConnected) loadStats();
+    const isConnected = props.isConnected;
+    const url = props.api.baseUrl;
+    if (isConnected && url) {
+      loadStats();
+    }
   });
 
   const formatTime = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });

@@ -2,27 +2,32 @@ use std::collections::HashMap;
 
 pub fn map_reqwest_error(e: reqwest::Error, prefix: &str) -> String {
     if e.is_connect() {
-        if let Some(url) = e.url() {
-            let host = url.host_str().unwrap_or(url.as_str());
-            let port = url.port().map(|p| format!(":{}", p)).unwrap_or_default();
-            return format!("ERROR: Connection refused: {}{}", host, port);
-        }
+        return "Connection refused. Please check if the server is running.".to_string();
     }
-    format!("{}: {}", prefix, e)
+    if e.is_timeout() {
+        return "Connection timed out. Target is unreachable.".to_string();
+    }
+    
+    // Fallback but try to be cleaner
+    let err_str = e.to_string();
+    if err_str.contains("http") || err_str.contains("127.0.0.1") {
+        return format!("{}: Network error occurred", prefix);
+    }
+
+    format!("{}: {}", prefix, err_str)
 }
 
 #[tauri::command]
 pub async fn helix_request(
+    state: tauri::State<'_, crate::NetworkState>,
     method: String,
     url: String,
     headers: HashMap<String, String>,
     body: Option<String>,
+    timeout_ms: Option<u64>,
 ) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
-        .no_proxy()
-        .build()
-        .map_err(|e| format!("Client build error: {}", e))?;
+    let client = &state.client;
+    let timeout = std::time::Duration::from_millis(timeout_ms.unwrap_or(60000));
 
     let method_type = match method.to_uppercase().as_str() {
         "GET" => reqwest::Method::GET,
@@ -32,7 +37,7 @@ pub async fn helix_request(
         _ => return Err(format!("Unsupported method: {}", method)),
     };
 
-    let mut req = client.request(method_type, &url);
+    let mut req = client.request(method_type, &url).timeout(timeout);
 
     for (key, value) in headers {
         req = req.header(key, value);
@@ -42,7 +47,9 @@ pub async fn helix_request(
         req = req.body(b);
     }
 
-    let resp = req.send().await.map_err(|e| map_reqwest_error(e, "Request error"))?;
+    let resp = req.send().await.map_err(|e| {
+        map_reqwest_error(e, "Request error")
+    })?;
 
     let status = resp.status();
     let text = resp.text().await.unwrap_or_default();
@@ -55,17 +62,25 @@ pub async fn helix_request(
 }
 
 #[tauri::command]
-pub async fn execute_query(url: String, query_name: String, args: serde_json::Value) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::builder()
-        .no_proxy()
-        .build()
-        .map_err(|e| format!("Failed to build client: {}", e))?;
+pub async fn execute_query(
+    state: tauri::State<'_, crate::NetworkState>,
+    url: String, 
+    query_name: String, 
+    args: serde_json::Value, 
+    api_key: Option<String>
+) -> Result<serde_json::Value, String> {
+    let client = &state.client;
     
     let url = format!("{}/{}", url, query_name);
     
-    let resp = client.post(url)
-        .json(&args)
-        .send()
+    let mut req = client.post(url)
+        .json(&args);
+
+    if let Some(key) = api_key {
+        req = req.header("x-api-key", key);
+    }
+    
+    let resp = req.send()
         .await
         .map_err(|e| map_reqwest_error(e, "Request failed"))?;
 
@@ -82,17 +97,23 @@ pub async fn execute_query(url: String, query_name: String, args: serde_json::Va
 }
 
 #[tauri::command]
-pub async fn fetch_mcp_schema(url: String) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::builder()
-        .no_proxy()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .map_err(|e| format!("Failed to build client: {}", e))?;
+pub async fn fetch_mcp_schema(
+    state: tauri::State<'_, crate::NetworkState>,
+    url: String, 
+    api_key: Option<String>
+) -> Result<serde_json::Value, String> {
+    let client = &state.client;
 
-    let init_resp = client.post(format!("{}/mcp/init", url))
-        .send()
+    let mut init_req = client.post(format!("{}/mcp/init", url));
+    if let Some(key) = &api_key {
+        init_req = init_req.header("x-api-key", key);
+    }
+
+    let init_resp = init_req.send()
         .await
-        .map_err(|e| map_reqwest_error(e, "Init failed"))?;
+        .map_err(|e| {
+            map_reqwest_error(e, "Init failed")
+        })?;
     
     if !init_resp.status().is_success() {
         let status = init_resp.status();
@@ -104,9 +125,14 @@ pub async fn fetch_mcp_schema(url: String) -> Result<serde_json::Value, String> 
     let connection_id: String = serde_json::from_str(&init_body)
         .map_err(|e| format!("Failed to parse connection_id from '{}': {}", init_body, e))?;
 
-    let schema_resp = client.post(format!("{}/mcp/schema_resource", url))
-        .json(&serde_json::json!({ "connection_id": connection_id }))
-        .send()
+    let mut schema_req = client.post(format!("{}/mcp/schema_resource", url))
+        .json(&serde_json::json!({ "connection_id": connection_id }));
+    
+    if let Some(key) = &api_key {
+        schema_req = schema_req.header("x-api-key", key);
+    }
+
+    let schema_resp = schema_req.send()
         .await
         .map_err(|e| map_reqwest_error(e, "Schema request failed"))?;
 

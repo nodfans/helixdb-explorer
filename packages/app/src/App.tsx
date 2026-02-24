@@ -187,6 +187,7 @@ function App() {
             <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "queries", "view-enter": currentView() === "queries" }}>
               <Queries
                 api={connection.apiClient()}
+                isActive={currentView() === "queries"}
                 isExecuting={isExecuting()}
                 onRegisterExecute={(fn) => setWbExecute(() => fn)}
                 isConnected={connection.isConnected()}

@@ -2,7 +2,7 @@ import { createSignal, createMemo } from "solid-js";
 import { HelixDB } from "helix-ts";
 import { HelixApi } from "../lib/api";
 import { invoke } from "@tauri-apps/api/core";
-import { setConnectionStore, activeConnection, getConnectionUrl, ConnectionInfo, saveConnections } from "../stores/connection";
+import { setConnectionStore, activeConnection, getConnectionUrl, ConnectionInfo, saveConnections, validateConnection } from "../stores/connection";
 import { setWorkbenchState, queryStateCache } from "../stores/workbench";
 import { setHqlStore } from "../stores/hql";
 
@@ -43,7 +43,12 @@ export function createConnection() {
   const [error, setError] = createSignal<string | null>(null);
   const [showSuccess, setShowSuccess] = createSignal(false);
 
-  const tauriFetch = async (input: string | URL, init?: RequestInit): Promise<Response> => {
+  const [connectedConfig, setConnectedConfig] = createSignal<{ url: string; apiKey: string | null }>({
+    url: getConnectionUrl(activeConnection()),
+    apiKey: activeConnection().apiKey || null,
+  });
+
+  const tauriFetch = async (input: string | URL, init?: RequestInit & { timeout?: number }): Promise<Response> => {
     const url = input.toString();
     const method = init?.method || "GET";
     const headers: Record<string, string> = {};
@@ -56,15 +61,19 @@ export function createConnection() {
     }
 
     const body = init?.body ? String(init.body) : null;
+    const timeout_ms = init?.timeout || null;
 
     if (isTauri()) {
       try {
+        console.log(`[TauriFetch] Calling helix_request: ${method} ${url}`, { headers, body, timeout_ms });
         const responseText = await invoke<string>("helix_request", {
           method,
           url,
           headers,
           body,
+          timeoutMs: timeout_ms,
         });
+        console.log(`[TauriFetch] Response received:`, responseText.substring(0, 100) + "...");
 
         return {
           ok: true,
@@ -74,6 +83,7 @@ export function createConnection() {
           json: async () => JSON.parse(responseText),
         } as Response;
       } catch (err: any) {
+        console.error(`[TauriFetch] Error:`, err);
         return {
           ok: false,
           status: 500,
@@ -98,17 +108,15 @@ export function createConnection() {
   };
 
   const dbClient = createMemo(() => {
-    const active = activeConnection();
-    const url = getConnectionUrl(active);
-    const client = new HelixDB(url, active.apiKey || null);
+    const config = connectedConfig();
+    const client = new HelixDB(config.url, config.apiKey);
     (client as any).fetch = tauriFetch;
     return client;
   });
 
   const apiClient = createMemo(() => {
-    const active = activeConnection();
-    const url = getConnectionUrl(active);
-    return new HelixApi(url, active.apiKey || null);
+    const config = connectedConfig();
+    return new HelixApi(config.url, config.apiKey);
   });
 
   const handleConnect = async (conn: ConnectionInfo) => {
@@ -117,17 +125,18 @@ export function createConnection() {
     setError(null);
 
     try {
-      const trimmedHost = (conn.host || "").trim();
-      if (!trimmedHost || trimmedHost === "http://" || trimmedHost === "https://") {
-        throw new Error("Invalid Host");
-      }
+      validateConnection(conn);
       const sanitizedUrl = getConnectionUrl(conn);
-      const response = await tauriFetch(`${sanitizedUrl}/node-details?id=0`, {
-        method: "GET",
+      console.log(`[handleConnect] Attempting lightweight ping: type=${conn.type}, url=${sanitizedUrl}`);
+      const response = await tauriFetch(`${sanitizedUrl}/mcp/init`, {
+        method: "POST",
         headers: {
           ...(conn.apiKey ? { "x-api-key": conn.apiKey } : {}),
         },
+        body: JSON.stringify({}),
       });
+
+      console.log(`[handleConnect] Connection response status: ${response.status}`);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -148,10 +157,18 @@ export function createConnection() {
 
       setConnectionStore("activeConnectionId", conn.id);
       setIsConnected(true);
+
+      // Successfully connected: safe to update the client config and trigger background fetches
+      setConnectedConfig({
+        url: sanitizedUrl,
+        apiKey: conn.apiKey || null,
+      });
+
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       setShowSettings(false);
     } catch (err: any) {
+      console.error(`[handleConnect] Connection failed:`, err);
       setError(err.message || String(err));
       setIsConnected(false);
     } finally {
@@ -161,16 +178,17 @@ export function createConnection() {
 
   const testConnection = async (conn: ConnectionInfo) => {
     setError(null);
-    const trimmedHost = (conn.host || "").trim();
-    if (!trimmedHost || trimmedHost === "http://" || trimmedHost === "https://") {
-      throw new Error("Invalid Host");
-    }
+    validateConnection(conn);
     const sanitizedUrl = getConnectionUrl(conn);
-    const response = await tauriFetch(`${sanitizedUrl}/node-details?id=0`, {
-      method: "GET",
+    // Increased timeout for better reliability
+    const timeout = (conn.type || "local") === "local" ? 1000 : 5000;
+    const response = await tauriFetch(`${sanitizedUrl}/mcp/init`, {
+      method: "POST",
       headers: {
         ...(conn.apiKey ? { "x-api-key": conn.apiKey } : {}),
       },
+      body: JSON.stringify({}),
+      timeout,
     });
 
     if (!response.ok) {
@@ -183,6 +201,9 @@ export function createConnection() {
     setConnectionStore("activeConnectionId", null);
     setIsConnected(false);
     setShowSuccess(false);
+
+    // Reset API config on disconnect
+    setConnectedConfig({ url: "", apiKey: null });
 
     import("../stores/workbench").then(({ setWorkbenchState, queryStateCache }) => {
       setWorkbenchState({

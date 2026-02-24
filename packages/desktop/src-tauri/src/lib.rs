@@ -8,6 +8,11 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use commands::*;
 use std::sync::Mutex;
+use reqwest::Client;
+
+pub struct NetworkState {
+    pub client: Client,
+}
 
 pub struct PendingCopyData {
     pub tsv: String,
@@ -18,9 +23,18 @@ pub struct AppState(pub Mutex<PendingCopyData>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    println!(">>> [Rust] Backend starting up...");
+    println!(">>> [HelixDB Explorer] Backend starting up on port 1420...");
+
+    let client = Client::builder()
+        .no_proxy()
+        .pool_max_idle_per_host(10)
+        .tcp_keepalive(Some(std::time::Duration::from_secs(60)))
+        .build()
+        .expect("Failed to build reqwest client");
+
     tauri::Builder::default()
         .manage(AppState(Mutex::new(PendingCopyData { tsv: String::new(), json: String::new() })))
+        .manage(NetworkState { client })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_http::init())

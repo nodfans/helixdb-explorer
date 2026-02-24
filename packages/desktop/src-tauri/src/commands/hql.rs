@@ -19,7 +19,7 @@ fn expression_to_json(expr: &Expression) -> Option<serde_json::Value> {
 }
 
 #[tauri::command]
-pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde_json::Value>, api_key: Option<String>) -> Result<serde_json::Value, String> {
     let code = processor::preprocess_hql(&code);
 
     fn try_parse(code: &str) -> Result<Source, String> {
@@ -175,9 +175,14 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
     let query_name = &query.name;
     if query_name != "ExplorerTmp" && !query.parameters.is_empty() {
         let compiled_url = format!("{}/{}", url, query_name);
-        let compiled_resp = client.post(&compiled_url)
-            .json(&params_val)
-            .send()
+        let mut compiled_req = client.post(&compiled_url)
+            .json(&params_val);
+
+        if let Some(key) = &api_key {
+            compiled_req = compiled_req.header("x-api-key", key);
+        }
+
+        let compiled_resp = compiled_req.send()
             .await;
 
         if let Ok(resp) = compiled_resp {
@@ -213,8 +218,12 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
             continue;
         }
 
-        let init_resp = client.post(format!("{}/mcp/init", url))
-            .send()
+        let mut init_req = client.post(format!("{}/mcp/init", url));
+        if let Some(key) = &api_key {
+            init_req = init_req.header("x-api-key", key);
+        }
+
+        let init_resp = init_req.send()
             .await
             .map_err(|e| map_reqwest_error(e, "Init failed"))?;
         
@@ -229,9 +238,9 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
             .map_err(|e| format!("Failed to parse connection_id from '{}': {}", init_body, e))?;
 
         let result = if let Some(tool) = search_tool {
-             executor::execute_search_tool(&client, &url, &connection_id, tool).await?
+             executor::execute_search_tool(&client, &url, &connection_id, tool, api_key.clone()).await?
         } else if let Some(t) = traversal {
-             executor::execute_pipeline(&client, &url, &connection_id, &t, &params_val).await?
+             executor::execute_pipeline(&client, &url, &connection_id, &t, &params_val, api_key.clone()).await?
         } else {
              serde_json::Value::Null
         };
