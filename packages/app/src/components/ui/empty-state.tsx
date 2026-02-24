@@ -40,7 +40,7 @@ export const EmptyState = (props: EmptyStateProps) => {
 
       {props.description && (
         <p
-          class="text-native-secondary max-w-xs mx-auto leading-relaxed"
+          class="text-native-secondary mx-auto leading-relaxed whitespace-nowrap"
           classList={{
             "text-[13px]": isLarge(),
             "text-[11px]": !isLarge(),

@@ -1,10 +1,11 @@
 import { createSignal, createEffect, createMemo, onCleanup, onMount, Show, For, on, untrack } from "solid-js";
 import { HelixApi } from "../lib/api";
 import ForceGraphFactory from "force-graph";
-import { GitGraph, RefreshCw, ChevronRight, X, Maximize, Layers, Check, TriangleAlert } from "lucide-solid";
+import { GitGraph, RefreshCw, ChevronRight, X, Maximize, Layers, Check, TriangleAlert, Radio } from "lucide-solid";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ToolbarLayout } from "./ui/toolbar-layout";
+import { EmptyState } from "./ui/empty-state";
 
 interface GraphProps {
   api: HelixApi;
@@ -761,10 +762,10 @@ export const Graph = (props: GraphProps) => {
       {/* Header & Controls */}
       <div class="flex-none">
         <ToolbarLayout class="justify-between">
-          <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2">
             <Input variant="search" placeholder="Search nodes..." value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-48 h-7 shrink-0" />
 
-            <div class="w-px h-5 bg-native-subtle" />
+            <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
             {/* Top N & Limit Group */}
             <div class="flex items-center">
@@ -798,7 +799,7 @@ export const Graph = (props: GraphProps) => {
               </div>
             </div>
 
-            <div class="w-px h-5 bg-native-subtle" />
+            <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
             <Button variant="toolbar" active={showLegend()} onClick={() => setShowLegend(!showLegend())} class="flex items-center gap-1.5 h-7 transition-all">
               <Layers size={13} class={showLegend() ? "text-accent" : "text-native-tertiary"} />
@@ -823,15 +824,21 @@ export const Graph = (props: GraphProps) => {
               <span class="font-medium">Center</span>
             </Button>
 
+            <div class="w-px h-3.5 bg-native-subtle mx-1" />
+
             <Button variant="toolbar" onClick={refresh} disabled={loading()} class="flex items-center gap-1.5 transition-all group active:scale-95">
               <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : "group-hover:rotate-180"} transition-transform text-accent`} />
               <span class="font-medium">Refresh</span>
             </Button>
 
-            <div class="w-px h-5 bg-native-subtle" />
+            <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
-            <button onClick={() => setShowDetailPanel(!showDetailPanel())} class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/8 transition-colors">
-              <ChevronRight size={14} class={`text-native-tertiary transition-transform duration-200 ${showDetailPanel() ? "rotate-0" : "rotate-180"}`} />
+            <button
+              onClick={() => setShowDetailPanel(!showDetailPanel())}
+              class="w-7 h-7 flex items-center justify-center rounded-md hover:bg-native-hover active:scale-95 transition-all outline-none group/detail"
+              title={showDetailPanel() ? "Hide Details" : "Show Details"}
+            >
+              <ChevronRight size={16} class={`text-native-tertiary group-hover/detail:text-native-primary transition-all duration-300 ${showDetailPanel() ? "rotate-0" : "rotate-180"}`} />
             </button>
           </div>
         </ToolbarLayout>
@@ -839,8 +846,22 @@ export const Graph = (props: GraphProps) => {
 
       {/* Main Content */}
       <div class="flex-1 flex overflow-hidden relative">
-        {/* Graph Canvas */}
-        <div ref={containerRef} class="flex-1 relative overflow-hidden" style={{ transition: "width 0.2s ease" }} />
+        <div class="flex-1 relative flex overflow-hidden">
+          <Show
+            when={props.isConnected}
+            fallback={
+              <div class="flex-1 flex items-center justify-center bg-native-content/50 z-10 backdrop-blur-sm">
+                <EmptyState icon={Radio} title="Graph Explorer" description="Connect to your HelixDB instance to visualize your database as an interactive network.">
+                  <Button variant="primary" size="lg" onClick={props.onConnect}>
+                    Connect Now
+                  </Button>
+                </EmptyState>
+              </div>
+            }
+          >
+            <div ref={containerRef} class="flex-1 bg-graph" />
+          </Show>
+        </div>
 
         {/* Schema Legend Panel */}
         <Show when={showLegend()}>
@@ -855,7 +876,7 @@ export const Graph = (props: GraphProps) => {
               </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-2 space-y-0.5 scrollbar-thin">
+            <div class="flex-1 overflow-y-auto p-2 space-y-0.5">
               <For each={nodeTypes()}>
                 {(item) => (
                   <div
@@ -911,7 +932,7 @@ export const Graph = (props: GraphProps) => {
               }
             >
               {(node) => (
-                <div class="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
+                <div class="flex-1 overflow-y-auto p-4 space-y-3">
                   <For each={Object.entries(node()).filter(([key]) => !["x", "y", "vx", "vy", "fx", "fy", "index", "__indexColor", "val"].includes(key))}>
                     {([key, value]) => (
                       <div class="flex flex-col gap-1 border-b border-native-subtle/20 pb-2 last:border-0">
@@ -992,7 +1013,7 @@ export const Graph = (props: GraphProps) => {
               <span class="text-[11px] font-semibold text-blue-500">{(selectedNode() as any).id}</span>
             </div>
 
-            <div class="w-px h-5 bg-native-subtle" />
+            <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
             <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
               <GitGraph size={11} class="text-emerald-500" />

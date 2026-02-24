@@ -38,8 +38,8 @@ const [workbenchState, setWorkbenchState] = createStore<WorkbenchState>({
   searchQuery: "",
   resultSearchQuery: "",
   showParamsSidebar: false,
-  sidebarWidth: 200,
-  rightSidebarWidth: 240,
+  sidebarWidth: 220,
+  rightSidebarWidth: 220,
   loading: false,
 });
 

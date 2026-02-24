@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createSignal, For, onMount, Show, onCleanup } from "solid-js";
 import { reconcile } from "solid-js/store";
-import { Play, Plus, X, FileCode, Sparkles, Check, Upload, ChevronDown, PanelTopDashed } from "lucide-solid";
+import { Play, Plus, X, FileCode, Sparkles, Check, Upload, ChevronDown, PanelTopDashed, Radio } from "lucide-solid";
 import { invoke } from "@tauri-apps/api/core";
 import { hqlStore, setHqlStore, type HqlTab } from "../stores/hql";
 import { HQLEditor } from "./ui/hql-editor";
@@ -10,6 +10,8 @@ import { activeConnection, getConnectionUrl, setConnectionStore, saveConnections
 import { HqlPanel, SyncConfirmationOverlay } from "./ui/hql-panel";
 import { extractTableData, extractMultiTableData } from "../lib/result-helper";
 import { hqlLanguage } from "../lib/hql-syntax";
+import { EmptyState } from "./ui/empty-state";
+import { Button } from "./ui/button";
 
 // --- HQL Page Component ---
 export interface HQLProps {
@@ -262,8 +264,14 @@ export const HQL = (props: HQLProps) => {
           <div class="flex items-center justify-center w-4 h-4 bg-accent/10 rounded p-0.5">
             <PanelTopDashed size={11} strokeWidth={2.5} class="text-accent" />
           </div>
-          <span class="flex-1 text-[11px] text-native-primary font-medium truncate">
-            {activeConnection().host}:{activeConnection().port}
+          <span
+            class="flex-1 text-[11px] font-medium truncate"
+            classList={{
+              "text-native-primary": props.isConnected,
+              "text-native-quaternary italic": !props.isConnected,
+            }}
+          >
+            {props.isConnected ? `${activeConnection().host}:${activeConnection().port}` : "Disconnected"}
           </span>
         </div>
         <div class="w-px h-3.5 bg-[var(--border-subtle)] ml-2 mr-1" />
@@ -329,56 +337,68 @@ export const HQL = (props: HQLProps) => {
       </div>
 
       <div class="flex-1 flex flex-col min-h-0 relative">
-        <div class="flex-1 min-h-0 bg-[var(--bg-content)]" style={{ "padding-bottom": hqlStore.showResults ? `${resultsHeight()}px` : "0" }}>
-          <HQLEditor
-            code={activeTab().code}
-            onCodeChange={(code) => updateActiveTab({ code })}
-            onExecute={executeHql}
-            onFormat={beautifyCode}
-            onSelectionChange={setSelectedText}
-            onGutterWidthChange={setGutterWidth}
-            language={hqlLanguage}
-            schema={hqlStore.schema}
+        <Show
+          when={props.isConnected}
+          fallback={
+            <div class="flex-1 flex items-center justify-center bg-native-content z-10">
+              <EmptyState icon={Radio} title="HQL Editor" description="Connect to your HelixDB instance to write and execute Helix Query Language statements.">
+                <Button variant="primary" size="lg" onClick={props.onConnect}>
+                  Connect Now
+                </Button>
+              </EmptyState>
+            </div>
+          }
+        >
+          <div class="flex-1 min-h-0 bg-[var(--bg-content)]" style={{ "padding-bottom": hqlStore.showResults ? `${resultsHeight()}px` : "0" }}>
+            <HQLEditor
+              code={activeTab().code}
+              onCodeChange={(code) => updateActiveTab({ code })}
+              onExecute={executeHql}
+              onFormat={beautifyCode}
+              onSelectionChange={setSelectedText}
+              onGutterWidthChange={setGutterWidth}
+              language={hqlLanguage}
+              schema={hqlStore.schema}
+            />
+          </div>
+          <HqlPanel
+            viewMode={activeTab().viewMode}
+            queryStatus={activeTab().queryStatus}
+            status={activeTab().status}
+            output={activeTab().output}
+            logs={activeTab().logs}
+            rawOutput={activeTab().rawOutput}
+            multiTableData={activeTab().multiTableData}
+            tableData={activeTab().tableData}
+            executionTime={activeTab().executionTime}
+            selectedRows={activeTab().selectedRows}
+            isConnected={props.isConnected}
+            onConnect={handleConnect}
+            updateActiveTab={updateActiveTab}
+            copyOutput={copyOutput}
+            copied={copied}
+            showResults={() => hqlStore.showResults}
+            setShowResults={(val) => setHqlStore("showResults", val)}
+            resultsHeight={resultsHeight}
+            isResizing={isResizing}
+            startResizing={startResizing}
+            gutterWidth={gutterWidth}
+            pendingSync={pendingSync}
+            setPendingSync={setPendingSync}
+            setSyncing={setSyncing}
+            logEntry={logEntry}
           />
-        </div>
-        <Show when={hqlStore.showResults}>
-          <div class="absolute left-0 right-0 h-px bg-[var(--border-subtle)] group z-50" style={{ bottom: `${resultsHeight()}px` }}>
-            <div class="absolute inset-x-0 h-[3px] -top-[1px] cursor-row-resize hover:bg-accent/10 transition-colors" classList={{ "bg-accent/20": isResizing() }} onMouseDown={startResizing} />
-          </div>
-        </Show>
-        <HqlPanel
-          viewMode={activeTab().viewMode}
-          queryStatus={activeTab().queryStatus}
-          status={activeTab().status}
-          output={activeTab().output}
-          logs={activeTab().logs}
-          rawOutput={activeTab().rawOutput}
-          multiTableData={activeTab().multiTableData}
-          tableData={activeTab().tableData}
-          executionTime={activeTab().executionTime}
-          selectedRows={activeTab().selectedRows}
-          isConnected={props.isConnected}
-          onConnect={handleConnect}
-          updateActiveTab={updateActiveTab}
-          copyOutput={copyOutput}
-          copied={copied}
-          showResults={() => hqlStore.showResults}
-          setShowResults={(val) => setHqlStore("showResults", val)}
-          resultsHeight={resultsHeight}
-          isResizing={isResizing}
-          startResizing={startResizing}
-          gutterWidth={gutterWidth}
-          pendingSync={pendingSync}
-          setPendingSync={setPendingSync}
-          setSyncing={setSyncing}
-          logEntry={logEntry}
-        />
-        <Show when={!hqlStore.showResults}>
-          <div class="absolute bottom-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ left: `${gutterWidth()}px`, transform: "translateX(-50%)" }}>
-            <button onClick={() => setHqlStore("showResults", true)} class="p-1 hover:bg-black/5 dark:hover:bg-white/2 rounded transition-colors text-native-tertiary group" title="Show Results Panel">
-              <ChevronDown size={14} class="rotate-180 transition-transform duration-200 group-hover:text-accent" />
-            </button>
-          </div>
+          <Show when={!hqlStore.showResults}>
+            <div class="absolute bottom-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ left: `${gutterWidth()}px`, transform: "translateX(-50%)" }}>
+              <button
+                onClick={() => setHqlStore("showResults", true)}
+                class="p-1 hover:bg-black/5 dark:hover:bg-white/2 rounded transition-colors text-native-tertiary group"
+                title="Show Results Panel"
+              >
+                <ChevronDown size={14} class="rotate-180 transition-transform duration-200 group-hover:text-accent" />
+              </button>
+            </div>
+          </Show>
         </Show>
       </div>
       <Show when={pendingSync()}>

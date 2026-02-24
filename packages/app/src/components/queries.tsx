@@ -5,7 +5,7 @@ import { EndpointConfig } from "../lib/types";
 import { workbenchState, setWorkbenchState, queryStateCache } from "../stores/workbench";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Copy, Check, ChevronRight, CircleAlert, Plus, Minus, Play, LoaderCircle, X, Table, Braces, Search, Link, MessageSquareCode, RotateCcw } from "lucide-solid";
+import { Copy, Check, ChevronRight, CircleAlert, Plus, Minus, Play, LoaderCircle, X, Table, Braces, Search, Link, Ghost, RotateCcw, Radio } from "lucide-solid";
 import { ResultTable } from "./ui/result-table";
 import { ToolbarLayout } from "./ui/toolbar-layout";
 import { EmptyState } from "./ui/empty-state";
@@ -338,49 +338,91 @@ export const Queries = (props: QueriesProps) => {
   return (
     <div class="flex h-full overflow-hidden bg-[var(--bg-workbench)]">
       <div class="flex h-full overflow-hidden relative w-full" classList={{ "cursor-col-resize": isResizing() }}>
-        <Show when={props.isConnected}>
-          <div class="w-[280px] flex-none flex flex-col border-r border-native macos-vibrant-sidebar overflow-hidden" style={{ width: `${sidebarWidth()}px` }}>
-            <div class="px-3 py-2 flex-none border-b border-native">
-              <div class="flex items-center justify-between mb-1.5 px-1">
-                <h2 class="text-[12px] font-semibold text-native-secondary/80 flex items-center gap-2">Workbench</h2>
-              </div>
-
-              <div class="w-full">
-                <Input variant="search" placeholder="Search queries..." value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} fullWidth class="h-8" />
+        <div class="w-[280px] flex-none flex flex-col macos-vibrant-sidebar overflow-hidden" style={{ width: `${sidebarWidth()}px` }}>
+          <div class="px-3.5 py-3 flex-none flex flex-col gap-2">
+            <div class="flex items-center justify-between px-0.5">
+              <h2 class="text-[11px] font-bold text-native-tertiary uppercase tracking-wider">Workbench</h2>
+              <div class="flex items-center gap-1.5">
+                <div
+                  class="w-1.5 h-1.5 rounded-full transition-all"
+                  classList={{
+                    "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]": props.isConnected,
+                    "bg-native-quaternary": !props.isConnected,
+                  }}
+                />
+                <span
+                  class="text-[10px] font-medium transition-colors"
+                  classList={{
+                    "text-native-quaternary": !props.isConnected,
+                    "text-emerald-500": props.isConnected,
+                  }}
+                >
+                  {props.isConnected ? "Live" : "Offline"}
+                </span>
               </div>
             </div>
-            <div class="flex-1 overflow-y-auto py-2 scrollbar-thin">
+
+            <Input
+              variant="search"
+              placeholder="Filter queries..."
+              value={searchQuery()}
+              onInput={(e) => setSearchQuery(e.currentTarget.value)}
+              fullWidth
+              class="h-7.5 bg-native-sidebar/40 border-native-subtle focus:bg-native-elevated transition-all"
+            />
+          </div>
+
+          <div class="flex-1 overflow-y-auto px-2 pb-4 scrollbar-thin space-y-0.5">
+            <Show
+              when={props.isConnected}
+              fallback={
+                <div class="px-4 py-12 text-center flex flex-col items-center gap-3 opacity-40">
+                  <div class="w-12 h-12 rounded-2xl bg-native-content/50 flex items-center justify-center border border-native-subtle shadow-sm mb-1">
+                    <Radio size={24} class="text-native-quaternary" />
+                  </div>
+                  <p class="text-[11px] font-bold text-native-tertiary uppercase tracking-tight">Offline Mode</p>
+                  <p class="text-[10px] text-native-quaternary leading-relaxed max-w-[140px]">Connect to your instance to access the workbench.</p>
+                </div>
+              }
+            >
               <For each={filteredEndpoints()}>
                 {(endpoint) => (
                   <button
-                    class="w-full text-left px-3 py-2 hover:bg-native-sidebar/50 transition-all duration-150 group relative border-l-2 border-transparent hover:border-accent/20"
+                    class="w-full text-left px-2.5 py-1.5 rounded-lg transition-all duration-200 group relative flex items-center justify-between outline-none"
                     classList={{
-                      "bg-native-active border-accent": selectedEndpoint()?.name === endpoint.name,
-                      "text-native-primary": selectedEndpoint()?.name === endpoint.name,
-                      "text-native-secondary": selectedEndpoint()?.name !== endpoint.name,
+                      "bg-accent/10 border border-accent/20 shadow-sm": selectedEndpoint()?.name === endpoint.name,
+                      "hover:bg-native-hover/60 text-native-secondary hover:text-native-primary border border-transparent": selectedEndpoint()?.name !== endpoint.name,
                     }}
                     onClick={() => handleSelect(endpoint)}
                   >
-                    <div class="flex items-center gap-2.5">
-                      <span
-                        class="text-[9px] font-bold px-1.5 py-0.5 rounded-md shrink-0 w-[38px] text-center tracking-wide capitalize"
+                    <div class="flex items-center gap-3 overflow-hidden">
+                      <div
+                        class="text-[9px] font-extrabold px-1 py-0.5 rounded-md shrink-0 w-[38px] text-center tracking-tighter shadow-sm border"
                         classList={{
-                          "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400": endpoint.method.toUpperCase() === "GET",
-                          "bg-blue-500/15 text-blue-600 dark:text-blue-400": endpoint.method.toUpperCase() === "POST",
-                          "bg-amber-500/15 text-amber-600 dark:text-amber-400": endpoint.method.toUpperCase() === "PUT",
-                          "bg-red-500/15 text-red-600 dark:text-red-400": endpoint.method.toUpperCase() === "DELETE",
-                          "bg-purple-500/15 text-purple-600 dark:text-purple-400": endpoint.method.toUpperCase() === "PATCH",
+                          "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20": endpoint.method.toUpperCase() === "GET",
+                          "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20": endpoint.method.toUpperCase() === "POST",
+                          "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20": endpoint.method.toUpperCase() === "PUT",
+                          "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20": endpoint.method.toUpperCase() === "DELETE",
+                          "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20": endpoint.method.toUpperCase() === "PATCH",
                         }}
                       >
-                        {endpoint.method.slice(0, 4)}
+                        {endpoint.method.toUpperCase().slice(0, 4)}
+                      </div>
+                      <span
+                        class="text-[12px] font-medium truncate flex-1 min-w-0 transition-colors"
+                        classList={{
+                          "text-native-primary font-bold": selectedEndpoint()?.name === endpoint.name,
+                        }}
+                      >
+                        {endpoint.name}
                       </span>
-                      <span class="text-[12px] font-medium truncate flex-1 min-w-0">{endpoint.name}</span>
                     </div>
 
                     <ChevronRight
-                      size={12}
-                      class={`absolute right-2.5 top-1/2 -translate-y-1/2 text-native-tertiary opacity-0 group-hover:opacity-100 transition-opacity ${
-                        selectedEndpoint()?.name === endpoint.name ? "opacity-100" : ""
+                      size={11}
+                      strokeWidth={2.5}
+                      class={`shrink-0 transition-all duration-300 ${
+                        selectedEndpoint()?.name === endpoint.name ? "text-accent translate-x-0" : "text-native-quaternary opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0"
                       }`}
                     />
                   </button>
@@ -388,30 +430,45 @@ export const Queries = (props: QueriesProps) => {
               </For>
 
               <Show when={props.isConnected && filteredEndpoints().length === 0 && !loading()}>
-                <div class="px-4 py-8 text-center flex flex-col items-center gap-3">
-                  <Search size={28} class="text-native-quaternary opacity-25" />
-                  <p class="text-xs font-medium text-native-quaternary">No queries found</p>
+                <div class="px-4 py-12 text-center flex flex-col items-center gap-3">
+                  <div class="w-12 h-12 rounded-2xl bg-native-content/50 flex items-center justify-center border border-native-subtle opacity-40">
+                    <Search size={24} class="text-native-quaternary" />
+                  </div>
+                  <p class="text-[11px] font-bold text-native-quaternary uppercase tracking-tight">No match found</p>
                 </div>
               </Show>
-            </div>
+            </Show>
           </div>
+        </div>
 
-          <div class="w-px h-full flex-none relative group z-50 bg-[var(--border-subtle)]">
-            <div
-              class="absolute inset-y-0 w-[3px] -left-[1px] cursor-col-resize hover:bg-[#007AFF]/10 dark:hover:bg-[#0A84FF]/10 transition-colors"
-              classList={{ "bg-[#007AFF]/20 dark:bg-[#0A84FF]/20": isResizing() }}
-              onMouseDown={startResizing}
-            />
-          </div>
-        </Show>
+        <div class="w-px h-full flex-none relative group z-50 bg-native">
+          <div
+            class="absolute inset-y-0 w-[3px] -left-[1px] cursor-col-resize hover:bg-[#007AFF]/15 dark:hover:bg-[#0A84FF]/15 transition-colors"
+            classList={{ "bg-[#007AFF]/25 dark:bg-[#0A84FF]/25": isResizing() }}
+            onMouseDown={startResizing}
+          />
+        </div>
 
         <div class="flex-1 flex flex-col overflow-hidden bg-[var(--bg-workbench-content)]">
           <Show
             when={selectedEndpoint()}
-            fallback={<EmptyState icon={MessageSquareCode} title="Select a query to start" description="Choose a registered query from the sidebar to begin exploring your data." />}
+            fallback={
+              <Show
+                when={props.isConnected}
+                fallback={
+                  <EmptyState icon={Radio} title="Queries Workbench" description="Connect to your HelixDB instance to see and execute your specific database queries.">
+                    <Button variant="primary" size="lg" onClick={props.onConnect}>
+                      Connect Now
+                    </Button>
+                  </EmptyState>
+                }
+              >
+                <EmptyState icon={Ghost} title="Select a query to start" description="Choose a registered query from the sidebar to begin exploring your data." />
+              </Show>
+            }
           >
             <ToolbarLayout class="justify-between items-center pl-1">
-              <div class="flex items-center gap-4 min-w-0">
+              <div class="flex items-center gap-2 min-w-0">
                 <Show when={selectedEndpoint()} fallback={<span class="text-[10px] font-semibold text-native-tertiary tracking-tight">Overview</span>}>
                   <div
                     class="flex items-center gap-1.5 cursor-pointer hover:bg-native-hover/60 px-1.5 py-0.5 rounded transition-colors group/path"
@@ -429,7 +486,7 @@ export const Queries = (props: QueriesProps) => {
                   </div>
                 </Show>
 
-                <div class="w-px h-3.5 bg-native opacity-30 shrink-0" />
+                <div class="w-px h-3.5 bg-native-subtle mx-1 shrink-0" />
 
                 <button
                   disabled={props.isExecuting || !canExecute()}
@@ -493,7 +550,7 @@ export const Queries = (props: QueriesProps) => {
               </div>
             </ToolbarLayout>
 
-            <div class="flex-1 flex flex-col overflow-hidden">
+            <div class="flex-1 flex flex-row overflow-hidden">
               <div class="flex-1 flex flex-col overflow-hidden relative">
                 <Show when={props.isExecuting || isRunning()}>
                   <div class="flex-1 flex items-center justify-center">
@@ -520,7 +577,7 @@ export const Queries = (props: QueriesProps) => {
                   <Show
                     when={viewMode() === "table"}
                     fallback={
-                      <div class="flex-1 overflow-auto bg-[var(--bg-table-row)] scrollbar-thin relative group">
+                      <div class="flex-1 overflow-auto bg-[var(--bg-table-row)] relative group">
                         <div class="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                           <button
                             onClick={handleCopy}
@@ -536,7 +593,7 @@ export const Queries = (props: QueriesProps) => {
                       </div>
                     }
                   >
-                    <div class="flex-1 overflow-auto h-full space-y-5 px-0.5 py-2 scrollbar-thin flex flex-col">
+                    <div class="flex-1 overflow-auto h-full flex flex-col p-0">
                       <For each={Object.entries(multiTableData())}>
                         {([name, rows]) => {
                           const tableCount = () => Object.keys(multiTableData()).length;
@@ -565,58 +622,59 @@ export const Queries = (props: QueriesProps) => {
                 </Show>
 
                 <Show when={!rawResult() && !error() && !props.isExecuting && !isRunning()}>
-                  <EmptyState icon={MessageSquareCode} title="Ready to query" description={hasParams() ? "Click the green + button above to add parameters" : "Click run to execute this query"} />
+                  <EmptyState icon={Ghost} title="Ready to query" description={hasParams() ? "Click the green + button above to add parameters" : "Click run to execute this query"} />
                 </Show>
               </div>
 
               <Show when={showParamsSidebar()}>
-                <div class="w-px h-full flex-none relative group z-50 bg-[var(--border-subtle)]">
+                <div class="w-px h-full flex-none relative group z-50 bg-native">
                   <div
-                    class="absolute inset-y-0 w-[3px] -left-[1px] cursor-col-resize hover:bg-[#007AFF]/10 dark:hover:bg-[#0A84FF]/10 transition-colors"
-                    classList={{ "bg-[#007AFF]/20 dark:bg-[#0A84FF]/20": isResizingRight() }}
+                    class="absolute inset-y-0 w-[3px] -left-[1px] cursor-col-resize hover:bg-[#007AFF]/15 dark:hover:bg-[#0A84FF]/15 transition-colors"
+                    classList={{ "bg-[#007AFF]/25 dark:bg-[#0A84FF]/25": isResizingRight() }}
                     onMouseDown={startResizingRight}
                   />
                 </div>
 
-                <div class="w-[260px] flex-none flex flex-col border-l border-native macos-vibrant-sidebar overflow-hidden" style={{ width: `${rightSidebarWidth()}px` }}>
-                  <div class="h-[44px] px-4 border-b border-native flex items-center justify-between macos-vibrant-sidebar">
-                    <h3 class="text-[12px] font-semibold text-native-primary">Parameters</h3>
-                    <div class="flex items-center gap-1">
-                      <button
-                        onClick={handleReset}
-                        class="p-1.5 hover:bg-native-content rounded-md text-native-tertiary hover:text-native-primary transition-all active:scale-95 group/reset"
-                        title="Reset to defaults"
-                      >
-                        <RotateCcw size={14} class="group-active/reset:rotate-[-180deg] transition-transform duration-500" />
-                      </button>
-                      <button
-                        onClick={() => setShowParamsSidebar(false)}
-                        class="p-1.5 hover:bg-native-content rounded-md text-native-tertiary hover:text-native-primary transition-all active:scale-95"
-                        title="Close (Esc)"
-                      >
-                        <X size={14} stroke-width={2} />
-                      </button>
+                <div class="w-[260px] flex-none flex flex-col macos-vibrant-sidebar overflow-hidden" style={{ width: `${rightSidebarWidth()}px` }}>
+                  <div class="px-3.5 py-3 flex-none flex flex-col gap-2">
+                    <div class="flex items-center justify-between px-0.5">
+                      <h2 class="text-[11px] font-bold text-native-tertiary uppercase tracking-wider">Parameters</h2>
+                      <div class="flex items-center gap-1">
+                        <button
+                          onClick={handleReset}
+                          class="p-1.5 hover:bg-native-hover rounded-md text-native-tertiary hover:text-native-primary transition-all active:scale-95 group/reset"
+                          title="Reset to defaults"
+                        >
+                          <RotateCcw size={14} class="group-active/reset:rotate-[-180deg] transition-transform duration-500" />
+                        </button>
+                        <button
+                          onClick={() => setShowParamsSidebar(false)}
+                          class="p-1.5 hover:bg-native-hover rounded-md text-native-tertiary hover:text-native-primary transition-all active:scale-95"
+                          title="Close (Esc)"
+                        >
+                          <X size={14} stroke-width={2} />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+                  <div class="flex-1 overflow-y-auto px-4 py-2 space-y-5">
                     <For each={selectedEndpoint()?.params}>
                       {(param) => (
-                        <div class="space-y-2">
-                          <label class="flex items-center gap-2 text-[11px] font-medium text-native-secondary">
-                            <span>{param.name}</span>
-
-                            <span class="text-[9px] font-semibold text-native-tertiary bg-native-content/40 px-1.5 py-0.5 rounded tracking-wide capitalize">{param.param_type}</span>
-
+                        <div class="space-y-1.5">
+                          <div class="flex items-center justify-between gap-2 overflow-hidden px-0.5">
+                            <span class="text-[11px] font-bold text-native-tertiary uppercase tracking-tight truncate flex-1 min-w-0" title={param.name}>
+                              {param.name}
+                            </span>
                             <Show when={!params()[param.name] && params()[param.name] !== false}>
-                              <span class="text-[#ff9500] text-[10px] font-bold">required</span>
+                              <span class="text-status-error text-[9px] font-black uppercase tracking-tighter shrink-0 drop-shadow-sm">Required</span>
                             </Show>
-                          </label>
+                          </div>
 
                           <Show
                             when={param.param_type.toLowerCase() !== "boolean" && param.param_type.toLowerCase() !== "bool"}
                             fallback={
-                              <label class="flex items-center gap-2.5 cursor-pointer group h-8 px-3 bg-native-content border border-native rounded-md hover:border-accent/50 transition-all">
+                              <label class="flex items-center gap-2.5 cursor-pointer group h-8.5 px-3 bg-native-sidebar/40 border border-native-subtle rounded-lg hover:border-accent/40 hover:bg-native-sidebar/60 transition-all">
                                 <div class="relative flex items-center justify-center w-3.5 h-3.5">
                                   <input
                                     type="checkbox"
@@ -627,7 +685,7 @@ export const Queries = (props: QueriesProps) => {
                                         [param.name]: e.currentTarget.checked,
                                       })
                                     }
-                                    class="peer absolute inset-0 w-full h-full appearance-none rounded border border-[var(--border-medium)] bg-[var(--bg-elevated)] checked:bg-accent checked:border-accent transition-all cursor-pointer"
+                                    class="peer absolute inset-0 w-full h-full appearance-none rounded border border-native-subtle bg-native-content checked:bg-accent checked:border-accent transition-all cursor-pointer"
                                   />
                                   <Check size={9} strokeWidth={3} class="z-10 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
                                 </div>
@@ -645,7 +703,7 @@ export const Queries = (props: QueriesProps) => {
                                   [param.name]: e.currentTarget.value,
                                 })
                               }
-                              class="w-full h-8 px-3 bg-native-content border border-native rounded-md text-[12px] text-native-primary placeholder:text-native-quaternary outline-none focus:outline-none focus:border-accent/50 transition-all"
+                              class="w-full h-8.5 px-3 bg-native-sidebar/40 border border-native-subtle rounded-lg text-[12px] text-native-primary placeholder:text-native-quaternary/60 outline-none focus:bg-native-elevated focus:border-accent/50 focus:shadow-[0_0_12px_rgba(0,122,255,0.05)] transition-all"
                             />
                           </Show>
                         </div>
@@ -654,17 +712,20 @@ export const Queries = (props: QueriesProps) => {
                   </div>
 
                   <div class="p-4 border-t border-native bg-native-sidebar/80 backdrop-blur-sm">
-                    <Button onClick={executeQuery} disabled={props.isExecuting || !canExecute()} variant="primary" class="w-full h-9 font-semibold shadow-sm">
+                    <Button onClick={executeQuery} disabled={props.isExecuting || !canExecute()} variant="primary" class="w-full h-9.5 font-bold shadow-lg shadow-accent/10">
                       <Show
                         when={!props.isExecuting}
                         fallback={
                           <div class="flex items-center gap-2">
-                            <div class="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            <span>Running...</span>
+                            <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <span class="tracking-tight">Executing...</span>
                           </div>
                         }
                       >
-                        Run Query
+                        <div class="flex items-center gap-2">
+                          <Play size={13} fill="currentColor" />
+                          <span>Run Query</span>
+                        </div>
                       </Show>
                     </Button>
                   </div>

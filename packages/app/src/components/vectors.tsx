@@ -3,8 +3,9 @@ import { HelixApi } from "../lib/api";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { RefreshCw, RotateCcw, ChevronRight, Sparkles, Maximize, Layers, Check, X, Crosshair } from "lucide-solid";
+import { RefreshCw, RotateCcw, ChevronRight, Sparkles, Maximize, Layers, Check, X, Crosshair, Radio } from "lucide-solid";
 import { ToolbarLayout } from "./ui/toolbar-layout";
+import { EmptyState } from "./ui/empty-state";
 
 interface VectorsProps {
   api: HelixApi;
@@ -569,7 +570,7 @@ export const Vectors = (props: VectorsProps) => {
     <div class="flex flex-col h-full w-full bg-graph text-native-primary overflow-hidden">
       <div class="flex-none bg-native-content/80 backdrop-blur-md border-b border-native">
         <ToolbarLayout class="justify-between">
-          <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2">
             {/* Search */}
             <div class="relative flex items-center">
               <Input
@@ -595,14 +596,14 @@ export const Vectors = (props: VectorsProps) => {
               </button>
             </div>
 
-            <div class="w-px h-5 bg-native-subtle" />
+            <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
             <Button variant="toolbar" active={showIndexPanel()} onClick={() => setShowIndexPanel(!showIndexPanel())} class="flex items-center gap-1.5 h-7">
               <Sparkles size={12} class={showIndexPanel() ? "text-accent" : "text-native-tertiary"} />
               <span class="text-[11px] font-medium">Indices</span>
             </Button>
 
-            <div class="w-px h-4 bg-native-subtle" />
+            <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
             <Button variant="toolbar" active={showLabels()} onClick={() => setShowLabels(!showLabels())} class="flex items-center gap-1.5 h-7">
               <Layers size={12} class={showLabels() ? "text-accent" : "text-native-tertiary"} />
@@ -611,132 +612,149 @@ export const Vectors = (props: VectorsProps) => {
           </div>
 
           <div class="flex items-center gap-2">
-            <Button variant="toolbar" onClick={refresh} disabled={isLoading()} class="flex items-center gap-1.5 h-7 group">
+            <Button variant="toolbar" onClick={refresh} disabled={isLoading()} class="flex items-center gap-1.5 h-7 transition-all group active:scale-95">
               <RefreshCw size={12} class={`${isLoading() ? "animate-spin" : "group-hover:rotate-180"} transition-transform text-accent`} />
               <span class="text-[11px] font-medium">Refresh</span>
             </Button>
 
-            <div class="w-px h-4 bg-native-subtle" />
+            <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
             <Button variant="toolbar" onClick={resetView} class="flex items-center gap-1.5 h-7">
               <RotateCcw size={12} class="text-native-tertiary" />
               <span class="text-[11px] font-medium">Reset</span>
             </Button>
 
-            <div class="w-px h-4 bg-native-subtle" />
+            <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
-            <button onClick={() => setShowDetailPanel(!showDetailPanel())} class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/8 transition-colors">
-              <ChevronRight size={14} class={`text-native-tertiary transition-transform duration-200 ${showDetailPanel() ? "rotate-0" : "rotate-180"}`} />
+            <button
+              onClick={() => setShowDetailPanel(!showDetailPanel())}
+              class="w-7 h-7 flex items-center justify-center rounded-md hover:bg-native-hover active:scale-95 transition-all outline-none group/detail"
+              title={showDetailPanel() ? "Hide Details" : "Show Details"}
+            >
+              <ChevronRight size={16} class={`text-native-tertiary group-hover/detail:text-native-primary transition-all duration-300 ${showDetailPanel() ? "rotate-0" : "rotate-180"}`} />
             </button>
           </div>
         </ToolbarLayout>
       </div>
 
       <div class="flex-1 flex overflow-hidden relative">
-        <div class="flex-1 relative overflow-hidden bg-[#09090b]">
-          <canvas
-            ref={canvasRef}
-            class="w-full h-full cursor-grab active:cursor-grabbing"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onWheel={handleWheel}
-          />
-
-          {/* Index Selection Panel - Legend style alignment with Graph.tsx */}
-          <Show when={showIndexPanel()}>
-            <div class="absolute top-4 left-4 z-40 w-56 bg-native-elevated/95 backdrop-blur-xl rounded-xl border border-native shadow-macos-lg flex flex-col max-h-[calc(100%-2rem)] overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-left-4">
-              <div class="flex-none p-3 border-b border-native flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <Sparkles size={14} class="text-accent" />
-                  <span class="text-[12px] font-bold text-native-primary">Indices</span>
-                </div>
-                <button onClick={() => setShowIndexPanel(false)} class="p-1 hover:bg-native-content/10 rounded-md transition-colors text-native-tertiary hover:text-native-primary">
-                  <X size={14} />
-                </button>
-              </div>
-
-              <div class="flex-1 overflow-y-auto p-2 space-y-0.5 scrollbar-thin">
-                <For each={availableIndices()}>
-                  {(index) => (
-                    <div
-                      class={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${selectedIndex() === index ? "bg-accent/10" : "hover:bg-native-content/5"}`}
-                      onClick={() => setSelectedIndex(index)}
-                    >
-                      <div class="flex items-center gap-2.5 min-w-0">
-                        <div class={`w-3 h-3 rounded-full flex-none shadow-sm ${selectedIndex() === index ? "bg-accent" : "bg-native-tertiary/20"}`} />
-                        <span
-                          class={`text-[11px] font-semibold truncate leading-tight ${selectedIndex() === index ? "text-native-primary" : "text-native-tertiary group-hover:text-native-secondary"}`}
-                        >
-                          {index}
-                        </span>
-                      </div>
-
-                      <div class={`w-4 h-4 rounded border transition-all flex items-center justify-center ${selectedIndex() === index ? "border-accent bg-accent" : "border-native bg-transparent"}`}>
-                        <Show when={selectedIndex() === index}>
-                          <Check size={11} class="text-white" />
-                        </Show>
-                      </div>
-                    </div>
-                  )}
-                </For>
-              </div>
-
-              <div class="flex-none p-2 border-t border-native bg-native-content/5">
-                <div class="text-[9px] text-center text-native-quaternary font-medium tracking-wider">Select a vector record to visualize</div>
-              </div>
+        <Show
+          when={props.isConnected}
+          fallback={
+            <div class="flex-1 flex items-center justify-center bg-native-content/50 z-10 backdrop-blur-sm">
+              <EmptyState icon={Radio} title="Vector Space" description="Visualize and search high-dimensional vector embeddings in 2D space. Start by connecting to an instance.">
+                <Button variant="primary" size="lg" onClick={props.onConnect}>
+                  Connect Now
+                </Button>
+              </EmptyState>
             </div>
-          </Show>
+          }
+        >
+          <div class="flex-1 relative overflow-hidden bg-[#09090b]">
+            <canvas
+              ref={canvasRef}
+              class="w-full h-full cursor-grab active:cursor-grabbing"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onWheel={handleWheel}
+            />
 
-          <Show when={isLoading()}>
-            <div class="absolute inset-0 flex items-center justify-center bg-[#09090b]/40 backdrop-blur-sm z-50 transition-all duration-300">
-              <div class="flex flex-col items-center gap-3 animate-in zoom-in-95 duration-300">
-                <div class="relative">
-                  <div class="w-10 h-10 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
-                  <Sparkles size={16} class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-accent" />
-                </div>
-                <span class="text-[10px] font-bold tracking-[0.2em] text-native-tertiary animate-pulse">Normalizing Space</span>
-              </div>
-            </div>
-          </Show>
-        </div>
-
-        <Show when={showDetailPanel()}>
-          <div class="w-72 flex-none bg-native-sidebar-vibrant backdrop-blur-xl border-l border-native animate-in slide-in-from-right duration-300 flex flex-col shadow-macos-lg">
-            <div class="flex-none p-3 border-b border-native flex items-center justify-between">
-              <span class="text-[11px] font-bold text-native-primary tracking-tight">Properties</span>
-            </div>
-
-            <Show
-              when={selectedNode()}
-              fallback={
-                <div class="flex-1 flex flex-col items-center justify-center p-8 text-center select-none">
-                  <div class="w-12 h-12 rounded-full bg-native-content/10 flex items-center justify-center mb-4 border border-native-subtle">
-                    <Maximize size={24} class="text-native-tertiary" />
+            {/* Index Selection Panel - Legend style alignment with Graph.tsx */}
+            <Show when={showIndexPanel()}>
+              <div class="absolute top-4 left-4 z-40 w-56 bg-native-elevated/95 backdrop-blur-xl rounded-xl border border-native shadow-macos-lg flex flex-col max-h-[calc(100%-2rem)] overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-left-4">
+                <div class="flex-none p-3 border-b border-native flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <Sparkles size={14} class="text-accent" />
+                    <span class="text-[12px] font-bold text-native-primary">Indices</span>
                   </div>
-                  <div class="space-y-1">
-                    <p class="text-[11px] text-native-primary font-bold tracking-tight">No Selection</p>
-                    <p class="text-[10px] text-native-tertiary font-medium max-w-[140px] mx-auto leading-relaxed">Select a vector node in the space to inspect its rich metadata.</p>
-                  </div>
+                  <button onClick={() => setShowIndexPanel(false)} class="p-1 hover:bg-native-content/10 rounded-md transition-colors text-native-tertiary hover:text-native-primary">
+                    <X size={14} />
+                  </button>
                 </div>
-              }
-            >
-              {(node) => (
-                <div class="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
-                  <For each={Object.entries(node()).filter(([key]) => !["x", "y", "embedding", "color", "vector", "data"].includes(key))}>
-                    {([key, value]) => (
-                      <div class="flex flex-col gap-1 border-b border-native-subtle/20 pb-2 last:border-0 border-transparent hover:border-native-subtle transition-colors group">
-                        <span class="text-[11px] font-bold text-native-tertiary tracking-wider group-hover:text-accent transition-colors">{key}</span>
-                        <div class="text-[10px] text-native-primary font-medium break-all leading-normal py-1">
-                          {typeof value === "object" && value !== null ? JSON.stringify(value) : String(value)}
+
+                <div class="flex-1 overflow-y-auto p-2 space-y-0.5">
+                  <For each={availableIndices()}>
+                    {(index) => (
+                      <div
+                        class={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${selectedIndex() === index ? "bg-accent/10" : "hover:bg-native-content/5"}`}
+                        onClick={() => setSelectedIndex(index)}
+                      >
+                        <div class="flex items-center gap-2.5 min-w-0">
+                          <div class={`w-3 h-3 rounded-full flex-none shadow-sm ${selectedIndex() === index ? "bg-accent" : "bg-native-tertiary/20"}`} />
+                          <span
+                            class={`text-[11px] font-semibold truncate leading-tight ${selectedIndex() === index ? "text-native-primary" : "text-native-tertiary group-hover:text-native-secondary"}`}
+                          >
+                            {index}
+                          </span>
+                        </div>
+
+                        <div class={`w-4 h-4 rounded border transition-all flex items-center justify-center ${selectedIndex() === index ? "border-accent bg-accent" : "border-native bg-transparent"}`}>
+                          <Show when={selectedIndex() === index}>
+                            <Check size={11} class="text-white" />
+                          </Show>
                         </div>
                       </div>
                     )}
                   </For>
                 </div>
-              )}
+
+                <div class="flex-none p-2 border-t border-native bg-native-content/5">
+                  <div class="text-[9px] text-center text-native-quaternary font-medium tracking-wider">Select a vector record to visualize</div>
+                </div>
+              </div>
+            </Show>
+
+            <Show when={isLoading()}>
+              <div class="absolute inset-0 flex items-center justify-center bg-[#09090b]/40 backdrop-blur-sm z-50 transition-all duration-300">
+                <div class="flex flex-col items-center gap-3 animate-in zoom-in-95 duration-300">
+                  <div class="relative">
+                    <div class="w-10 h-10 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
+                    <Sparkles size={16} class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-accent" />
+                  </div>
+                  <span class="text-[10px] font-bold tracking-[0.2em] text-native-tertiary animate-pulse">Normalizing Space</span>
+                </div>
+              </div>
             </Show>
           </div>
+
+          <Show when={showDetailPanel()}>
+            <div class="w-72 flex-none bg-native-sidebar-vibrant backdrop-blur-xl border-l border-native animate-in slide-in-from-right duration-300 flex flex-col shadow-macos-lg">
+              <div class="flex-none p-3 border-b border-native flex items-center justify-between">
+                <span class="text-[11px] font-bold text-native-primary tracking-tight">Properties</span>
+              </div>
+
+              <Show
+                when={selectedNode()}
+                fallback={
+                  <div class="flex-1 flex flex-col items-center justify-center p-8 text-center select-none">
+                    <div class="w-12 h-12 rounded-full bg-native-content/10 flex items-center justify-center mb-4 border border-native-subtle">
+                      <Maximize size={24} class="text-native-tertiary" />
+                    </div>
+                    <div class="space-y-1">
+                      <p class="text-[11px] text-native-primary font-bold tracking-tight">No Selection</p>
+                      <p class="text-[10px] text-native-tertiary font-medium max-w-[140px] mx-auto leading-relaxed">Select a vector node in the space to inspect its rich metadata.</p>
+                    </div>
+                  </div>
+                }
+              >
+                {(node) => (
+                  <div class="flex-1 overflow-y-auto p-4 space-y-3">
+                    <For each={Object.entries(node()).filter(([key]) => !["x", "y", "embedding", "color", "vector", "data"].includes(key))}>
+                      {([key, value]) => (
+                        <div class="flex flex-col gap-1 border-b border-native-subtle/20 pb-2 last:border-0 border-transparent hover:border-native-subtle transition-colors group">
+                          <span class="text-[11px] font-bold text-native-tertiary tracking-wider group-hover:text-accent transition-colors">{key}</span>
+                          <div class="text-[10px] text-native-primary font-medium break-all leading-normal py-1">
+                            {typeof value === "object" && value !== null ? JSON.stringify(value) : String(value)}
+                          </div>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                )}
+              </Show>
+            </div>
+          </Show>
         </Show>
       </div>
 
@@ -759,7 +777,7 @@ export const Vectors = (props: VectorsProps) => {
               <span class="text-[11px] font-semibold text-blue-500">{selectedNodeId()}</span>
             </div>
 
-            <div class="w-px h-5 bg-native-subtle" />
+            <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
             <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
               <Crosshair size={11} class="text-emerald-500" />

@@ -14,9 +14,8 @@ import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { Vectors } from "./components/vectors";
-import { EmptyState } from "./components/ui/empty-state";
 import { Button } from "./components/ui/button";
-import { CircleAlert, PanelTopDashed, Layers, MessageSquareCode, GitGraph, Terminal, Sparkles } from "lucide-solid";
+import { CircleAlert } from "lucide-solid";
 import { SchemaQuery } from "./lib/types";
 import { workbenchState, setWorkbenchState, queryStateCache } from "./stores/workbench";
 import { batch } from "solid-js";
@@ -221,53 +220,6 @@ function App() {
               </div>
             </Show>
           </div>
-
-          <Show when={!connection.isConnected() && ["dashboard", "schema", "queries", "graph", "hql", "vectors"].includes(currentView())}>
-            <div class="absolute inset-0 flex items-center justify-center bg-native-content z-[100]">
-              <Show when={currentView() === "dashboard"}>
-                <EmptyState icon={PanelTopDashed} title="Instance Dashboard" description="Connect to your HelixDB instance to view global statistics.">
-                  <Button variant="primary" size="lg" onClick={connection.openSettings}>
-                    Connect Now
-                  </Button>
-                </EmptyState>
-              </Show>
-              <Show when={currentView() === "schema"}>
-                <EmptyState icon={Layers} title="Database Schema" description="Connect to your HelixDB instance to explore schema structure.">
-                  <Button variant="primary" size="lg" onClick={connection.openSettings}>
-                    Connect Now
-                  </Button>
-                </EmptyState>
-              </Show>
-              <Show when={currentView() === "queries"}>
-                <EmptyState icon={MessageSquareCode} title="Queries Workbench" description="Connect to see and execute your specific database queries.">
-                  <Button variant="primary" size="lg" onClick={connection.openSettings}>
-                    Connect Now
-                  </Button>
-                </EmptyState>
-              </Show>
-              <Show when={currentView() === "graph"}>
-                <EmptyState icon={GitGraph} title="Graph Explorer" description="Visualize your database as an interactive network. Start by connecting to an instance.">
-                  <Button variant="primary" size="lg" onClick={connection.openSettings}>
-                    Connect Now
-                  </Button>
-                </EmptyState>
-              </Show>
-              <Show when={currentView() === "hql"}>
-                <EmptyState icon={Terminal} title="HQL Editor" description="Write and execute Helix Query Language statements against your database.">
-                  <Button variant="primary" size="lg" onClick={connection.openSettings}>
-                    Connect Now
-                  </Button>
-                </EmptyState>
-              </Show>
-              <Show when={currentView() === "vectors"}>
-                <EmptyState icon={Sparkles} title="Vector Space" description="Visualize and search high-dimensional vector embeddings in 2D space.">
-                  <Button variant="primary" size="lg" onClick={connection.openSettings}>
-                    Connect Now
-                  </Button>
-                </EmptyState>
-              </Show>
-            </div>
-          </Show>
         </main>
 
         <Connection

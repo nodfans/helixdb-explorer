@@ -3,7 +3,7 @@ import { NodeType, EdgeType, VectorType } from "../lib/types";
 import { Input } from "./ui/input";
 import { HelixApi } from "../lib/api";
 import { Button } from "./ui/button";
-import { CircleDot, Share2, Zap, ArrowRight, RefreshCw, ChevronsUpDown, ChevronsDownUp, ChevronDown, ChevronRight, Layers } from "lucide-solid";
+import { CircleDot, Share2, Zap, ArrowRight, RefreshCw, ChevronsUpDown, ChevronsDownUp, ChevronDown, ChevronRight, Ghost, Radio } from "lucide-solid";
 import { ToolbarLayout } from "./ui/toolbar-layout";
 import { EmptyState } from "./ui/empty-state";
 
@@ -13,7 +13,6 @@ interface PropertyListProps {
 
 const formatName = (name: string) => {
   if (!name) return "";
-  // If it's all uppercase, convert it to Capitalized
   if (name === name.toUpperCase()) {
     return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
   }
@@ -298,172 +297,193 @@ export const Schema = (props: SchemaProps) => {
   return (
     <div class="flex flex-col h-full overflow-hidden bg-native-content">
       <div class="flex-none">
-        {/* Top Row: Primary Toolbar */}
+        {/* Combined Toolbar */}
         <ToolbarLayout class="justify-between">
-          <div class="flex items-center gap-4">
-            <Input variant="search" placeholder={`Search ${activeTab()}...`} value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-48 h-7" />
+          <div class="flex items-center gap-2">
+            <Input variant="search" placeholder={`Search ${activeTab()}...`} value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-40 h-7" />
 
-            <div class="w-px h-5 bg-native-subtle" />
+            <div class="w-px h-3.5 bg-native-subtle mx-1" />
+
+            <div class="flex items-center p-0.5 rounded-lg bg-native-content/50 border border-native-subtle">
+              {[
+                { id: "nodes", label: "Nodes", icon: CircleDot, count: schema()?.nodes?.length || 0, color: "text-emerald-500" },
+                { id: "relationships", label: "Edges", icon: Share2, count: schema()?.edges?.length || 0, color: "text-blue-500" },
+                { id: "vectors", label: "Vectors", icon: Zap, count: schema()?.vectors?.length || 0, color: "text-amber-500" },
+              ].map((tab) => (
+                <button
+                  onClick={() => setActiveTab(tab.id as any)}
+                  class={`flex items-center gap-1.5 px-2.5 h-6.5 rounded-md text-[10px] font-bold transition-all ${
+                    activeTab() === tab.id ? "bg-native-elevated shadow-sm text-native-primary" : "text-native-tertiary hover:text-native-secondary"
+                  }`}
+                >
+                  <tab.icon size={11} strokeWidth={2.5} class={activeTab() === tab.id ? tab.color : "opacity-40 grayscale"} />
+                  {tab.label}
+                  <span class={`text-[9px] tabular-nums ${activeTab() === tab.id ? "text-native-secondary" : "text-native-quaternary/70"}`}>{tab.count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: Actions */}
+          <div class="flex items-center gap-2">
+            <Button variant="toolbar" onClick={() => (isAnyExpanded() ? collapseAll() : expandAll())} class="flex items-center gap-1.5 transition-all group active:scale-95">
+              <Show
+                when={isAnyExpanded()}
+                fallback={
+                  <>
+                    <ChevronsUpDown size={13} strokeWidth={2.5} class="text-accent group-hover:scale-110 transition-transform" />
+                    <span class="font-medium">Expand</span>
+                  </>
+                }
+              >
+                <ChevronsDownUp size={13} strokeWidth={2.5} class="text-accent group-hover:scale-110 transition-transform" />
+                <span class="font-medium">Collapse</span>
+              </Show>
+            </Button>
+
+            <div class="w-px h-3.5 bg-native-subtle mx-1" />
+
             <Button
               variant="toolbar"
               onClick={() => {
-                // Clear cache and refetch
                 if (persistentStore) persistentStore.data = null;
                 refetch();
               }}
               disabled={loading()}
-              class="flex items-center gap-1.5 transition-all"
+              class="flex items-center gap-1.5 transition-all group active:scale-95"
             >
-              <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : ""} text-accent`} />
-              <span>Refresh</span>
-            </Button>
-          </div>
-
-          {/* Right: Expand/Collapse Toggle */}
-          <div class="flex items-center gap-2">
-            <Button variant="toolbar" onClick={() => (isAnyExpanded() ? collapseAll() : expandAll())} class="transition-all duration-200">
-              <div class="grid place-items-center">
-                {/* 1. Ghost label (Invisible) - Forces the button to be wide enough for the longest text */}
-                <div class="invisible row-start-1 col-start-1 flex items-center gap-1.5 whitespace-nowrap">
-                  <ChevronsDownUp size={13} strokeWidth={2} class="text-accent" />
-                  Collapse All
-                </div>
-
-                {/* 2. Actual Label (Visible) - Centered in that same space */}
-                <div class="row-start-1 col-start-1 flex items-center gap-1.5 whitespace-nowrap">
-                  <Show
-                    when={isAnyExpanded()}
-                    fallback={
-                      <>
-                        <ChevronsUpDown size={13} strokeWidth={2} class="text-accent" />
-                        Expand All
-                      </>
-                    }
-                  >
-                    <ChevronsDownUp size={13} strokeWidth={2} class="text-accent" />
-                    Collapse All
-                  </Show>
-                </div>
-              </div>
+              <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : "group-hover:rotate-180"} transition-transform text-accent`} />
+              <span class="font-medium">Refresh</span>
             </Button>
           </div>
         </ToolbarLayout>
-
-        {/* Tab Row (Secondary Toolbar) */}
-        <div class="h-11 border-b border-native-subtle bg-native-sidebar-vibrant/50 flex items-center px-5">
-          <div class="inline-flex items-center p-0.5 rounded-lg bg-native-content/50 border border-native-subtle">
-            {[
-              {
-                id: "nodes",
-                label: "Nodes",
-                icon: CircleDot,
-                count: schema()?.nodes?.length || 0,
-                color: "text-emerald-500",
-              },
-              {
-                id: "relationships",
-                label: "Edges",
-                icon: Share2,
-                count: schema()?.edges?.length || 0,
-                color: "text-blue-500",
-              },
-              {
-                id: "vectors",
-                label: "Vectors",
-                icon: Zap,
-                count: schema()?.vectors?.length || 0,
-                color: "text-amber-500",
-              },
-            ].map((tab) => (
-              <button
-                onClick={() => setActiveTab(tab.id as any)}
-                class={`flex items-center gap-1.5 px-3 h-7 rounded-md text-[11px] font-medium transition-all ${
-                  activeTab() === tab.id ? "bg-native-elevated shadow-sm text-native-primary" : "text-native-tertiary hover:text-native-secondary"
-                }`}
-              >
-                <tab.icon size={12} strokeWidth={2.5} class={activeTab() === tab.id ? tab.color : "opacity-40 grayscale"} />
-                {tab.label}
-                <span class={`text-[10px] tabular-nums ${activeTab() === tab.id ? "text-native-secondary" : "text-native-quaternary/70"}`}>{tab.count}</span>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
-      <div ref={gridContainerRef} class="flex-1 overflow-y-auto px-5 py-5 scrollbar-thin">
-        <Show when={!loading() && error()}>
-          <div class="bg-status-error/10 border border-status-error/20 text-status-error px-4 py-3 rounded-lg flex items-center gap-3">
-            <div class="w-6 h-6 rounded-full bg-status-error/10 flex items-center justify-center text-[12px] font-bold">!</div>
-            <div class="text-[13px] font-medium">{error()}</div>
-          </div>
-        </Show>
-
+      <div ref={gridContainerRef} class="flex-1 overflow-hidden flex flex-col">
         <Show
-          when={!loading() && schema()}
+          when={props.isConnected}
           fallback={
-            <EmptyState
-              icon={Layers}
-              title={loading() ? "Analyzing Schema..." : "No Schema Data"}
-              description={loading() ? "Fetching your database structure. This might take a moment." : "Failed to load schema information."}
-            />
+            <div class="flex-1 flex items-center justify-center min-h-[400px]">
+              <EmptyState icon={Radio} title="Database Schema" description="Connect to your HelixDB instance to explore schema structure, nodes, and relationships.">
+                <Button variant="primary" size="lg" onClick={props.onConnect}>
+                  Connect Now
+                </Button>
+              </EmptyState>
+            </div>
           }
         >
-          <div>
-            <Show when={activeTab() === "nodes"}>
-              <div class="grid gap-3 items-start" style={{ "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))` }}>
-                <Show when={filteredNodes().length > 0}>
-                  <For each={distributeItems(filteredNodes())}>
-                    {(columnItems: NodeType[]) => (
-                      <div class="flex flex-col gap-3">
-                        <For each={columnItems}>
-                          {(node: NodeType) => {
-                            const cardKey = "node-" + node.name;
-                            return <NodeCard node={node} expanded={expandedCards()[cardKey] ?? false} onToggle={() => toggleCard(cardKey)} />;
-                          }}
-                        </For>
-                      </div>
-                    )}
-                  </For>
+          <Show
+            when={!loading() && !error() && schema()}
+            fallback={
+              <div class="flex flex-col gap-5 px-5 py-5 h-full">
+                <Show when={error()}>
+                  <div class="bg-status-error/10 border border-status-error/20 text-status-error px-4 py-3 rounded-lg flex items-center gap-3">
+                    <div class="w-6 h-6 rounded-full bg-status-error/10 flex items-center justify-center text-[12px] font-bold">!</div>
+                    <div class="text-[13px] font-medium">{error()}</div>
+                  </div>
                 </Show>
+                <div class="flex-1 flex items-center justify-center min-h-[400px]">
+                  <EmptyState
+                    icon={Ghost}
+                    title={loading() ? "Analyzing Schema..." : "No Schema Data"}
+                    description={loading() ? "Fetching your database structure. This might take a moment." : "Failed to load schema information."}
+                  />
+                </div>
               </div>
-            </Show>
-
-            <Show when={activeTab() === "relationships"}>
-              <div class="grid gap-3 items-start" style={{ "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))` }}>
-                <Show when={filteredEdges().length > 0}>
-                  <For each={distributeItems(filteredEdges())}>
-                    {(columnItems: EdgeType[]) => (
-                      <div class="flex flex-col gap-3">
-                        <For each={columnItems}>
-                          {(edge: EdgeType) => {
-                            const cardKey = `edge-${edge.name}-${edge.from_node}-${edge.to_node}`;
-                            return <EdgeCard edge={edge} expanded={expandedCards()[cardKey] ?? false} onToggle={() => toggleCard(cardKey)} />;
-                          }}
-                        </For>
-                      </div>
-                    )}
-                  </For>
-                </Show>
-              </div>
-            </Show>
-
-            <Show when={activeTab() === "vectors"}>
-              <div class="grid gap-3 items-start" style={{ "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))` }}>
-                <For each={distributeItems(filteredVectors())}>
-                  {(columnItems: VectorType[]) => (
-                    <div class="flex flex-col gap-3">
-                      <For each={columnItems}>
-                        {(vector: VectorType) => {
-                          const cardKey = "vector-" + vector.name;
-                          return <VectorCard vector={vector} expanded={expandedCards()[cardKey] ?? false} onToggle={() => toggleCard(cardKey)} />;
-                        }}
-                      </For>
+            }
+          >
+            <div class="flex-1 min-h-0 overflow-y-auto px-6 py-6" ref={gridContainerRef}>
+              <Show when={activeTab() === "nodes"}>
+                <Show
+                  when={filteredNodes().length > 0}
+                  fallback={
+                    <div class="flex-1 flex items-center justify-center min-h-[400px]">
+                      <EmptyState
+                        icon={Ghost}
+                        title={searchQuery() ? "No Nodes Found" : "No Nodes Defined"}
+                        description={searchQuery() ? `No nodes match "${searchQuery()}".` : "This database doesn't have any node labels yet."}
+                      />
                     </div>
-                  )}
-                </For>
-              </div>
-            </Show>
-          </div>
+                  }
+                >
+                  <div class="grid gap-3 items-start" style={{ "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))` }}>
+                    <For each={distributeItems(filteredNodes())}>
+                      {(columnItems: NodeType[]) => (
+                        <div class="flex flex-col gap-3">
+                          <For each={columnItems}>
+                            {(node: NodeType) => {
+                              const cardKey = "node-" + node.name;
+                              return <NodeCard node={node} expanded={expandedCards()[cardKey] ?? false} onToggle={() => toggleCard(cardKey)} />;
+                            }}
+                          </For>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </Show>
+
+              <Show when={activeTab() === "relationships"}>
+                <Show
+                  when={filteredEdges().length > 0}
+                  fallback={
+                    <div class="flex-1 flex items-center justify-center min-h-[400px]">
+                      <EmptyState
+                        icon={Ghost}
+                        title={searchQuery() ? "No Edges Found" : "No Edges Defined"}
+                        description={searchQuery() ? `No edges match "${searchQuery()}".` : "This database doesn't have relationship types yet."}
+                      />
+                    </div>
+                  }
+                >
+                  <div class="grid gap-3 items-start" style={{ "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))` }}>
+                    <For each={distributeItems(filteredEdges())}>
+                      {(columnItems: EdgeType[]) => (
+                        <div class="flex flex-col gap-3">
+                          <For each={columnItems}>
+                            {(edge: EdgeType) => {
+                              const cardKey = `edge-${edge.name}-${edge.from_node}-${edge.to_node}`;
+                              return <EdgeCard edge={edge} expanded={expandedCards()[cardKey] ?? false} onToggle={() => toggleCard(cardKey)} />;
+                            }}
+                          </For>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </Show>
+
+              <Show when={activeTab() === "vectors"}>
+                <Show
+                  when={filteredVectors().length > 0}
+                  fallback={
+                    <div class="flex-1 flex items-center justify-center min-h-[400px]">
+                      <EmptyState
+                        icon={Ghost}
+                        title={searchQuery() ? "No Vectors Found" : "No Vectors Defined"}
+                        description={searchQuery() ? `No vectors match "${searchQuery()}".` : "This database doesn't have any vector indexes yet."}
+                      />
+                    </div>
+                  }
+                >
+                  <div class="grid gap-3 items-start" style={{ "grid-template-columns": `repeat(${colCount()}, minmax(0, 1fr))` }}>
+                    <For each={distributeItems(filteredVectors())}>
+                      {(columnItems: VectorType[]) => (
+                        <div class="flex flex-col gap-3">
+                          <For each={columnItems}>
+                            {(vector: VectorType) => {
+                              const cardKey = "vector-" + vector.name;
+                              return <VectorCard vector={vector} expanded={expandedCards()[cardKey] ?? false} onToggle={() => toggleCard(cardKey)} />;
+                            }}
+                          </For>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </Show>
+            </div>
+          </Show>
         </Show>
       </div>
     </div>

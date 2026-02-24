@@ -1,9 +1,10 @@
 import { createSignal, createEffect, Show, For, createMemo, onCleanup } from "solid-js";
 import { HelixApi } from "../lib/api";
 import { Button } from "./ui/button";
-import { RefreshCw, ChevronDown, ChevronUp, Terminal, Clock, Globe, Database, HardDrive, Activity, Search, Sparkles } from "lucide-solid";
+import { RefreshCw, ChevronDown, ChevronUp, Terminal, Clock, Globe, Database, HardDrive, Activity, Search, Sparkles, Ghost, Radio } from "lucide-solid";
 import { SchemaQuery, LocalStorageStats } from "../lib/types";
 import { ToolbarLayout } from "./ui/toolbar-layout";
+import { EmptyState } from "./ui/empty-state";
 import * as echarts from "echarts";
 
 // ─── Color Palette ───
@@ -167,7 +168,7 @@ const DistCard = (p: {
       <Show when={isEmpty()}>
         <div class="flex flex-col items-center justify-center gap-2 py-10 text-center select-none">
           <div class="w-9 h-9 rounded-full bg-native/10 flex items-center justify-center">
-            <Database size={15} class="text-native-quaternary opacity-40" />
+            <Ghost size={15} class="text-native-quaternary opacity-40" />
           </div>
           <span class="text-[12px] text-native-tertiary opacity-50">{p.emptyTitle || "No data yet"}</span>
         </div>
@@ -190,7 +191,7 @@ const DistCard = (p: {
           </div>
 
           {/* Type list */}
-          <div class="flex flex-col gap-2.5 overflow-y-auto pr-1 scrollbar-thin max-h-[260px]">
+          <div class="flex-1 min-h-0 overflow-y-auto pr-1 max-h-[260px]">
             <Show
               when={!p.loading}
               fallback={
@@ -339,7 +340,7 @@ const StoragePanel = (p: { stats: LocalStorageStats; loading?: boolean }) => {
             <Database size={13} class="text-indigo-400" />
             <span class="text-[10px] font-bold tracking-tight">Core Subscriptions</span>
           </div>
-          <div class="flex flex-col gap-2 overflow-y-auto scrollbar-thin max-h-[140px] pr-1">
+          <div class="flex flex-col gap-2 overflow-y-auto max-h-[140px] pr-1">
             <For each={dbEntries()}>
               {([name, stat]) => (
                 <div class="flex justify-between items-center group">
@@ -472,7 +473,11 @@ export const Dashboard = (props: DashboardProps) => {
   let inFlightRequest: string | null = null;
 
   const loadStats = async () => {
-    if (!props.isConnected) return;
+    if (loading()) return;
+    if (!props.isConnected) {
+      props.onConnect();
+      return;
+    }
 
     const currentUrl = props.api.baseUrl;
     if (inFlightRequest === currentUrl) return;
@@ -561,13 +566,27 @@ export const Dashboard = (props: DashboardProps) => {
   const formatTime = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 
   return (
-    <div class="flex-1 flex flex-col overflow-y-scroll scrollbar-thin bg-native-content">
+    <div class="flex-1 flex flex-col overflow-y-scroll bg-native-content">
       {/* Toolbar */}
       <ToolbarLayout class="justify-between items-center">
         <div class="flex items-center gap-3">
-          <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-[8px] bg-accent/10 border border-accent/20">
-            <Globe size={10} class="text-accent" />
-            <span class="text-[10px] font-bold text-accent tracking-tighter">{props.api.baseUrl}</span>
+          <div
+            class="flex items-center gap-1.5 px-2 py-0.5 rounded-[8px] transition-colors"
+            classList={{
+              "bg-accent/10 border border-accent/20": props.isConnected,
+              "bg-native-content/50 border border-native-subtle": !props.isConnected,
+            }}
+          >
+            <Globe size={10} class={props.isConnected ? "text-accent" : "text-native-quaternary"} />
+            <span
+              class="text-[10px] font-bold tracking-tighter truncate max-w-[200px]"
+              classList={{
+                "text-accent": props.isConnected,
+                "text-native-quaternary": !props.isConnected,
+              }}
+            >
+              {props.isConnected ? props.api.baseUrl : "Disconnected"}
+            </span>
           </div>
           <Show when={lastUpdated()}>
             <div class="flex items-center gap-1.5 text-[11px] text-native-tertiary">
@@ -579,55 +598,68 @@ export const Dashboard = (props: DashboardProps) => {
             <span class="text-[11px] text-native-tertiary animate-pulse">Loading statistics…</span>
           </Show>
         </div>
-        <Button variant="toolbar" onClick={loadStats} disabled={loading() || !props.isConnected}>
-          <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : ""} text-accent`} />
-          <span>Refresh</span>
+        <Button variant="toolbar" onClick={loadStats} disabled={loading()} class="flex items-center gap-1.5 transition-all group active:scale-95">
+          <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : "group-hover:rotate-180"} transition-transform text-accent`} />
+          <span class="font-medium">Refresh</span>
         </Button>
       </ToolbarLayout>
 
       <div class="flex-1 flex flex-col px-5 py-5 gap-5 w-full">
-        {/* Error */}
-        <Show when={error()}>
-          <div class="bg-error/10 border border-error/20 text-error px-4 py-3 rounded-lg text-xs flex items-center gap-2.5">
-            <div class="w-6 h-6 rounded-full bg-error/10 flex items-center justify-center flex-shrink-0">
-              <span class="text-[11px] font-bold">!</span>
+        <Show
+          when={props.isConnected}
+          fallback={
+            <div class="flex-1 flex items-center justify-center min-h-[400px]">
+              <EmptyState icon={Radio} title="Welcome to Helix Explorer" description="Connect to your HelixDB instance to see system-wide statistics, storage health, and data distribution.">
+                <Button variant="primary" size="lg" onClick={props.onConnect}>
+                  Connect Now
+                </Button>
+              </EmptyState>
             </div>
-            <span class="font-medium">{error()}</span>
+          }
+        >
+          {/* Error */}
+          <Show when={error()}>
+            <div class="bg-error/10 border border-error/20 text-error px-4 py-3 rounded-lg text-xs flex items-center gap-2.5">
+              <div class="w-6 h-6 rounded-full bg-error/10 flex items-center justify-center flex-shrink-0">
+                <span class="text-[11px] font-bold">!</span>
+              </div>
+              <span class="font-medium">{error()}</span>
+            </div>
+          </Show>
+
+          {/* KPI Strip */}
+          <Stagger index={0}>
+            <KpiStrip nodes={totalNodes()} edges={totalEdges()} vectors={totalVectors()} queries={totalQueries()} loading={loading()} />
+          </Stagger>
+
+          {/* Storage Panel */}
+          <Show when={storageStats()}>
+            <Stagger index={1}>
+              <StoragePanel stats={storageStats()!} loading={loading()} />
+            </Stagger>
+          </Show>
+
+          {/* Distribution row */}
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+            <Stagger index={0} step={80}>
+              <DistCard title="Node Types" subtitle="Count by label" totalCount={totalNodes()} items={nodeTypes()} loading={loading()} onSelectQuery={props.onSelectQuery} />
+            </Stagger>
+            <Stagger index={1} step={80}>
+              <DistCard title="Edge Types" subtitle="Count by label" totalCount={totalEdges()} items={edgeTypes()} loading={loading()} onSelectQuery={props.onSelectQuery} />
+            </Stagger>
+            <Stagger index={2} step={80}>
+              <DistCard
+                title="Vector Types"
+                subtitle="Count by label"
+                totalCount={totalVectors()}
+                items={vectorTypes()}
+                loading={loading()}
+                onSelectQuery={props.onSelectQuery}
+                emptyTitle="Vector count PR is merging..."
+              />
+            </Stagger>
           </div>
         </Show>
-
-        {/* KPI Strip */}
-        <Stagger index={0}>
-          <KpiStrip nodes={totalNodes()} edges={totalEdges()} vectors={totalVectors()} queries={totalQueries()} loading={loading()} />
-        </Stagger>
-
-        {/* Storage Panel */}
-        <Show when={storageStats()}>
-          <Stagger index={1}>
-            <StoragePanel stats={storageStats()!} loading={loading()} />
-          </Stagger>
-        </Show>
-
-        {/* Distribution row */}
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-          <Stagger index={0} step={80}>
-            <DistCard title="Node Types" subtitle="Count by label" totalCount={totalNodes()} items={nodeTypes()} loading={loading()} onSelectQuery={props.onSelectQuery} />
-          </Stagger>
-          <Stagger index={1} step={80}>
-            <DistCard title="Edge Types" subtitle="Count by label" totalCount={totalEdges()} items={edgeTypes()} loading={loading()} onSelectQuery={props.onSelectQuery} />
-          </Stagger>
-          <Stagger index={2} step={80}>
-            <DistCard
-              title="Vector Types"
-              subtitle="Count by label"
-              totalCount={totalVectors()}
-              items={vectorTypes()}
-              loading={loading()}
-              onSelectQuery={props.onSelectQuery}
-              emptyTitle="Vector count PR is merging..."
-            />
-          </Stagger>
-        </div>
       </div>
     </div>
   );

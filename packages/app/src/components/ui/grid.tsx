@@ -340,7 +340,7 @@ export function Grid(props: GridProps) {
       tabIndex={0}
       onKeyDown={handleGridKeyDown}
     >
-      <div ref={containerRef} onScroll={handleScroll} class={`flex-1 min-h-0 scrollbar-thin overscroll-behavior-y-contain ${props.data.length === 0 ? "overflow-hidden" : "overflow-auto"}`}>
+      <div ref={containerRef} onScroll={handleScroll} class={`flex-1 min-h-0 overscroll-behavior-y-contain ${props.data.length === 0 ? "overflow-hidden" : "overflow-auto"}`}>
         <div class="inline-block min-w-full align-middle relative" style={{ height: `${virtualStore().totalHeight + 32}px` }}>
           {/* Header */}
           <div
@@ -495,7 +495,7 @@ export function Grid(props: GridProps) {
                               when={isEditing()}
                               fallback={
                                 <div
-                                  class="px-1.5 w-full whitespace-nowrap overflow-x-auto grid-cell-scrollbar"
+                                  class="px-1.5 w-full whitespace-nowrap overflow-x-auto"
                                   style={{
                                     color: "var(--grid-cell-text)",
                                     "font-size": "12px",
