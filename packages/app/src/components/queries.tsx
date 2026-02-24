@@ -259,12 +259,12 @@ export const Queries = (props: QueriesProps) => {
 
     const stopResizing = () => {
       setIsResizing(false);
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", stopResizing);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", stopResizing);
     };
 
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", stopResizing);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", stopResizing);
 
     onCleanup(stopResizing);
   };
@@ -284,12 +284,12 @@ export const Queries = (props: QueriesProps) => {
 
     const stopResizing = () => {
       setIsResizingRight(false);
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", stopResizing);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", stopResizing);
     };
 
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", stopResizing);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", stopResizing);
 
     onCleanup(stopResizing);
   };
@@ -481,7 +481,7 @@ export const Queries = (props: QueriesProps) => {
                     }}
                     title="Click to copy full API URL"
                   >
-                    <code class="text-[11px] text-native-tertiary font-mono truncate max-w-[240px] group-hover/path:text-native-secondary transition-colors">/{selectedEndpoint()?.name}</code>
+                    <code class="text-[11px] text-native-tertiary font-mono truncate max-w-[160px] group-hover/path:text-native-secondary transition-colors">/{selectedEndpoint()?.name}</code>
                     <Link size={10} class="text-native-quaternary opacity-0 group-hover/path:opacity-100 transition-opacity" />
                   </div>
                 </Show>

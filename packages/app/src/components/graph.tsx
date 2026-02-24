@@ -646,16 +646,20 @@ export const Graph = (props: GraphProps) => {
     // Save state to persistence before unmounting
     if (graphInstance) {
       // Data Sanitization: Discard D3-internal properties and recursive references
-      const sanitizeNodes = (nodes: GraphNode[]): GraphNode[] =>
+      // CRITICAL: We must pull nodes from graphInstance.graphData() to get LIVE positions,
+      // as the allNodes() signal is only updated on fetch and contains stale/initial values.
+      const liveData = graphInstance.graphData();
+
+      const sanitizeNodes = (nodes: any[]): GraphNode[] =>
         nodes.map(({ index, __indexColor, vx, vy, fx, fy, ...n }: any) => ({
           ...n,
           x: n.x,
           y: n.y,
-          fx: fx || n.x,
-          fy: fy || n.y, // Pin positions for stable resume
+          fx: fx, // Only preserve Pins if they were explicitly set (e.g. by dragging)
+          fy: fy,
         }));
 
-      const sanitizeEdges = (edges: GraphEdge[]): GraphEdge[] =>
+      const sanitizeEdges = (edges: any[]): GraphEdge[] =>
         edges.map((e: any) => ({
           ...e,
           source: typeof e.source === "object" ? e.source.id : e.source,
@@ -663,8 +667,8 @@ export const Graph = (props: GraphProps) => {
         }));
 
       persistentStore = {
-        nodes: sanitizeNodes(allNodes()),
-        edges: sanitizeEdges(allEdges()),
+        nodes: sanitizeNodes(liveData.nodes),
+        edges: sanitizeEdges(liveData.links),
         camera: {
           x: graphInstance.centerAt().x,
           y: graphInstance.centerAt().y,

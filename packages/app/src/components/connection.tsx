@@ -194,7 +194,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                         <button
                           onMouseDown={(e) => handleDelete(conn.id, e)}
                           title="Delete Connection"
-                          class="shrink-0 w-5 h-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 text-native-quaternary hover:text-red-500 hover:bg-red-500/10 transition-all duration-150"
+                          class="shrink-0 w-5 h-5 flex items-center justify-center rounded text-native-quaternary sm:opacity-40 group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all duration-150"
                         >
                           <Trash2 size={12} strokeWidth={2} />
                         </button>

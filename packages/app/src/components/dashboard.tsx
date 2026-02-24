@@ -75,6 +75,7 @@ const DonutChart = (p: { items: { type: string; count: number; queries: SchemaQu
     chart.setOption({
       tooltip: {
         trigger: "item",
+        confine: true,
         formatter:
           "<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;\"><b>{b}</b>: {c} <span style=\"opacity:0.6;font-size:11px;\">({d}%)</span></div>",
         backgroundColor: isDark ? "rgba(23,23,23,0.9)" : "rgba(255,255,255,0.95)",
@@ -166,7 +167,7 @@ const DistCard = (p: {
 
       {/* Empty state */}
       <Show when={isEmpty()}>
-        <div class="flex flex-col items-center justify-center gap-2 py-10 text-center select-none">
+        <div class="flex flex-col items-center justify-center gap-2 py-6 text-center select-none">
           <div class="w-9 h-9 rounded-full bg-native/10 flex items-center justify-center">
             <Ghost size={15} class="text-native-quaternary opacity-40" />
           </div>
@@ -191,7 +192,7 @@ const DistCard = (p: {
           </div>
 
           {/* Type list */}
-          <div class="flex-1 min-h-0 overflow-y-auto pr-1 max-h-[260px]">
+          <div class="max-h-[300px] overflow-y-auto pr-1">
             <Show
               when={!p.loading}
               fallback={
@@ -201,61 +202,63 @@ const DistCard = (p: {
                 </div>
               }
             >
-              <For each={processedItems()}>
-                {(item) => {
-                  const pct = Math.round((item.count / (p.totalCount || 1)) * 100);
-                  const isExpanded = () => expandedType() === item.type;
-                  const canExpand = item.queries.length > 0;
+              <div class="flex flex-col gap-3">
+                <For each={processedItems()}>
+                  {(item) => {
+                    const pct = Math.round((item.count / (p.totalCount || 1)) * 100);
+                    const isExpanded = () => expandedType() === item.type;
+                    const canExpand = item.queries.length > 0;
 
-                  return (
-                    <div class="flex flex-col gap-1.5 group">
-                      <div class={canExpand ? "cursor-pointer" : ""} onClick={() => canExpand && setExpandedType(isExpanded() ? null : item.type)}>
-                        <div class="flex justify-between items-center mb-1">
-                          <div class="flex items-center gap-2">
-                            <div class="w-1.5 h-3 rounded-full flex-shrink-0" style={{ "background-color": item.color }} />
-                            <span
-                              class={`text-[12px] font-medium transition-colors truncate max-w-[120px] ${isExpanded() ? "text-native-primary font-semibold" : "text-native-secondary group-hover:text-native-primary"}`}
-                            >
-                              {item.type}
-                            </span>
-                            <Show when={item.queries.length > 0}>
-                              <span class="text-[10px] text-native-quaternary opacity-40">{isExpanded() ? <ChevronUp size={10} /> : <ChevronDown size={10} />}</span>
-                            </Show>
-                          </div>
-                          <div class="flex items-center gap-2 flex-shrink-0">
-                            <span class="text-[10px] text-native-tertiary">{pct}%</span>
-                            <span class="text-[12px] font-bold text-native-primary tabular-nums">{item.count.toLocaleString()}</span>
-                          </div>
-                        </div>
-                        {/* Progress bar */}
-                        <div class="w-full h-[2px] bg-native/10 rounded-full overflow-hidden">
-                          <div class="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, "background-color": item.color }} />
-                        </div>
-                      </div>
-
-                      <Show when={isExpanded() && item.queries.length > 0}>
-                        <div class="flex flex-col gap-1.5 pl-3.5 border-l-2 border-native-subtle mt-1 mb-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
-                          <div class="text-[9px] font-bold text-native-tertiary tracking-tight mb-0.5">Associated Queries</div>
-                          <div class="flex flex-wrap gap-1.5">
-                            {item.queries.map((q) => (
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  p.onSelectQuery?.(q);
-                                }}
-                                class="flex items-center gap-1.5 px-2 py-0.5 rounded-[6px] bg-native-content border border-native-subtle hover:bg-hover hover:border-accent/40 active:scale-95 transition-all cursor-pointer group/q"
+                    return (
+                      <div class="flex flex-col gap-1.5 group">
+                        <div class={canExpand ? "cursor-pointer" : ""} onClick={() => canExpand && setExpandedType(isExpanded() ? null : item.type)}>
+                          <div class="flex justify-between items-center mb-1">
+                            <div class="flex items-center gap-2">
+                              <div class="w-1.5 h-3 rounded-full flex-shrink-0" style={{ "background-color": item.color }} />
+                              <span
+                                class={`text-[12px] font-medium transition-colors truncate max-w-[120px] ${isExpanded() ? "text-native-primary font-semibold" : "text-native-secondary group-hover:text-native-primary"}`}
                               >
-                                <Terminal size={10} class="text-native-tertiary group-hover/q:text-accent transition-colors" />
-                                <span class="text-[10px] font-mono text-native-secondary group-hover/q:text-native-primary transition-colors">{q.name}</span>
-                              </div>
-                            ))}
+                                {item.type}
+                              </span>
+                              <Show when={item.queries.length > 0}>
+                                <span class="text-[10px] text-native-quaternary opacity-40">{isExpanded() ? <ChevronUp size={10} /> : <ChevronDown size={10} />}</span>
+                              </Show>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                              <span class="text-[10px] text-native-tertiary">{pct}%</span>
+                              <span class="text-[12px] font-bold text-native-primary tabular-nums">{item.count.toLocaleString()}</span>
+                            </div>
+                          </div>
+                          {/* Progress bar */}
+                          <div class="w-full h-[2px] bg-native/10 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, "background-color": item.color }} />
                           </div>
                         </div>
-                      </Show>
-                    </div>
-                  );
-                }}
-              </For>
+
+                        <Show when={isExpanded() && item.queries.length > 0}>
+                          <div class="flex flex-col gap-1.5 pl-3.5 border-l-2 border-native-subtle mt-1 mb-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                            <div class="text-[9px] font-bold text-native-tertiary tracking-tight mb-0.5">Associated Queries</div>
+                            <div class="flex flex-wrap gap-1.5">
+                              {item.queries.map((q) => (
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    p.onSelectQuery?.(q);
+                                  }}
+                                  class="flex items-center gap-1.5 px-2 py-0.5 rounded-[6px] bg-native-content border border-native-subtle hover:bg-hover hover:border-accent/40 active:scale-95 transition-all cursor-pointer group/q"
+                                >
+                                  <Terminal size={10} class="text-native-tertiary group-hover/q:text-accent transition-colors" />
+                                  <span class="text-[10px] font-mono text-native-secondary group-hover/q:text-native-primary transition-colors">{q.name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </Show>
+                      </div>
+                    );
+                  }}
+                </For>
+              </div>
             </Show>
           </div>
         </div>

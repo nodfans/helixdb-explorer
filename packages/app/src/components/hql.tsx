@@ -78,8 +78,11 @@ export const HQL = (props: HQLProps) => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", stopResizing);
     };
-    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mousemove", handleMouseMove, { passive: false });
     window.addEventListener("mouseup", stopResizing);
+
+    // Single registration on mount is better, but since this is inside startResizing,
+    // we should at least ensure we don't leak if unmounted mid-resize.
     onCleanup(stopResizing);
   };
 

@@ -72,7 +72,7 @@ export const Modeler = (_props: ModelerProps) => {
 
   const addEntity = (kind: "Node" | "Edge" | "Vector") => {
     markDirty();
-    const id = Math.random().toString(36).substring(7);
+    const id = crypto.randomUUID();
     const newEntity: EntityDef = {
       id,
       name: `New${kind}`,
