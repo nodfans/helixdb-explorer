@@ -737,8 +737,6 @@ export const Graph = (props: GraphProps) => {
           <div class="flex items-center gap-4">
             <Input variant="search" placeholder="Search nodes..." value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-48 h-7 shrink-0" />
 
-            <div class="w-px h-1.5" />
-
             <div class="w-px h-5 bg-native-subtle" />
 
             {/* Top N & Limit Group */}

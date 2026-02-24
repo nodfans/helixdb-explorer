@@ -162,7 +162,6 @@ export const Modeler = (_props: ModelerProps) => {
             name: "UserBio",
             kind: "Vector",
             properties: [{ name: "profile_embedding", type: "F32", isArray: true }],
-            description: "Vector index for semantic user discovery",
           },
         ];
         break;
@@ -213,7 +212,6 @@ export const Modeler = (_props: ModelerProps) => {
             name: "ProductDesc",
             kind: "Vector",
             properties: [{ name: "embedding", type: "F32", isArray: true }],
-            description: "Semantic search for product recommendations",
           },
         ];
         break;
@@ -238,7 +236,6 @@ export const Modeler = (_props: ModelerProps) => {
             name: "ConceptVector",
             kind: "Vector",
             properties: [{ name: "vec", type: "F32", isArray: true }],
-            description: "Knowledge graph similarity index",
           },
         ];
         break;
