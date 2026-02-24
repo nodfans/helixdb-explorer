@@ -104,9 +104,9 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
 
   return (
     <Show when={props.isOpen}>
-      <div class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/25 backdrop-blur-[12px] p-4 animate-in fade-in duration-300 layout-no-select" onClick={props.onCancel}>
+      <div class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/25 backdrop-blur-[12px] p-4 animate-in fade-in duration-300 select-none" onClick={props.onCancel}>
         <div
-          class="w-[720px] h-[520px] flex overflow-hidden shadow-[0_25px_80px_rgba(0,0,0,0.35),0_10px_30px_rgba(0,0,0,0.2)] border border-[var(--border-subtle)] rounded-2xl bg-native-elevated animate-in zoom-in-95 duration-200 layout-no-select"
+          class="w-[720px] h-[520px] flex overflow-hidden shadow-[0_25px_80px_rgba(0,0,0,0.35),0_10px_30px_rgba(0,0,0,0.2)] border border-[var(--border-subtle)] rounded-2xl bg-native-elevated animate-in zoom-in-95 duration-200 select-none"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Sidebar */}
@@ -179,13 +179,13 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                       <Server size={14} strokeWidth={2} class={`shrink-0 transition-colors ${connectionStore.editingId === conn.id ? "text-[var(--accent)]" : "text-native-tertiary"}`} />
 
                       <div class="flex flex-col min-w-0 flex-1 leading-tight">
-                        <div class="flex items-center gap-1.5 min-w-0 select-text">
+                        <div class="flex items-center gap-1.5 min-w-0">
                           <span class={`text-[12px] font-semibold truncate ${connectionStore.editingId === conn.id ? "text-[var(--accent)]" : "text-native-primary"}`}>{conn.name || "Untitled"}</span>
                           <Show when={activeConnection().id === conn.id && props.isConnected}>
                             <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.3)] animate-pulse" />
                           </Show>
                         </div>
-                        <span class={`text-[10px] truncate font-medium select-text ${connectionStore.editingId === conn.id ? "text-[var(--accent)]/70" : "text-native-tertiary"}`}>
+                        <span class={`text-[10px] truncate font-medium ${connectionStore.editingId === conn.id ? "text-[var(--accent)]/70" : "text-native-tertiary"}`}>
                           {conn.type === "cloud" ? conn.cloudHost || "Helix Cloud" : `${conn.host || "127.0.0.1"}:${conn.port || "6969"}`}
                         </span>
                       </div>
@@ -218,20 +218,20 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
             <Show when={editingConn()}>
               <div class="flex-1 overflow-y-auto p-8">
                 <div class="mb-6">
-                  <h2 class="text-sm font-semibold text-native-primary tracking-tight select-text">Connection Settings</h2>
-                  <p class="text-[11px] text-native-tertiary mt-0.5 select-text">Configure individual instance parameters.</p>
+                  <h2 class="text-sm font-semibold text-native-primary tracking-tight">Connection Settings</h2>
+                  <p class="text-[11px] text-native-tertiary mt-0.5">Configure individual instance parameters.</p>
                 </div>
 
                 <div class="space-y-5">
                   <div class="space-y-2">
-                    <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2 select-text">
+                    <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
                       <Server size={12} class="text-accent opacity-80" /> Connection Name
                     </label>
                     <Input fullWidth value={editingConn()!.name} onInput={(e) => updateEditing({ name: e.currentTarget.value })} placeholder="Production DB" />
                   </div>
 
                   <div class="space-y-2">
-                    <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2 select-text">
+                    <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
                       <Activity size={12} class="text-accent opacity-80" /> Connection Type
                     </label>
                     <div class="grid grid-cols-2 gap-3">
@@ -302,7 +302,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                   <Show when={editingConn()?.type === "cloud"}>
                     <div class="space-y-5 animate-in fade-in slide-in-from-top-2 duration-300">
                       <div class="space-y-2">
-                        <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2 select-text">
+                        <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
                           <Globe size={12} class="text-accent opacity-80" /> Cloud URL
                         </label>
                         <div class="relative group/input">
@@ -317,7 +317,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                       </div>
 
                       <div class="space-y-2">
-                        <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2 select-text">
+                        <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
                           <ShieldCheck size={12} class="text-accent opacity-80" /> API Key
                         </label>
                         <div class="relative group/input">
@@ -338,13 +338,13 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                     <div class="space-y-5 animate-in fade-in slide-in-from-top-1 duration-200">
                       <div class="grid grid-cols-3 gap-3">
                         <div class="col-span-2 space-y-2">
-                          <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2 select-text">
+                          <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
                             <Globe size={12} class="text-accent opacity-80" /> Host
                           </label>
                           <Input fullWidth value={editingConn()?.host || ""} onInput={(e) => updateEditing({ host: e.currentTarget.value })} placeholder="127.0.0.1" />
                         </div>
                         <div class="space-y-2">
-                          <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2 select-text">
+                          <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
                             <Hash size={12} class="text-accent opacity-80" /> Port
                           </label>
                           <Input fullWidth value={editingConn()?.port || ""} onInput={(e) => updateEditing({ port: e.currentTarget.value })} placeholder="6969" />
@@ -352,17 +352,17 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                       </div>
 
                       <div class="space-y-2">
-                        <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2 select-text">
+                        <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
                           <Database size={12} class="text-accent opacity-80" /> Local Workspace Path
                         </label>
                         <div class="flex gap-2 w-full">
-                          <div class="flex-1 px-3 py-1.5 min-h-[30px] flex items-center bg-native-content/50 border border-native rounded-md text-[12px] text-native-secondary truncate select-text cursor-default">
+                          <div class="flex-1 px-3 py-1.5 min-h-[30px] flex items-center bg-native-content/50 border border-native rounded-md text-[12px] text-native-secondary truncate cursor-default">
                             <Show when={editingConn()!.localPath} fallback={<span class="text-native-quaternary">Not configured (Auto-detected on Connection)</span>}>
                               <span class="font-mono">{editingConn()!.localPath}</span>
                             </Show>
                           </div>
                         </div>
-                        <p class="text-[10px] text-native-quaternary leading-tight select-text">Root directory of your Helix project (containing helix.toml). Used for syncing HQL queries.</p>
+                        <p class="text-[10px] text-native-quaternary leading-tight">Root directory of your Helix project (containing helix.toml). Used for syncing HQL queries.</p>
                       </div>
                     </div>
                   </Show>
@@ -405,7 +405,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
 
                   <Show when={testResult() && !testResult()?.loading}>
                     <div
-                      class="flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full animate-in fade-in slide-in-from-left-2 duration-200 select-text"
+                      class="flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full animate-in fade-in slide-in-from-left-2 duration-200"
                       classList={{
                         "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400": testResult()?.success,
                         "bg-red-500/12 text-red-600 dark:text-red-400": !testResult()?.success,

@@ -1,4 +1,4 @@
-import { createSignal, createEffect, createMemo, onCleanup, onMount, Show, For } from "solid-js";
+import { createSignal, createEffect, createMemo, onCleanup, onMount, Show, For, on, untrack } from "solid-js";
 import { HelixApi } from "../lib/api";
 import ForceGraphFactory from "force-graph";
 import { GitGraph, RefreshCw, ChevronRight, X, Maximize, Layers, Check, TriangleAlert } from "lucide-solid";
@@ -107,6 +107,7 @@ const getRenderMode = (scale: number, _nodeCount: number): { mode: "simple" | "d
 export const Graph = (props: GraphProps) => {
   let containerRef: HTMLDivElement | undefined;
   let graphInstance: any = null;
+  let isInitializing = false;
 
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -467,11 +468,17 @@ export const Graph = (props: GraphProps) => {
 
   // Initialize 2D graph
   const initGraph = () => {
-    if (!containerRef) return;
+    if (!containerRef || isInitializing) return;
+    isInitializing = true;
 
     try {
+      if (graphInstance) {
+        graphInstance._stopAnimation?.();
+        graphInstance = null;
+      }
       const ForceGraph = ForceGraphFactory();
       graphInstance = ForceGraph(containerRef);
+      isInitializing = false;
 
       graphInstance.width(containerRef.clientWidth);
       graphInstance.height(containerRef.clientHeight);
@@ -561,7 +568,6 @@ export const Graph = (props: GraphProps) => {
         timers.push(zoomTimeout as any);
       }
     } catch (err) {
-      console.error("Failed to initialize graph:", err);
       setError("Failed to initialize visualization");
     }
   };
@@ -603,46 +609,61 @@ export const Graph = (props: GraphProps) => {
     window.addEventListener("resize", handleResize);
   });
 
-  // Load data when connected (reactive to connection state changes)
-  createEffect(() => {
-    if (props.isConnected) {
-      setLoading(true);
-      setShowPerformanceWarning(false);
-      loadData(false).then(() => {
-        initGraph();
-        handleResize();
-        // Always run a small warmup and delay to hide the initialization "pop"
-        // 200 ticks for new data, 50 ticks for cached data to ensure stability
-        const ticks = persistentStore ? 50 : 200;
+  createEffect(
+    on(
+      () => props.isConnected,
+      (isConnected) => {
+        if (isConnected) {
+          untrack(() => {
+            setLoading(true);
+            setShowPerformanceWarning(false);
+            loadData(false).then(() => {
+              if (!containerRef) {
+                setLoading(false);
+                return;
+              }
+              initGraph();
+              handleResize();
 
-        if (graphInstance) {
-          graphInstance.warmupTicks(ticks);
-          requestAnimationFrame(() => {
-            // Tiny delay to ensure the canvas has rendered at least one frame
-            setTimeout(() => setLoading(false), getLoadingDelay());
+              const ticks = persistentStore ? 50 : 200;
+              if (graphInstance) {
+                graphInstance.warmupTicks(ticks);
+                requestAnimationFrame(() => {
+                  setTimeout(() => setLoading(false), getLoadingDelay());
+                });
+              } else {
+                setLoading(false);
+              }
+            });
           });
-        } else {
-          setLoading(false);
         }
-      });
-    }
-  });
+      }
+    )
+  );
 
   onCleanup(() => {
     // Save state to persistence before unmounting
     if (graphInstance) {
-      persistentStore = {
-        nodes: allNodes().map((n) => ({
+      // Data Sanitization: Discard D3-internal properties and recursive references
+      const sanitizeNodes = (nodes: GraphNode[]): GraphNode[] =>
+        nodes.map(({ index, __indexColor, vx, vy, fx, fy, ...n }: any) => ({
           ...n,
-          // Capture current physics positions
-          x: (n as any).x,
-          y: (n as any).y,
-          vx: (n as any).vx,
-          vy: (n as any).vy,
-          fx: (n as any).fx,
-          fy: (n as any).fy,
-        })),
-        edges: allEdges(),
+          x: n.x,
+          y: n.y,
+          fx: fx || n.x,
+          fy: fy || n.y, // Pin positions for stable resume
+        }));
+
+      const sanitizeEdges = (edges: GraphEdge[]): GraphEdge[] =>
+        edges.map((e: any) => ({
+          ...e,
+          source: typeof e.source === "object" ? e.source.id : e.source,
+          target: typeof e.target === "object" ? e.target.id : e.target,
+        }));
+
+      persistentStore = {
+        nodes: sanitizeNodes(allNodes()),
+        edges: sanitizeEdges(allEdges()),
         camera: {
           x: graphInstance.centerAt().x,
           y: graphInstance.centerAt().y,
@@ -656,13 +677,19 @@ export const Graph = (props: GraphProps) => {
           showDetailPanel: showDetailPanel(),
         },
       };
+
+      // Stop animation loop and release handles
+      graphInstance._stopAnimation?.();
+      graphInstance.pauseAnimation?.();
     }
 
+    isInitializing = false;
     window.removeEventListener("resize", handleResize);
     clearTimers();
-    if (graphInstance && containerRef) {
+    if (containerRef) {
       containerRef.innerHTML = "";
     }
+    graphInstance = null;
   });
 
   // Effect: handle panel toggle - only resize when panel visibility actually changes

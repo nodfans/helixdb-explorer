@@ -8,7 +8,6 @@ const isTauri = () => typeof window !== "undefined" && (window as any).__TAURI_I
 const tauriFetch = async (url: string, method: string = "GET", headers: Record<string, string> = {}, body: any = null): Promise<any> => {
   if (isTauri()) {
     try {
-      console.log(`[tauriFetch] Requesting: ${method} ${url}`);
       const responseText = await invoke<string>("helix_request", {
         method,
         url,
@@ -21,7 +20,6 @@ const tauriFetch = async (url: string, method: string = "GET", headers: Record<s
       }
 
       const parsed = JSON.parse(responseText);
-      console.log(`[tauriFetch] Parsed response:`, parsed);
       return parsed;
     } catch (err: any) {
       throw new Error(String(err));
