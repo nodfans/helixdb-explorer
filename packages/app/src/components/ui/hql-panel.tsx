@@ -192,7 +192,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
                         </div>
                       </Match>
                       <Match when={props.multiTableData && Object.keys(props.multiTableData).length > 0}>
-                        <div class="flex-1 overflow-auto h-full space-y-5 px-0 pt-2 pb-0 scrollbar-thin flex flex-col">
+                        <div class="flex-1 overflow-auto h-full space-y-4 px-0 pt-4 pb-8 scrollbar-thin flex flex-col">
                           <For each={Object.entries(props.multiTableData || {})}>
                             {([name, rows]: [string, any[]]) => {
                               const tableCount = () => Object.keys(props.multiTableData || {}).length;
