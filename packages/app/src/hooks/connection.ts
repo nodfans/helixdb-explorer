@@ -1,4 +1,4 @@
-import { createSignal, createMemo } from "solid-js";
+import { createSignal, createMemo, batch } from "solid-js";
 import { HelixDB } from "helix-ts";
 import { HelixApi } from "../lib/api";
 import { invoke } from "@tauri-apps/api/core";
@@ -120,6 +120,10 @@ export function createConnection() {
   });
 
   const handleConnect = async (conn: ConnectionInfo) => {
+    if (isConnected()) {
+      console.log("[handleConnect] Existing connection detected, disconnecting first...");
+      handleDisconnect();
+    }
     resetWorkspaceState();
     setIsConnecting(true);
     setError(null);
@@ -131,9 +135,10 @@ export function createConnection() {
       const response = await tauriFetch(`${sanitizedUrl}/mcp/init`, {
         method: "POST",
         headers: {
-          ...(conn.apiKey ? { "x-api-key": conn.apiKey } : {}),
+          ...(conn.type === "cloud" && conn.apiKey ? { "x-api-key": conn.apiKey } : {}),
         },
         body: JSON.stringify({}),
+        timeout: (conn.type || "local") === "local" ? 3000 : 10000,
       });
 
       console.log(`[handleConnect] Connection response status: ${response.status}`);
@@ -155,13 +160,15 @@ export function createConnection() {
       });
       saveConnections();
 
-      setConnectionStore("activeConnectionId", conn.id);
-      setIsConnected(true);
+      batch(() => {
+        setConnectionStore("activeConnectionId", conn.id);
 
-      // Successfully connected: safe to update the client config and trigger background fetches
-      setConnectedConfig({
-        url: sanitizedUrl,
-        apiKey: conn.apiKey || null,
+        setConnectedConfig({
+          url: sanitizedUrl,
+          apiKey: conn.type === "cloud" ? conn.apiKey || null : null,
+        });
+
+        setIsConnected(true);
       });
 
       setShowSuccess(true);
@@ -181,11 +188,11 @@ export function createConnection() {
     validateConnection(conn);
     const sanitizedUrl = getConnectionUrl(conn);
     // Increased timeout for better reliability
-    const timeout = (conn.type || "local") === "local" ? 1000 : 5000;
+    const timeout = (conn.type || "local") === "local" ? 3000 : 10000;
     const response = await tauriFetch(`${sanitizedUrl}/mcp/init`, {
       method: "POST",
       headers: {
-        ...(conn.apiKey ? { "x-api-key": conn.apiKey } : {}),
+        ...(conn.type === "cloud" && conn.apiKey ? { "x-api-key": conn.apiKey } : {}),
       },
       body: JSON.stringify({}),
       timeout,
@@ -204,6 +211,12 @@ export function createConnection() {
 
     // Reset API config on disconnect
     setConnectedConfig({ url: "", apiKey: null });
+
+    // Clear graph and dashboard cache so next connection starts fresh
+    import("../components/graph").then(({ resetGraphCache }) => resetGraphCache());
+    import("../components/dashboard").then(({ resetDashboardCache }) => resetDashboardCache());
+    import("../components/schema").then(({ resetSchemaCache }) => resetSchemaCache());
+    import("../components/vectors").then(({ resetVectorsCache }) => resetVectorsCache());
 
     import("../stores/workbench").then(({ setWorkbenchState, queryStateCache }) => {
       setWorkbenchState({

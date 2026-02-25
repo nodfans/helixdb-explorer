@@ -40,6 +40,10 @@ interface PersistentState {
 }
 let persistentStore: PersistentState | null = null;
 
+export const resetVectorsCache = () => {
+  persistentStore = null;
+};
+
 function generateColors(count: number): string[] {
   return Array.from({ length: count }, (_, i) => {
     const hue = (i * 360) / count;

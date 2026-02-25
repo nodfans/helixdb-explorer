@@ -198,6 +198,7 @@ function App() {
               <Dashboard
                 api={connection.apiClient()}
                 isConnected={connection.isConnected()}
+                isActive={currentView() === "dashboard"}
                 dbPath={activeConnection().localPath}
                 onConnect={connection.openSettings}
                 onSelectQuery={handleSelectQuery}

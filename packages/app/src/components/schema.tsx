@@ -106,6 +106,10 @@ interface PersistentState {
 }
 let persistentStore: PersistentState | null = null;
 
+export const resetSchemaCache = () => {
+  persistentStore = null;
+};
+
 const NodeCard = (props: { node: NodeType; expanded: boolean; onToggle: () => void }) => {
   const hasProperties = () => Object.keys(props.node.properties || {}).length > 0;
 

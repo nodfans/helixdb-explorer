@@ -404,6 +404,31 @@ async fn clear_all_data(client: &Client, url: &str) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
+// ─── Phase 6: Orphan Nodes (for graph testing) ───────────────────────────────
+
+const ORPHAN_POSTS: [(&str, &str); 5] = [
+    ("Orphan: thoughts on distributed consensus", "A post intentionally created without any edges for graph layout testing."),
+    ("Orphan: notes on cache invalidation", "Another isolated node to verify graph zoom behavior with disconnected components."),
+    ("Orphan: weekend project ideas", "Deliberately unlinked post node for testing purposes."),
+    ("Orphan: debugging war stories", "This node has no connections to test how the graph handles outliers."),
+    ("Orphan: random musings on type theory", "Isolated node to stress-test zoomToFit and force simulation boundaries."),
+];
+
+async fn seed_orphan_nodes(client: &Client, url: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    println!(">>> [6/6] Seeding {} orphan nodes (no edges)...", ORPHAN_POSTS.len());
+
+    for (title, body) in ORPHAN_POSTS.iter() {
+        let resp = client.post(format!("{}/create_post", url))
+            .json(&json!({ "title": title, "body": body, "created_at": days_ago(30) }))
+            .send().await?;
+        let (status, text) = (resp.status(), resp.text().await?);
+        check_resp_text(status, &text, "create_orphan_post")?;
+    }
+
+    println!("  ✓ {} orphan nodes\n", ORPHAN_POSTS.len());
+    Ok(())
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 #[tokio::main]
@@ -443,7 +468,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         return Ok(());
     }
 
-    let concurrency = if TARGET == "CLOUD" { 5 } else { 15 };
+    let concurrency = if TARGET == "CLOUD" { 5 } else { 5 };
  
     println!("=== Helix Seed v6 (async) ===");
     println!("    Target:  {}", url);
@@ -456,6 +481,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     seed_follows(&client, &url, &users, concurrency).await?;
     seed_interactions(&client, &url, &users, &posts, concurrency).await?;
     seed_embeddings(&client, &url, &posts, concurrency).await?;
+    seed_orphan_nodes(&client, &url).await?;
  
     println!("=== Done in {:.2}s ===", start.elapsed().as_secs_f64());
     Ok(())

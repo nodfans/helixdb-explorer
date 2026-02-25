@@ -38,11 +38,11 @@ interface GraphEdge {
 
 // Color palette - Professional blue inspired by Navicat
 const TYPE_COLORS: Record<string, string> = {
-  User: "#10b981", // emerald
-  Post: "#3b82f6", // blue
-  Comment: "#818cf8", // indigo (lavender-blue)
-  Entity: "#10b981", // emerald
-  default: "#94a3b8", // gray
+  User: "#10b981",
+  Post: "#3b82f6",
+  Comment: "#818cf8",
+  Entity: "#10b981",
+  default: "#94a3b8",
 };
 
 // Performance Thresholds
@@ -60,9 +60,14 @@ interface PersistentState {
     hiddenTypes: Set<string>;
     selectedNode: GraphNode | null;
     showDetailPanel: boolean;
+    detailScrollTop: number;
   };
 }
 let persistentStore: PersistentState | null = null;
+
+export const resetGraphCache = () => {
+  persistentStore = null;
+};
 
 // Generate color from hash for unknown types - aurora palette
 const hashColor = (str: string): string => {
@@ -107,6 +112,7 @@ const getRenderMode = (scale: number, _nodeCount: number): { mode: "simple" | "d
 
 export const Graph = (props: GraphProps) => {
   let containerRef: HTMLDivElement | undefined;
+  let detailScrollRef: HTMLDivElement | undefined;
   let graphInstance: any = null;
   let isInitializing = false;
 
@@ -680,6 +686,7 @@ export const Graph = (props: GraphProps) => {
           hiddenTypes: hiddenTypes(),
           selectedNode: selectedNode(),
           showDetailPanel: showDetailPanel(),
+          detailScrollTop: detailScrollRef?.scrollTop ?? 0,
         },
       };
 
@@ -936,7 +943,18 @@ export const Graph = (props: GraphProps) => {
               }
             >
               {(node) => (
-                <div class="flex-1 overflow-y-auto p-4 space-y-3">
+                <div
+                  ref={(el) => {
+                    detailScrollRef = el;
+                    // Restore scroll position from cache after DOM renders
+                    if (persistentStore?.settings.detailScrollTop) {
+                      requestAnimationFrame(() => {
+                        el.scrollTop = persistentStore!.settings.detailScrollTop;
+                      });
+                    }
+                  }}
+                  class="flex-1 overflow-y-auto p-4 space-y-3"
+                >
                   <For each={Object.entries(node()).filter(([key]) => !["x", "y", "vx", "vy", "fx", "fy", "index", "__indexColor", "val"].includes(key))}>
                     {([key, value]) => (
                       <div class="flex flex-col gap-1 border-b border-native-subtle/20 pb-2 last:border-0">

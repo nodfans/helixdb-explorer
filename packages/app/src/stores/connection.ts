@@ -69,8 +69,11 @@ export const getConnectionUrl = (conn: ConnectionInfo) => {
     return CLOUD_URL;
   }
 
-  // Local mode: use user host/port or default
-  const host = conn.host?.trim() || "127.0.0.1";
+  // Local mode
+  let host = conn.host?.trim() || "127.0.0.1";
+  if (host.toLowerCase() === "localhost") {
+    host = "127.0.0.1";
+  }
   const port = conn.port?.trim() || "6969";
   return `http://${host}:${port}`;
 };

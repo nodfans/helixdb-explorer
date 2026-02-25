@@ -474,6 +474,25 @@ const fetchTypeCounts = async (
   }
 };
 
+// ─── Dashboard Cache ───
+interface DashboardCache {
+  totalNodes: number;
+  totalEdges: number;
+  totalVectors: number;
+  totalQueries: number;
+  nodeTypes: TypeDistItem[];
+  edgeTypes: TypeDistItem[];
+  vectorTypes: TypeDistItem[];
+  storageStats: LocalStorageStats | null;
+  lastUpdated: Date;
+}
+
+const dashboardCacheMap = new Map<string, DashboardCache>();
+
+export const resetDashboardCache = () => {
+  dashboardCacheMap.clear();
+};
+
 // ─── Dashboard ───
 interface DashboardProps {
   api: HelixApi;
@@ -481,6 +500,7 @@ interface DashboardProps {
   dbPath?: string;
   onConnect: () => void;
   onSelectQuery?: (q: SchemaQuery) => void;
+  isActive?: boolean;
 }
 
 export const Dashboard = (props: DashboardProps) => {
@@ -497,6 +517,38 @@ export const Dashboard = (props: DashboardProps) => {
   const [storageStats, setStorageStats] = createSignal<LocalStorageStats | null>(null);
 
   let inFlightRequest: string | null = null;
+
+  const restoreFromCache = (url: string): boolean => {
+    const cached = dashboardCacheMap.get(url);
+    if (!cached) return false;
+
+    batch(() => {
+      setTotalNodes(cached.totalNodes);
+      setTotalEdges(cached.totalEdges);
+      setTotalVectors(cached.totalVectors);
+      setTotalQueries(cached.totalQueries);
+      setNodeTypes(cached.nodeTypes);
+      setEdgeTypes(cached.edgeTypes);
+      setVectorTypes(cached.vectorTypes);
+      setStorageStats(cached.storageStats);
+      setLastUpdated(cached.lastUpdated);
+    });
+    return true;
+  };
+
+  const saveToCache = (url: string) => {
+    dashboardCacheMap.set(url, {
+      totalNodes: totalNodes(),
+      totalEdges: totalEdges(),
+      totalVectors: totalVectors(),
+      totalQueries: totalQueries(),
+      nodeTypes: nodeTypes(),
+      edgeTypes: edgeTypes(),
+      vectorTypes: vectorTypes(),
+      storageStats: storageStats(),
+      lastUpdated: lastUpdated()!,
+    });
+  };
 
   const loadStats = async (forceSchema: boolean | any = false) => {
     const shouldForce = typeof forceSchema === "boolean" ? forceSchema : false;
@@ -561,6 +613,7 @@ export const Dashboard = (props: DashboardProps) => {
       }
 
       setLastUpdated(new Date());
+      saveToCache(currentUrl);
     } catch (e: any) {
       console.error("[Dashboard] Failed to load statistics:", e);
       setError(e.toString());
@@ -575,9 +628,14 @@ export const Dashboard = (props: DashboardProps) => {
   createEffect(() => {
     const isConnected = props.isConnected;
     const url = props.api.baseUrl;
-    if (isConnected && url) {
-      // Must untrack the async call to avoid re-triggering when loading() or other signals change
-      untrack(() => loadStats());
+    const active = props.isActive !== false; // Default to true if not provided
+    if (isConnected && url && active) {
+      // Try to restore from cache first, only fetch if no cache
+      untrack(() => {
+        if (!restoreFromCache(url)) {
+          loadStats();
+        }
+      });
     }
   });
 

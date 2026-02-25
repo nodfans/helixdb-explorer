@@ -27,6 +27,12 @@ export interface ConnectionProps {
 
 export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel: () => void }) => {
   const [testResult, setTestResult] = createSignal<{ success: boolean; message: string; loading?: boolean } | null>(null);
+  const [newIds, setNewIds] = createSignal<Set<string>>(new Set());
+
+  const isModeLocked = (id: string | undefined) => {
+    if (!id) return false;
+    return !newIds().has(id);
+  };
 
   createEffect(() => {
     connectionStore.editingId;
@@ -53,6 +59,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
     };
     setConnectionStore("connections", (c) => [...c, newConn]);
     setConnectionStore("editingId", id);
+    setNewIds((s) => new Set(s).add(id));
     debouncedSave();
   };
 
@@ -237,7 +244,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                     <div class="grid grid-cols-2 gap-3">
                       {/* Local Card */}
                       <button
-                        onMouseDown={() => updateEditing({ type: "local" })}
+                        onMouseDown={() => !isModeLocked(editingConn()?.id) && updateEditing({ type: "local" })}
                         class={`
                           group relative flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left
                           transition-all duration-200 outline-none
@@ -246,7 +253,9 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                               ? "border-[var(--accent)]/50 bg-[var(--accent)]/8 shadow-[0_0_0_1px_var(--accent)]"
                               : "border-native bg-native-content/40 hover:border-native-secondary/40 hover:bg-native-content/70"
                           }
+                          ${isModeLocked(editingConn()?.id) ? "opacity-60 cursor-not-allowed" : ""}
                         `}
+                        title={isModeLocked(editingConn()?.id) ? "Mode cannot be changed for existing connections" : ""}
                       >
                         <div
                           class={`
@@ -256,7 +265,12 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                         >
                           <Server size={11} strokeWidth={2} class={(editingConn()?.type || "local") === "local" ? "text-white" : "text-native-tertiary"} />
                         </div>
-                        <span class={`text-[12px] font-semibold transition-colors ${(editingConn()?.type || "local") === "local" ? "text-[var(--accent)]" : "text-native-primary"}`}>Local</span>
+                        <div class="flex flex-col">
+                          <span class={`text-[12px] font-semibold transition-colors ${(editingConn()?.type || "local") === "local" ? "text-[var(--accent)]" : "text-native-primary"}`}>Local</span>
+                          <Show when={isModeLocked(editingConn()?.id) && (editingConn()?.type || "local") === "local"}>
+                            <span class="text-[9px] text-native-tertiary font-medium">Locked</span>
+                          </Show>
+                        </div>
                         <Show when={(editingConn()?.type || "local") === "local"}>
                           <div class="ml-auto shrink-0 w-3.5 h-3.5 rounded-full bg-[var(--accent)] flex items-center justify-center animate-in zoom-in-75 duration-150">
                             <svg width="7" height="7" viewBox="0 0 8 8" fill="none">
@@ -268,7 +282,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
 
                       {/* Cloud Card */}
                       <button
-                        onMouseDown={() => updateEditing({ type: "cloud" })}
+                        onMouseDown={() => !isModeLocked(editingConn()?.id) && updateEditing({ type: "cloud" })}
                         class={`
                           group relative flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left
                           transition-all duration-200 outline-none
@@ -277,7 +291,9 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                               ? "border-[var(--accent)]/50 bg-[var(--accent)]/8 shadow-[0_0_0_1px_var(--accent)]"
                               : "border-native bg-native-content/40 hover:border-native-secondary/40 hover:bg-native-content/70"
                           }
+                          ${isModeLocked(editingConn()?.id) ? "opacity-60 cursor-not-allowed" : ""}
                         `}
+                        title={isModeLocked(editingConn()?.id) ? "Mode cannot be changed for existing connections" : ""}
                       >
                         <div
                           class={`
@@ -287,7 +303,12 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                         >
                           <Globe size={11} strokeWidth={2} class={editingConn()?.type === "cloud" ? "text-white" : "text-native-tertiary"} />
                         </div>
-                        <span class={`text-[12px] font-semibold transition-colors ${editingConn()?.type === "cloud" ? "text-[var(--accent)]" : "text-native-primary"}`}>Helix Cloud</span>
+                        <div class="flex flex-col">
+                          <span class={`text-[12px] font-semibold transition-colors ${editingConn()?.type === "cloud" ? "text-[var(--accent)]" : "text-native-primary"}`}>Helix Cloud</span>
+                          <Show when={isModeLocked(editingConn()?.id) && editingConn()?.type === "cloud"}>
+                            <span class="text-[9px] text-native-tertiary font-medium">Locked</span>
+                          </Show>
+                        </div>
                         <Show when={editingConn()?.type === "cloud"}>
                           <div class="ml-auto shrink-0 w-3.5 h-3.5 rounded-full bg-[var(--accent)] flex items-center justify-center animate-in zoom-in-75 duration-150">
                             <svg width="7" height="7" viewBox="0 0 8 8" fill="none">
