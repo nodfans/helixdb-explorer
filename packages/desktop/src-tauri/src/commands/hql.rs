@@ -19,7 +19,14 @@ fn expression_to_json(expr: &Expression) -> Option<serde_json::Value> {
 }
 
 #[tauri::command]
-pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde_json::Value>, api_key: Option<String>) -> Result<serde_json::Value, String> {
+pub async fn execute_dynamic_hql(
+    state: tauri::State<'_, crate::NetworkState>,
+    url: String, 
+    code: String, 
+    params: Option<serde_json::Value>, 
+    api_key: Option<String>
+) -> Result<serde_json::Value, String> {
+    let client = &state.client;
     let code = processor::preprocess_hql(&code);
 
     fn try_parse(code: &str) -> Result<Source, String> {
@@ -114,16 +121,14 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
                     ExpressionType::BM25Search(bm25) => {
                         let tool = translator::map_bm25_to_tool(bm25).map_err(|e| e.to_string())?;
                         variable_search_tools.insert("_implicit_".to_string(), tool);
-                        return_vars.push("_implicit_".to_string());
                     },
                     ExpressionType::SearchVector(sv) => {
                         let tool = translator::map_search_vector_to_tool(sv, &params_val).map_err(|e| e.to_string())?;
                         variable_search_tools.insert("_implicit_".to_string(), tool);
-                        return_vars.push("_implicit_".to_string());
                     },
                     _ => {}
                 }
-            }
+            },
             StatementType::Drop(_) | StatementType::ForLoop(_) => {
                 return Err("Explorer Mode is Read-Only: The underlying MCP protocol does not support writing data or complex control flow. For more details, refer to https://docs.helix-db.com/guides/mcp-guide. To modify data (Add/Update/Delete), please use Migrations or the HTTP API.".to_string());
             }
@@ -134,9 +139,9 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
         for ret in &query.return_values {
             match ret {
                 ReturnType::Expression(expr) => {
-                     if let ExpressionType::Identifier(id) = &expr.expr {
-                         return_vars.push(id.clone());
-                     }
+                    if let ExpressionType::Identifier(id) = &expr.expr {
+                        return_vars.push(id.clone());
+                    }
                 },
                 ReturnType::Array(rets) => {
                     for r in rets {
@@ -147,6 +152,17 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
                         }
                     }
                 },
+                _ => {}
+            }
+        }
+    }
+
+    if return_vars.is_empty() {
+        if let Some(last_stmt) = query.statements.last() {
+            match &last_stmt.statement {
+                StatementType::Assignment(assign) => {
+                    return_vars.push(assign.variable.clone());
+                },
                 _ => {} 
             }
         }
@@ -154,23 +170,11 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
         return_vars.push("_implicit_".to_string());
     } else if variable_search_tools.contains_key("_implicit_") {
         return_vars.push("_implicit_".to_string());
-    } else if return_vars.is_empty() && (!variable_assignments.is_empty() || !variable_search_tools.is_empty()) {
-        if let Some(last_stmt) = query.statements.last() {
-             if let StatementType::Assignment(assign) = &last_stmt.statement {
-                 return_vars.push(assign.variable.clone());
-             }
-        }
     }
 
     if return_vars.is_empty() {
         return Err("No executable traversal or return statement found.".to_string());
     }
-
-    let client = reqwest::Client::builder()
-        .no_proxy()
-        .timeout(std::time::Duration::from_secs(60))
-        .build()
-        .map_err(|e| format!("Failed to build client: {}", e))?;
 
     let query_name = &query.name;
     if query_name != "ExplorerTmp" && !query.parameters.is_empty() {
@@ -196,7 +200,13 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
 
     let mut final_map = serde_json::Map::new();
 
-    let connection_id = {
+    // Try to get connection_id from cache first
+    let mut connection_id = {
+        let cache = state.mcp_connections.lock().unwrap();
+        cache.get(&url).cloned()
+    };
+
+    if connection_id.is_none() {
         let mut init_req = client.post(format!("{}/mcp/init", url));
         if let Some(key) = &api_key {
             init_req = init_req.header("x-api-key", key);
@@ -215,8 +225,14 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
         let init_body = init_resp.text().await.map_err(|e| format!("Failed to read init body: {}", e))?;
         let id: String = serde_json::from_str(&init_body)
             .map_err(|e| format!("Failed to parse connection_id from '{}': {}", init_body, e))?;
-        id
-    };
+        
+        // Update cache
+        let mut cache = state.mcp_connections.lock().unwrap();
+        cache.insert(url.clone(), id.clone());
+        connection_id = Some(id);
+    }
+
+    let conn_id = connection_id.unwrap();
 
     for var_name in return_vars {
         let search_tool = variable_search_tools.get(&var_name);
@@ -234,12 +250,24 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
             continue;
         }
 
-        let result = if let Some(tool) = search_tool {
-             executor::execute_search_tool(&client, &url, &connection_id, tool, api_key.clone()).await?
+        let result_res = if let Some(tool) = search_tool {
+             executor::execute_search_tool(&client, &url, &conn_id, tool, api_key.clone()).await
         } else if let Some(t) = traversal {
-             executor::execute_pipeline(&client, &url, &connection_id, &t, &params_val, api_key.clone()).await?
+             executor::execute_pipeline(&client, &url, &conn_id, &t, &params_val, api_key.clone()).await
         } else {
-             serde_json::Value::Null
+             Ok(serde_json::Value::Null)
+        };
+
+        let result = match result_res {
+            Ok(val) => val,
+            Err(e) => {
+                let err_msg = e.to_string();
+                if err_msg.contains("Connection not found") || err_msg.contains("expired") {
+                    let mut cache = state.mcp_connections.lock().unwrap();
+                    cache.remove(&url);
+                }
+                return Err(e);
+            }
         };
         
         if var_name == "_implicit_" && final_map.is_empty() {

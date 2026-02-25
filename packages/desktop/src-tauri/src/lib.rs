@@ -7,11 +7,13 @@ use tauri::menu::{Menu, MenuItem, Submenu, PredefinedMenuItem};
 use tauri::{Emitter, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use commands::*;
+use std::collections::HashMap;
 use std::sync::Mutex;
 use reqwest::Client;
 
 pub struct NetworkState {
     pub client: Client,
+    pub mcp_connections: Mutex<HashMap<String, String>>, // URL -> connection_id
 }
 
 pub struct PendingCopyData {
@@ -34,7 +36,10 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(AppState(Mutex::new(PendingCopyData { tsv: String::new(), json: String::new() })))
-        .manage(NetworkState { client })
+        .manage(NetworkState { 
+            client, 
+            mcp_connections: Mutex::new(HashMap::new()) 
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_http::init())
