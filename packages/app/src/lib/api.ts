@@ -54,6 +54,8 @@ export class HelixApi {
   public baseUrl: string;
   private apiKey: string | null;
   private static inflightRequests: Map<string, Promise<any>> = new Map();
+  private static schemaCache: Map<string, { data: SchemaInfo; timestamp: number }> = new Map();
+  private static CACHE_TTL = 30000; // 30 seconds cache for schema
 
   constructor(baseUrl: string, apiKey: string | null) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
@@ -95,7 +97,16 @@ export class HelixApi {
     await this.request("/mcp/init", "POST", {});
   }
 
-  async fetchSchema(): Promise<SchemaInfo> {
+  async fetchSchema(force = false): Promise<SchemaInfo> {
+    const cacheKey = this.baseUrl;
+    const cached = HelixApi.schemaCache.get(cacheKey);
+    const now = Date.now();
+
+    if (!force && cached && now - cached.timestamp < HelixApi.CACHE_TTL) {
+      console.log(`[HelixApi] Returning cached schema for: ${cacheKey}`);
+      return cached.data;
+    }
+
     const normalizeItems = (items: any, sharedProperties?: any) => {
       if (!items) return [];
 
@@ -206,7 +217,9 @@ export class HelixApi {
         if (data === "no schema") data = {};
       }
 
-      return processData(data);
+      const schema = processData(data);
+      HelixApi.schemaCache.set(cacheKey, { data: schema, timestamp: Date.now() });
+      return schema;
     } catch (introspectErr: any) {
       console.warn("HelixApi: Introspection failed, returning empty schema.", introspectErr);
       return {
@@ -395,17 +408,33 @@ export class HelixApi {
    * Executes dynamic HQL code via the Tauri backend.
    */
   async executeHQL(hql: string, params: Record<string, any> = {}): Promise<any> {
+    const requestKey = `hql:${this.baseUrl}:${hql}:${JSON.stringify(params)}`;
+    const existing = HelixApi.inflightRequests.get(requestKey);
+    if (existing) {
+      console.log(`[HelixApi] Deduplicating HQL request: ${hql.slice(0, 50)}...`);
+      return existing;
+    }
+
+    const requestPromise = (async () => {
+      try {
+        const res = await invoke<any>("execute_dynamic_hql", {
+          url: this.baseUrl,
+          code: hql,
+          params,
+          apiKey: this.apiKey,
+        });
+        return res;
+      } catch (e) {
+        console.error("HQL execution failed:", e);
+        throw e;
+      }
+    })();
+
+    HelixApi.inflightRequests.set(requestKey, requestPromise);
     try {
-      const res = await invoke<any>("execute_dynamic_hql", {
-        url: this.baseUrl,
-        code: hql,
-        params,
-        apiKey: this.apiKey,
-      });
-      return res;
-    } catch (e) {
-      console.error("HQL execution failed:", e);
-      throw e;
+      return await requestPromise;
+    } finally {
+      setTimeout(() => HelixApi.inflightRequests.delete(requestKey), 100);
     }
   }
 

@@ -1,4 +1,4 @@
-import { createSignal, createEffect, Show, For, createMemo, onCleanup } from "solid-js";
+import { createSignal, createEffect, Show, For, createMemo, onCleanup, untrack, batch } from "solid-js";
 import { HelixApi } from "../lib/api";
 import { Button } from "./ui/button";
 import { RefreshCw, ChevronDown, ChevronUp, Terminal, Clock, Globe, Database, HardDrive, Activity, Search, Sparkles, Ghost, Radio } from "lucide-solid";
@@ -428,27 +428,50 @@ const fetchTypeCounts = async (
   prefix: string,
   getAssociatedQueries: (typeName: string) => SchemaQuery[]
 ): Promise<{ total: number; dist: TypeDistItem[] }> => {
-  const results = await Promise.allSettled(
-    types
-      .filter((t) => t.name && t.name !== "Unknown")
-      .map(async (t) => {
+  const validTypes = types.filter((t) => t.name && t.name !== "Unknown");
+  if (validTypes.length === 0) return { total: 0, dist: [] };
+
+  // 1. Build a Batch Count HQL
+  // Example: QUERY BatchCountN() => c0 <- N<User>::COUNT, c1 <- N<Post>::COUNT RETURN c0, c1
+  const assignments = validTypes.map((t, i) => `c${i} <- ${prefix}<${t.name}>::COUNT`).join("\n  ");
+  const returns = validTypes.map((_, i) => `c${i}`).join(", ");
+  const batchHql = `QUERY BatchCount${prefix}() =>\n  ${assignments}\n  RETURN ${returns}`;
+
+  try {
+    const res = await api.executeHQL(batchHql);
+
+    let total = 0;
+    const dist: TypeDistItem[] = validTypes.map((t, i) => {
+      // HelixDB returns multiple variables as an object: { c0: count, c1: count, ... }
+      // Or if it's a single return, it might be just the value or { c0: value }
+      const rawValue = res && typeof res === "object" ? res[`c${i}`] : i === 0 ? res : 0;
+      const count = parseCountResult({ count: rawValue });
+      total += count;
+      return { type: t.name, count, queries: getAssociatedQueries(t.name) };
+    });
+
+    return { total, dist: dist.sort((a, b) => b.count - a.count) };
+  } catch (err) {
+    console.warn(`[Dashboard] Batch count failed for ${prefix}, falling back to sequential:`, err);
+    // Fallback to sequential if batch fails (e.g. one type is corrupted)
+    const results = await Promise.allSettled(
+      validTypes.map(async (t) => {
         const res = await api.executeHQL(buildCountHql(prefix, t.name));
         const count = parseCountResult(res);
         return { type: t.name, count, queries: getAssociatedQueries(t.name) };
       })
-  );
+    );
 
-  let total = 0;
-  const dist: TypeDistItem[] = [];
-  for (const r of results) {
-    if (r.status === "fulfilled") {
-      total += r.value.count;
-      dist.push(r.value);
-    } else {
-      console.warn(`[Dashboard] Failed to count ${prefix} type:`, r.reason);
+    let total = 0;
+    const dist: TypeDistItem[] = [];
+    for (const r of results) {
+      if (r.status === "fulfilled") {
+        total += r.value.count;
+        dist.push(r.value);
+      }
     }
+    return { total, dist: dist.sort((a, b) => b.count - a.count) };
   }
-  return { total, dist: dist.sort((a, b) => b.count - a.count) };
 };
 
 // ─── Dashboard ───
@@ -475,21 +498,27 @@ export const Dashboard = (props: DashboardProps) => {
 
   let inFlightRequest: string | null = null;
 
-  const loadStats = async () => {
-    if (loading()) return;
+  const loadStats = async (forceSchema: boolean | any = false) => {
+    const shouldForce = typeof forceSchema === "boolean" ? forceSchema : false;
+
+    // Use untrack to avoid dependency tracking if called inside an effect
+    if (untrack(() => loading())) return;
     if (!props.isConnected) {
       props.onConnect();
       return;
     }
 
     const currentUrl = props.api.baseUrl;
-    if (inFlightRequest === currentUrl) return;
+    if (inFlightRequest === currentUrl) {
+      console.log(`[Dashboard] Skipping loadStats, request already in flight for: ${currentUrl}`);
+      return;
+    }
     inFlightRequest = currentUrl;
 
     setLoading(true);
     setError(null);
     try {
-      const schema = await props.api.fetchSchema();
+      const schema = await props.api.fetchSchema(shouldForce);
       setTotalQueries(schema.queries?.length || 0);
 
       const getAssociatedQueries = (typeName: string): SchemaQuery[] => {
@@ -511,31 +540,13 @@ export const Dashboard = (props: DashboardProps) => {
       ]);
 
       if (nodeResult.status === "fulfilled") {
-        let { total, dist } = nodeResult.value;
-        if (total === 0) {
-          try {
-            const res = await props.api.executeHQL(`QUERY CountAllN() =>\n count <- N::COUNT\n RETURN count`);
-            total = parseCountResult(res);
-          } catch (e) {
-            console.warn("[Dashboard] Fallback N::COUNT failed:", e);
-          }
-        }
-        setTotalNodes(total);
-        setNodeTypes(dist);
+        setTotalNodes(nodeResult.value.total);
+        setNodeTypes(nodeResult.value.dist);
       }
 
       if (edgeResult.status === "fulfilled") {
-        let { total, dist } = edgeResult.value;
-        if (total === 0) {
-          try {
-            const res = await props.api.executeHQL(`QUERY CountAllE() =>\n count <- E::COUNT\n RETURN count`);
-            total = parseCountResult(res);
-          } catch (e) {
-            console.warn("[Dashboard] Fallback E::COUNT failed:", e);
-          }
-        }
-        setTotalEdges(total);
-        setEdgeTypes(dist);
+        setTotalEdges(edgeResult.value.total);
+        setEdgeTypes(edgeResult.value.dist);
       }
 
       if (vectorResult.status === "fulfilled") {
@@ -551,10 +562,13 @@ export const Dashboard = (props: DashboardProps) => {
 
       setLastUpdated(new Date());
     } catch (e: any) {
+      console.error("[Dashboard] Failed to load statistics:", e);
       setError(e.toString());
     } finally {
-      setLoading(false);
-      inFlightRequest = null;
+      batch(() => {
+        setLoading(false);
+        inFlightRequest = null;
+      });
     }
   };
 
@@ -562,7 +576,8 @@ export const Dashboard = (props: DashboardProps) => {
     const isConnected = props.isConnected;
     const url = props.api.baseUrl;
     if (isConnected && url) {
-      loadStats();
+      // Must untrack the async call to avoid re-triggering when loading() or other signals change
+      untrack(() => loadStats());
     }
   });
 

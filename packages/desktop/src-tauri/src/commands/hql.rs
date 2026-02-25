@@ -196,28 +196,7 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
 
     let mut final_map = serde_json::Map::new();
 
-    {
-        use rand::seq::SliceRandom;
-        let mut rng = rand::thread_rng();
-        return_vars.shuffle(&mut rng);
-    }
-
-    for var_name in return_vars {
-        let search_tool = variable_search_tools.get(&var_name);
-        
-        let traversal = if search_tool.is_none() {
-             match translator::resolve_traversal(&var_name, &variable_assignments)? {
-                Some(t) => Some(t),
-                None => None,
-             }
-        } else {
-             None
-        };
-
-        if search_tool.is_none() && traversal.is_none() {
-            continue;
-        }
-
+    let connection_id = {
         let mut init_req = client.post(format!("{}/mcp/init", url));
         if let Some(key) = &api_key {
             init_req = init_req.header("x-api-key", key);
@@ -234,8 +213,26 @@ pub async fn execute_dynamic_hql(url: String, code: String, params: Option<serde
         }
 
         let init_body = init_resp.text().await.map_err(|e| format!("Failed to read init body: {}", e))?;
-        let connection_id: String = serde_json::from_str(&init_body)
+        let id: String = serde_json::from_str(&init_body)
             .map_err(|e| format!("Failed to parse connection_id from '{}': {}", init_body, e))?;
+        id
+    };
+
+    for var_name in return_vars {
+        let search_tool = variable_search_tools.get(&var_name);
+        
+        let traversal = if search_tool.is_none() {
+             match translator::resolve_traversal(&var_name, &variable_assignments)? {
+                Some(t) => Some(t),
+                None => None,
+             }
+        } else {
+             None
+        };
+
+        if search_tool.is_none() && traversal.is_none() {
+            continue;
+        }
 
         let result = if let Some(tool) = search_tool {
              executor::execute_search_tool(&client, &url, &connection_id, tool, api_key.clone()).await?
