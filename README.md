@@ -2,8 +2,8 @@
   <img src="docs/assets/logo.png" width="120" height="120" alt="HelixDB Explorer Logo" />
   <h1>HelixDB Explorer</h1>
   <p>
-    The native GUI for <strong>HelixDB</strong>.<br/>
-    Intelligent HQL editor, graph visualization, and schema management for macOS.
+    A GUI Tool for <strong>HelixDB</strong>.<br/>
+    Intelligent HQL editor, graph visualization, and schema management for macOS, built with Tauri.
   </p>
 
   <p>
