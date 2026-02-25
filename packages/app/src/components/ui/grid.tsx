@@ -495,12 +495,14 @@ export function Grid(props: GridProps) {
                               when={isEditing()}
                               fallback={
                                 <div
-                                  class="px-1.5 w-full whitespace-nowrap overflow-x-auto"
+                                  class="px-1.5 w-full whitespace-nowrap overflow-x-auto scrollbar-hide"
                                   style={{
                                     color: "var(--grid-cell-text)",
                                     "font-size": "12px",
                                     "text-align": column.align || "left",
                                     "line-height": "1.2",
+                                    "mask-image": "linear-gradient(to right, black calc(100% - 15px), transparent 100%)",
+                                    "-webkit-mask-image": "linear-gradient(to right, black calc(100% - 15px), transparent 100%)",
                                   }}
                                 >
                                   {value() !== null && value() !== undefined ? String(value()) : ""}
