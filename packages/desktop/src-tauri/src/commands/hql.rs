@@ -234,47 +234,111 @@ pub async fn execute_dynamic_hql(
 
     let conn_id = connection_id.unwrap();
 
-    for var_name in return_vars {
-        let search_tool = variable_search_tools.get(&var_name);
-        
+    // 1. Resolve all traversals upfront (CPU-only, no async)
+    let mut resolved_vars: Vec<(String, Option<ToolArgs>, Option<helix_db::helixc::parser::types::Traversal>)> = Vec::new();
+    for var_name in &return_vars {
+        let search_tool = variable_search_tools.get(var_name).cloned();
         let traversal = if search_tool.is_none() {
-             match translator::resolve_traversal(&var_name, &variable_assignments)? {
-                Some(t) => Some(t),
-                None => None,
-             }
+            translator::resolve_traversal(var_name, &variable_assignments)?
         } else {
-             None
+            None
         };
-
-        if search_tool.is_none() && traversal.is_none() {
-            continue;
+        if search_tool.is_some() || traversal.is_some() {
+            resolved_vars.push((var_name.clone(), search_tool, traversal));
         }
+    }
 
-        let result_res = if let Some(tool) = search_tool {
-             executor::execute_search_tool(&client, &url, &conn_id, tool, api_key.clone()).await
-        } else if let Some(t) = traversal {
-             executor::execute_pipeline(&client, &url, &conn_id, &t, &params_val, api_key.clone()).await
-        } else {
-             Ok(serde_json::Value::Null)
-        };
+    // 2. Execute: parallel for multiple vars, serial for single
+    if resolved_vars.len() <= 1 {
+        // Single variable — use cached connection, no extra overhead
+        for (var_name, search_tool, traversal) in resolved_vars {
+            let result_res = if let Some(tool) = &search_tool {
+                executor::execute_search_tool(&client, &url, &conn_id, tool, api_key.clone()).await
+            } else if let Some(t) = &traversal {
+                executor::execute_pipeline(&client, &url, &conn_id, t, &params_val, api_key.clone()).await
+            } else {
+                Ok(serde_json::Value::Null)
+            };
 
-        let result = match result_res {
-            Ok(val) => val,
-            Err(e) => {
-                let err_msg = e.to_string();
-                if err_msg.contains("Connection not found") || err_msg.contains("expired") {
-                    let mut cache = state.mcp_connections.lock().unwrap();
-                    cache.remove(&url);
+            let result = match result_res {
+                Ok(val) => val,
+                Err(e) => {
+                    let err_msg = e.to_string();
+                    if err_msg.contains("Connection not found") || err_msg.contains("expired") {
+                        let mut cache = state.mcp_connections.lock().unwrap();
+                        cache.remove(&url);
+                    }
+                    return Err(e);
                 }
-                return Err(e);
+            };
+
+            if var_name == "_implicit_" && final_map.is_empty() {
+                return Ok(translator::normalize_value(result));
             }
-        };
-        
-        if var_name == "_implicit_" && final_map.is_empty() {
-             return Ok(translator::normalize_value(result));
+            final_map.insert(var_name, result);
         }
-        
-        final_map.insert(var_name, result);
+    } else {
+        // Multiple variables — execute in parallel, each with its own connection
+        let mut handles = Vec::new();
+
+        for (var_name, search_tool, traversal) in resolved_vars {
+            let client = client.clone();
+            let url = url.clone();
+            let api_key = api_key.clone();
+            let params_val = params_val.clone();
+
+            let handle = tokio::spawn(async move {
+                // Each parallel task inits its own MCP connection
+                let init_resp = client.post(format!("{}/mcp/init", url))
+                    .send().await
+                    .map_err(|e| format!("Parallel init failed: {}", e))?;
+
+                if !init_resp.status().is_success() {
+                    let status = init_resp.status();
+                    let err_text = init_resp.text().await.unwrap_or_default();
+                    return Err(format!("Parallel init failed ({}): {}", status, err_text));
+                }
+
+                let init_body = init_resp.text().await
+                    .map_err(|e| format!("Failed to read init body: {}", e))?;
+                let par_conn_id: String = serde_json::from_str(&init_body)
+                    .map_err(|e| format!("Failed to parse connection_id: {}", e))?;
+
+                let result = if let Some(tool) = &search_tool {
+                    executor::execute_search_tool(&client, &url, &par_conn_id, tool, api_key.clone()).await?
+                } else if let Some(t) = &traversal {
+                    executor::execute_pipeline(&client, &url, &par_conn_id, t, &params_val, api_key.clone()).await?
+                } else {
+                    serde_json::Value::Null
+                };
+
+                Ok::<(String, serde_json::Value), String>((var_name, result))
+            });
+
+            handles.push(handle);
+        }
+
+        // Await all parallel tasks
+        for handle in handles {
+            let task_result = handle.await
+                .map_err(|e| format!("Task join error: {}", e))?;
+
+            let (var_name, result) = match task_result {
+                Ok(v) => v,
+                Err(e) => {
+                    if e.contains("Connection not found") || e.contains("expired") {
+                        let mut cache = state.mcp_connections.lock().unwrap();
+                        cache.remove(&url);
+                    }
+                    return Err(e);
+                }
+            };
+
+            if var_name == "_implicit_" && final_map.is_empty() {
+                return Ok(translator::normalize_value(result));
+            }
+            final_map.insert(var_name, result);
+        }
     }
 
     if final_map.len() == 1 && final_map.contains_key("_implicit_") {
