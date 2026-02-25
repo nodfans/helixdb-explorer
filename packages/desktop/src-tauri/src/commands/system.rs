@@ -13,6 +13,6 @@ pub fn terminate_app() {
 }
 
 #[tauri::command]
-pub fn detect_workspace_path(port: Option<String>) -> Result<String, String> {
-    config::detect_workspace_path(port)
+pub fn detect_workspace_path(app: tauri::AppHandle, port: Option<String>) -> Result<String, String> {
+    config::detect_workspace_path(&app, port)
 }

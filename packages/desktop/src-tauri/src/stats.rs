@@ -48,16 +48,27 @@ pub struct LocalStorageStats {
     pub hnsw_stats: Option<HnswStat>,
 }
 
-pub fn get_local_db_stats(path: &str) -> Result<LocalStorageStats, String> {
+pub fn get_local_db_stats(path: &str, instance_name: Option<&str>) -> Result<LocalStorageStats, String> {
     let base_path = Path::new(path).to_path_buf();
+    let instance = instance_name.unwrap_or("dev");
     
-    // Support Docker mapped workspaces where the actual DB is inside .helix/.volumes/dev/user
-    let docker_volume_path = base_path.join(".helix").join(".volumes").join("dev").join("user");
+    // Support multiple possible locations for the actual DB:
+    // 1. Docker mapped workspaces: .helix/.volumes/[instance]/user
+    // 2. Native workspaces (newer): .helix/user
+    // 3. Native workspaces (older): .helix
+    // 4. Direct path
+    let docker_volume_path = base_path.join(".helix").join(".volumes").join(instance).join("user");
+    let native_user_path = base_path.join(".helix").join("user");
+    let native_base_path = base_path.join(".helix");
     
     let db_path = if docker_volume_path.join("data.mdb").exists() {
         docker_volume_path
+    } else if native_user_path.join("data.mdb").exists() {
+        native_user_path
+    } else if native_base_path.join("data.mdb").exists() {
+        native_base_path
     } else {
-        base_path
+        base_path.clone()
     };
 
     if !db_path.exists() {
@@ -103,51 +114,63 @@ pub fn get_local_db_stats(path: &str) -> Result<LocalStorageStats, String> {
     if let Ok(Some(main_db)) = env.open_database::<Bytes, Bytes>(&txn, None) {
         let main_db: Database<Bytes, Bytes> = main_db;
         
-        // This iterates through all keys in the main DB, which are the names of the sub-databases
         if let Ok(iter) = main_db.iter(&txn) {
             for result in iter {
-                if let Ok((key_bytes, _)) = result {
-                    if let Ok(raw_name) = std::str::from_utf8(key_bytes) {
-                        let db_name = raw_name.trim_matches('\0');
-                        if let Ok(Some(db)) = env.open_database::<Bytes, Bytes>(&txn, Some(db_name)) {
-                            let db: Database<Bytes, Bytes> = db;
-                            if let Ok(stat) = db.stat(&txn) {
-                                core_dbs.insert(db_name.to_string(), DBStat {
-                                    entries: stat.entries,
-                                    psize: stat.page_size,
-                                    depth: stat.depth,
-                                    branch_pages: stat.branch_pages,
-                                    leaf_pages: stat.leaf_pages,
-                                    overflow_pages: stat.overflow_pages,
-                                });
+                let (key_bytes, _) = match result {
+                    Ok(res) => res,
+                    Err(_) => continue,
+                };
+                
+                let raw_name = match std::str::from_utf8(key_bytes) {
+                    Ok(name) => name,
+                    Err(_) => continue,
+                };
+                
+                let db_name = raw_name.trim_matches('\0');
+                
+                let db: Database<Bytes, Bytes> = match env.open_database(&txn, Some(db_name)) {
+                    Ok(Some(db)) => db,
+                    _ => continue,
+                };
+                
+                let stat = match db.stat(&txn) {
+                    Ok(s) => s,
+                    Err(_) => continue,
+                };
 
-                                // Check if this is a BM25 metadata DB
-                                if db_name.starts_with("bm25_metadata") {
-                                    if let Ok(Some(metadata_bytes)) = db.get(&txn, b"metadata") {
-                                        if let Ok(metadata) = bincode::deserialize::<BM25Metadata>(metadata_bytes) {
-                                            bm25_stats.insert(db_name.to_string(), metadata);
-                                        }
-                                    }
-                                }
-                                
-                                // Collecting HNSW stats
-                                if db_name == "vectors" {
-                                    vector_count = stat.entries;
-                                    has_hnsw = true;
-                                } else if db_name == "vector_data" {
-                                    vector_data_count = stat.entries;
-                                    has_hnsw = true;
-                                } else if db_name == "hnsw_out_nodes" {
-                                    out_nodes_count = stat.entries;
-                                    has_hnsw = true;
-                                }
-                            }
+                core_dbs.insert(db_name.to_string(), DBStat {
+                    entries: stat.entries,
+                    psize: stat.page_size,
+                    depth: stat.depth,
+                    branch_pages: stat.branch_pages,
+                    leaf_pages: stat.leaf_pages,
+                    overflow_pages: stat.overflow_pages,
+                });
+
+                // Check if this is a BM25 metadata DB
+                if db_name.starts_with("bm25_metadata") {
+                    if let Ok(Some(metadata_bytes)) = db.get(&txn, b"metadata") {
+                        if let Ok(metadata) = bincode::deserialize::<BM25Metadata>(metadata_bytes) {
+                            bm25_stats.insert(db_name.to_string(), metadata);
                         }
                     }
+                }
+                
+                // Collecting HNSW stats
+                if db_name == "vectors" {
+                    vector_count = stat.entries;
+                    has_hnsw = true;
+                } else if db_name == "vector_data" {
+                    vector_data_count = stat.entries;
+                    has_hnsw = true;
+                } else if db_name == "hnsw_out_nodes" {
+                    out_nodes_count = stat.entries;
+                    has_hnsw = true;
                 }
             }
         }
     }
+
 
     Ok(LocalStorageStats {
         db_path: path.to_string(),
@@ -165,4 +188,17 @@ pub fn get_local_db_stats(path: &str) -> Result<LocalStorageStats, String> {
             None 
         }
     })
+}
+
+pub fn validate_helix_workspace(path: &str) -> Result<bool, String> {
+    let base_path = Path::new(path);
+    if !base_path.exists() {
+        return Err(format!("Path does not exist: {}", path));
+    }
+    
+    if base_path.join("helix.toml").exists() {
+        Ok(true)
+    } else {
+        Err("Not a valid Helix workspace: helix.toml not found.".to_string())
+    }
 }

@@ -686,9 +686,9 @@ export class HelixApi {
     return this.request(`/${queryName}`, "POST", params);
   }
 
-  async getLocalDbStats(path: string): Promise<LocalStorageStats> {
+  async getLocalDbStats(path: string, instanceName?: string): Promise<LocalStorageStats> {
     if (isTauri()) {
-      return await invoke<LocalStorageStats>("get_local_db_stats", { path });
+      return await invoke<LocalStorageStats>("get_local_db_stats", { path, instanceName });
     }
     throw new Error("Local DB stats are only available in the desktop application.");
   }

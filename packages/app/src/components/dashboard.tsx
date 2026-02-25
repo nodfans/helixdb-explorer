@@ -138,6 +138,9 @@ const DistCard = (p: {
   emptySubtitle?: string;
 }) => {
   const [expandedType, setExpandedType] = createSignal<string | null>(null);
+  const [isListExpanded, setIsListExpanded] = createSignal(false);
+
+  const LIMIT = 5;
 
   const processedItems = createMemo(() => {
     const sorted = [...p.items].filter((i) => i.count > 0).sort((a, b) => b.count - a.count);
@@ -156,6 +159,12 @@ const DistCard = (p: {
   });
 
   const isEmpty = () => !p.loading && p.items.every((i) => i.count === 0);
+
+  const visibleItems = createMemo(() => {
+    const all = processedItems();
+    if (isListExpanded() || all.length <= LIMIT) return all;
+    return all.slice(0, LIMIT);
+  });
 
   return (
     <div class="flex flex-col gap-4 p-5 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
@@ -203,7 +212,7 @@ const DistCard = (p: {
               }
             >
               <div class="flex flex-col gap-3">
-                <For each={processedItems()}>
+                <For each={visibleItems()}>
                   {(item) => {
                     const pct = Math.round((item.count / (p.totalCount || 1)) * 100);
                     const isExpanded = () => expandedType() === item.type;
@@ -258,6 +267,23 @@ const DistCard = (p: {
                     );
                   }}
                 </For>
+
+                <Show when={processedItems().length > LIMIT}>
+                  <button
+                    onClick={() => setIsListExpanded(!isListExpanded())}
+                    class="mt-1 w-full py-2 flex items-center justify-center gap-2 text-[11px] font-medium text-native-tertiary hover:text-native-primary hover:bg-native/5 rounded-md transition-colors"
+                  >
+                    {isListExpanded() ? (
+                      <>
+                        <ChevronUp size={12} /> Show Less
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown size={12} /> Show All {processedItems().length} Types
+                      </>
+                    )}
+                  </button>
+                </Show>
               </div>
             </Show>
           </div>
@@ -268,7 +294,7 @@ const DistCard = (p: {
 };
 
 // ─── Storage Panel ───
-const StoragePanel = (p: { stats: LocalStorageStats; loading?: boolean }) => {
+const StoragePanel = (p: { stats: LocalStorageStats | null; loading?: boolean; isCloud?: boolean; linkedPath?: string | null; onLink?: (mode: "link") => void }) => {
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return "0 B";
     const k = 1024;
@@ -277,13 +303,43 @@ const StoragePanel = (p: { stats: LocalStorageStats; loading?: boolean }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const usagePct = () => Math.min(100, (p.stats.disk_size_bytes / p.stats.env_info.map_size) * 100);
-  const dbEntries = () => Object.entries(p.stats.core_dbs).sort((a, b) => b[1].entries - a[1].entries);
+  const usagePct = () => (p.stats ? Math.min(100, (p.stats.disk_size_bytes / p.stats.env_info.map_size) * 100) : 0);
+  const dbEntries = () => (p.stats ? Object.entries(p.stats.core_dbs).sort((a, b) => b[1].entries - a[1].entries) : []);
 
   return (
-    <div class="rounded-xl bg-native-elevated border border-native-subtle shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div class="rounded-xl bg-native-elevated border border-native-subtle shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500 relative">
+      <Show when={!p.stats && !p.loading}>
+        <div class="absolute inset-0 z-10 bg-native-elevated/40 backdrop-blur-[2px] flex items-center justify-center p-6 text-center">
+          <div class="max-w-[400px] flex flex-col items-center gap-3 animate-in zoom-in-95 duration-300">
+            <div class="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent">
+              <Database size={18} />
+            </div>
+            <div class="space-y-1">
+              <h4 class="text-[13px] font-bold text-native-primary">Local Statistics Unavailable</h4>
+              <p class="text-[11px] text-native-tertiary leading-relaxed">
+                {p.isCloud && !p.linkedPath
+                  ? "Link a local workspace to see physical storage metrics and engine health for this cloud connection."
+                  : p.isCloud && p.linkedPath
+                    ? "Local workspace linked, but could not load metrics. Ensure HelixDB is running or the path is valid."
+                    : "Could not retrieve local database statistics. Please ensure the workspace path is valid."}
+              </p>
+            </div>
+            <Show when={p.isCloud && !p.linkedPath}>
+              <Button variant="ghost" size="sm" onClick={() => p.onLink?.("link")} class="h-8 px-4 rounded-full border border-accent/20 text-accent hover:bg-accent/5">
+                Link Local Workspace
+              </Button>
+            </Show>
+            <Show when={p.isCloud && p.linkedPath}>
+              <Button variant="ghost" size="sm" onClick={() => p.onLink?.("link")} class="h-8 px-4 rounded-full border border-accent/20 text-accent hover:bg-accent/5">
+                Update Workspace Path
+              </Button>
+            </Show>
+          </div>
+        </div>
+      </Show>
+
       {/* ── Top section: 3 metric columns ── */}
-      <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-native-subtle">
+      <div class={`grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-native-subtle ${!p.stats ? "opacity-20 grayscale" : ""}`}>
         {/* Physical Storage */}
         <div class="flex flex-col gap-3 p-5">
           <div class="flex items-center gap-2 text-native-tertiary">
@@ -291,13 +347,13 @@ const StoragePanel = (p: { stats: LocalStorageStats; loading?: boolean }) => {
             <span class="text-[10px] font-bold tracking-tight">Physical Storage</span>
           </div>
           <div class="flex flex-col gap-0.5">
-            <span class="text-[22px] font-bold text-native-primary tracking-tight leading-none">{formatBytes(p.stats.disk_size_bytes)}</span>
+            <span class="text-[22px] font-bold text-native-primary tracking-tight leading-none">{p.stats ? formatBytes(p.stats.disk_size_bytes) : "---"}</span>
             <span class="text-[10px] text-native-tertiary">data.mdb on disk</span>
           </div>
           <div class="flex flex-col gap-1.5 mt-1">
             <div class="flex justify-between text-[10px]">
               <span class="text-native-tertiary">Env max</span>
-              <span class="text-native-tertiary">{formatBytes(p.stats.env_info.map_size)}</span>
+              <span class="text-native-tertiary">{p.stats ? formatBytes(p.stats.env_info.map_size) : "---"}</span>
             </div>
             <div class="w-full bg-native/10 h-1 rounded-full overflow-hidden">
               <div class="bg-accent h-full transition-all duration-700" style={{ width: `${usagePct()}%` }} />
@@ -313,26 +369,28 @@ const StoragePanel = (p: { stats: LocalStorageStats; loading?: boolean }) => {
               <Activity size={13} class="text-emerald-500" />
               <span class="text-[10px] font-bold tracking-tight">Engine Health</span>
             </div>
-            <div class="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500">
-              <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Healthy
-            </div>
+            <Show when={p.stats}>
+              <div class="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500">
+                <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Healthy
+              </div>
+            </Show>
           </div>
           <div class="grid grid-cols-2 gap-x-4 gap-y-3 mt-1">
             <div>
               <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Last Txn ID</div>
-              <div class="text-[15px] font-bold text-native-primary">{p.stats.env_info.last_txnid.toLocaleString()}</div>
+              <div class="text-[15px] font-bold text-native-primary">{p.stats ? p.stats.env_info.last_txnid.toLocaleString() : "---"}</div>
             </div>
             <div>
               <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Active Readers</div>
               <div class="text-[15px] font-bold text-native-primary">
-                {p.stats.env_info.num_readers}
-                <span class="text-native-tertiary text-[11px] font-normal"> / {p.stats.env_info.max_readers}</span>
+                {p.stats ? p.stats.env_info.num_readers : "---"}
+                <span class="text-native-tertiary text-[11px] font-normal"> / {p.stats ? p.stats.env_info.max_readers : "---"}</span>
               </div>
             </div>
             <div>
               <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Last Page</div>
-              <div class="text-[15px] font-bold text-native-primary">{p.stats.env_info.last_pgno.toLocaleString()}</div>
+              <div class="text-[15px] font-bold text-native-primary">{p.stats ? p.stats.env_info.last_pgno.toLocaleString() : "---"}</div>
             </div>
           </div>
         </div>
@@ -352,15 +410,22 @@ const StoragePanel = (p: { stats: LocalStorageStats; loading?: boolean }) => {
                 </div>
               )}
             </For>
+            <Show when={!p.stats}>
+              <div class="flex flex-col gap-2 opacity-10">
+                <div class="h-3 w-full bg-native-primary rounded-full" />
+                <div class="h-3 w-4/5 bg-native-primary rounded-full" />
+                <div class="h-3 w-full bg-native-primary rounded-full" />
+              </div>
+            </Show>
           </div>
         </div>
       </div>
 
       {/* ── Bottom section: BM25 + HNSW (only if present) ── */}
-      <Show when={p.stats.bm25_stats || p.stats.hnsw_stats}>
-        <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-native-subtle border-t border-native-subtle">
+      <Show when={p.stats?.bm25_stats || p.stats?.hnsw_stats}>
+        <div class={`grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-native-subtle border-t border-native-subtle ${!p.stats ? "opacity-20 grayscale" : ""}`}>
           {/* BM25 */}
-          <Show when={p.stats.bm25_stats}>
+          <Show when={p.stats?.bm25_stats}>
             <div class="flex flex-col gap-3 p-5">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
@@ -370,7 +435,7 @@ const StoragePanel = (p: { stats: LocalStorageStats; loading?: boolean }) => {
                 <span class="text-[9px] text-native-tertiary tracking-tight">Full-Text</span>
               </div>
               <div class="flex flex-col gap-2">
-                <For each={Object.entries(p.stats.bm25_stats!)}>
+                <For each={Object.entries(p.stats!.bm25_stats!)}>
                   {([field, stat]) => (
                     <div class="flex flex-col gap-1 pb-2 border-b border-native-subtle last:border-0 last:pb-0">
                       <div class="flex justify-between items-center">
@@ -390,7 +455,7 @@ const StoragePanel = (p: { stats: LocalStorageStats; loading?: boolean }) => {
           </Show>
 
           {/* HNSW */}
-          <Show when={p.stats.hnsw_stats}>
+          <Show when={p.stats?.hnsw_stats}>
             <div class="flex flex-col gap-3 p-5">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
@@ -402,15 +467,15 @@ const StoragePanel = (p: { stats: LocalStorageStats; loading?: boolean }) => {
               <div class="grid grid-cols-3 gap-4 mt-1">
                 <div>
                   <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Vectors</div>
-                  <div class="text-[18px] font-bold text-native-primary">{p.stats.hnsw_stats!.vector_count.toLocaleString()}</div>
+                  <div class="text-[18px] font-bold text-native-primary">{p.stats!.hnsw_stats!.vector_count.toLocaleString()}</div>
                 </div>
                 <div>
                   <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Graph Nodes</div>
-                  <div class="text-[18px] font-bold text-native-primary">{p.stats.hnsw_stats!.vector_data_count.toLocaleString()}</div>
+                  <div class="text-[18px] font-bold text-native-primary">{p.stats!.hnsw_stats!.vector_data_count.toLocaleString()}</div>
                 </div>
                 <div>
                   <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Graph Edges</div>
-                  <div class="text-[18px] font-bold text-native-primary">{p.stats.hnsw_stats!.out_nodes_count.toLocaleString()}</div>
+                  <div class="text-[18px] font-bold text-native-primary">{p.stats!.hnsw_stats!.out_nodes_count.toLocaleString()}</div>
                 </div>
               </div>
             </div>
@@ -489,16 +554,29 @@ interface DashboardCache {
 
 const dashboardCacheMap = new Map<string, DashboardCache>();
 
+let forceReloadDashboard: (() => void) | null = null;
+
+export const reloadDashboard = () => {
+  if (forceReloadDashboard) {
+    forceReloadDashboard();
+  }
+};
+
 export const resetDashboardCache = () => {
   dashboardCacheMap.clear();
+};
+
+export const invalidateDashboardCache = (url: string) => {
+  dashboardCacheMap.delete(url);
 };
 
 // ─── Dashboard ───
 interface DashboardProps {
   api: HelixApi;
   isConnected: boolean;
+  isCloud?: boolean;
   dbPath?: string;
-  onConnect: () => void;
+  onConnect: (mode?: "standard" | "link") => void;
   onSelectQuery?: (q: SchemaQuery) => void;
   isActive?: boolean;
 }
@@ -550,6 +628,18 @@ export const Dashboard = (props: DashboardProps) => {
     });
   };
 
+  forceReloadDashboard = () => {
+    const url = props.api.baseUrl;
+    if (url) {
+      invalidateDashboardCache(url);
+      loadStats();
+    }
+  };
+
+  onCleanup(() => {
+    forceReloadDashboard = null;
+  });
+
   const loadStats = async (forceSchema: boolean | any = false) => {
     const shouldForce = typeof forceSchema === "boolean" ? forceSchema : false;
 
@@ -569,6 +659,18 @@ export const Dashboard = (props: DashboardProps) => {
 
     setLoading(true);
     setError(null);
+
+    // Clear previous stats if we are switching contexts or forcing a refresh
+    batch(() => {
+      setTotalNodes(0);
+      setTotalEdges(0);
+      setTotalVectors(0);
+      setNodeTypes([]);
+      setEdgeTypes([]);
+      setVectorTypes([]);
+      setStorageStats(null);
+    });
+
     try {
       const schema = await props.api.fetchSchema(shouldForce);
       setTotalQueries(schema.queries?.length || 0);
@@ -606,10 +708,11 @@ export const Dashboard = (props: DashboardProps) => {
         setVectorTypes(vectorResult.value.dist);
       }
 
-      if (storageResult.status === "fulfilled" && storageResult.value) {
-        setStorageStats(storageResult.value as LocalStorageStats);
-      } else if (storageResult.status === "rejected") {
-        console.warn("[Dashboard] Failed to fetch storage stats:", storageResult.reason);
+      if (storageResult.status === "fulfilled") {
+        setStorageStats(storageResult.value as LocalStorageStats | null);
+      } else {
+        console.warn("[Dashboard] Failed to fetch storage stats:", storageResult.status === "rejected" ? storageResult.reason : "Unknown error");
+        setStorageStats(null);
       }
 
       setLastUpdated(new Date());
@@ -628,9 +731,9 @@ export const Dashboard = (props: DashboardProps) => {
   createEffect(() => {
     const isConnected = props.isConnected;
     const url = props.api.baseUrl;
-    const active = props.isActive !== false; // Default to true if not provided
+    const active = props.isActive !== false;
+
     if (isConnected && url && active) {
-      // Try to restore from cache first, only fetch if no cache
       untrack(() => {
         if (!restoreFromCache(url)) {
           loadStats();
@@ -686,7 +789,7 @@ export const Dashboard = (props: DashboardProps) => {
           fallback={
             <div class="flex-1 flex items-center justify-center min-h-[400px]">
               <EmptyState icon={Radio} title="Welcome to Helix Explorer" description="Connect to your HelixDB instance to see system-wide statistics, storage health, and data distribution.">
-                <Button variant="primary" size="lg" onClick={props.onConnect}>
+                <Button variant="primary" size="lg" onClick={() => props.onConnect()}>
                   Connect Now
                 </Button>
               </EmptyState>
@@ -709,11 +812,9 @@ export const Dashboard = (props: DashboardProps) => {
           </Stagger>
 
           {/* Storage Panel */}
-          <Show when={storageStats()}>
-            <Stagger index={1}>
-              <StoragePanel stats={storageStats()!} loading={loading()} />
-            </Stagger>
-          </Show>
+          <Stagger index={1}>
+            <StoragePanel stats={storageStats()!} loading={loading()} isCloud={props.isCloud} linkedPath={props.dbPath} onLink={props.onConnect} />
+          </Stagger>
 
           {/* Distribution row */}
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">

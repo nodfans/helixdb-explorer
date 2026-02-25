@@ -20,9 +20,11 @@ export interface ConnectionProps {
   isConnecting: boolean;
   error: string | null;
   onConnect: (conn: ConnectionInfo) => void;
+  onUpdate: (conn: ConnectionInfo) => void;
   onDisconnect: () => void;
   onTest: (conn: ConnectionInfo) => Promise<void>;
   onEditingIdChange?: () => void;
+  mode: "standard" | "link";
 }
 
 export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel: () => void }) => {
@@ -88,6 +90,21 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
     debouncedSave();
   };
 
+  const triggerAutoDetect = (conn: ConnectionInfo, currentId: string) => {
+    if ((conn.type || "local") === "local" && !conn.localPath) {
+      invoke<string>("detect_workspace_path", { port: conn.port })
+        .then((path) => {
+          if (path) updateEditing({ localPath: path }, currentId);
+        })
+        .catch(() => {
+          setTestResult({
+            success: false,
+            message: "Connection successful, but workspace path could not be auto-detected.",
+          });
+        });
+    }
+  };
+
   const handleTest = async () => {
     setTestResult({ success: false, message: "Testing...", loading: true });
     try {
@@ -95,15 +112,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
       const currentId = conn.id;
       await props.onTest(conn);
       setTestResult({ success: true, message: "Connection successful!" });
-
-      if ((conn.type || "local") === "local" && !conn.localPath) {
-        // Run in background
-        invoke<string>("detect_workspace_path", { port: conn.port })
-          .then((path) => {
-            if (path) updateEditing({ localPath: path }, currentId);
-          })
-          .catch(() => {});
-      }
+      triggerAutoDetect(conn, currentId);
     } catch (err: any) {
       setTestResult({ success: false, message: err.message || "Connection failed" });
     }
@@ -223,7 +232,18 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
           {/* Right Content */}
           <div class="flex-1 flex flex-col bg-native-content/30 relative">
             <Show when={editingConn()}>
-              <div class="flex-1 overflow-y-auto p-8">
+              <div
+                class="flex-1 overflow-y-auto p-8"
+                ref={(el) => {
+                  createEffect(() => {
+                    if (testResult() !== null || props.error) {
+                      setTimeout(() => {
+                        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+                      }, 50);
+                    }
+                  });
+                }}
+              >
                 <div class="mb-6">
                   <h2 class="text-sm font-semibold text-native-primary tracking-tight">Connection Settings</h2>
                   <p class="text-[11px] text-native-tertiary mt-0.5">Configure individual instance parameters.</p>
@@ -328,7 +348,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                         </label>
                         <div class="relative group/input">
                           <Input
-                            placeholder="e.g. your-instance.helix-db.com"
+                            placeholder="e.g. your-instance.railway.app"
                             value={editingConn()?.cloudHost || ""}
                             onInput={(e) => updateEditing({ cloudHost: e.currentTarget.value })}
                             fullWidth
@@ -351,6 +371,33 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                             class="h-9 pr-9"
                           />
                         </div>
+                      </div>
+
+                      <div class="space-y-2 pt-2 border-t border-native">
+                        <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center justify-between">
+                          <span class="flex items-center gap-2">
+                            <Database size={12} class="text-accent opacity-80" /> Link Local Workspace (Optional)
+                          </span>
+                        </label>
+                        <div class="relative group/input">
+                          <Input
+                            placeholder="/path/to/your/helix-project"
+                            value={editingConn()?.localPath || ""}
+                            onInput={(e) => updateEditing({ localPath: e.currentTarget.value })}
+                            onBlur={async (e) => {
+                              const path = e.currentTarget.value.trim();
+                              if (!path) return;
+                              try {
+                                await invoke("validate_helix_workspace", { path });
+                              } catch (err: any) {
+                                setTestResult({ success: false, message: err });
+                              }
+                            }}
+                            fullWidth
+                            class="h-9 pr-9"
+                          />
+                        </div>
+                        <p class="text-[10px] text-native-quaternary leading-tight">Link a local replica to see statistics for this cloud connection.</p>
                       </div>
                     </div>
                   </Show>
@@ -459,17 +506,10 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                         disabled={props.isConnecting}
                         onMouseDown={async () => {
                           setTestResult(null);
-                          const conn = editingConn();
+                          const conn = editingConn()!;
                           const currentId = conn.id;
-                          if (!conn.localPath && conn.type === "local") {
-                            // Non-blocking detection
-                            invoke<string>("detect_workspace_path", { port: conn.port })
-                              .then((path) => {
-                                if (path) updateEditing({ localPath: path }, currentId);
-                              })
-                              .catch(() => {});
-                          }
-                          props.onConnect(conn!);
+                          triggerAutoDetect(conn, currentId);
+                          props.onConnect(conn);
                         }}
                         class="h-7 px-4 rounded-md text-[11px] font-semibold text-white bg-[var(--accent)] hover:bg-[#0066DD] dark:hover:bg-[#0077EE] active:bg-[#0055CC] dark:active:bg-[#0066DD] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 flex items-center gap-1.5"
                       >
@@ -478,12 +518,24 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                       </button>
                     }
                   >
-                    <button
-                      onMouseDown={props.onDisconnect}
-                      class="h-7 px-4 rounded-md text-[11px] font-semibold text-white bg-[#FF3B30] hover:bg-[#E6352B] active:bg-[#CC2F26] dark:bg-[#FF453A] dark:hover:bg-[#E63E34] dark:active:bg-[#CC372E] shadow-sm transition-all duration-150"
+                    <Show
+                      when={props.mode === "link"}
+                      fallback={
+                        <button
+                          onMouseDown={props.onDisconnect}
+                          class="h-7 px-4 rounded-md text-[11px] font-semibold text-white bg-[#FF3B30] hover:bg-[#E6352B] active:bg-[#CC2F26] dark:bg-[#FF453A] dark:hover:bg-[#E63E34] dark:active:bg-[#CC372E] shadow-sm transition-all duration-150"
+                        >
+                          Disconnect
+                        </button>
+                      }
                     >
-                      Disconnect
-                    </button>
+                      <button
+                        onMouseDown={() => props.onUpdate(editingConn()!)}
+                        class="h-7 px-4 rounded-md text-[11px] font-semibold text-white bg-[var(--accent)] hover:bg-[#0066DD] dark:hover:bg-[#0077EE] active:bg-[#0055CC] dark:active:bg-[#0066DD] shadow-sm transition-all duration-150"
+                      >
+                        Save
+                      </button>
+                    </Show>
                   </Show>
                 </div>
               </div>

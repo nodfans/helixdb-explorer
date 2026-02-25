@@ -23,7 +23,15 @@
 
 ## 📦 Installation
 
-### Download App
+### Option 1: One-liner Install (Recommended)
+
+The easiest way to install HelixDB Explorer and automatically bypass macOS Gatekeeper warnings is to use our terminal installer:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/nodfans/helixdb-explorer/main/scripts/install.sh)"
+```
+
+### Option 2: Manual Download
 
 [**📥 Download latest HelixDB Explorer for macOS**](https://github.com/nodfans/helixdb-explorer/releases/latest/download/HelixDB-Explorer-macOS.dmg)
 

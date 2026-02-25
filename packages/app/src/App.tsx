@@ -198,6 +198,7 @@ function App() {
               <Dashboard
                 api={connection.apiClient()}
                 isConnected={connection.isConnected()}
+                isCloud={activeConnection().type === "cloud"}
                 isActive={currentView() === "dashboard"}
                 dbPath={activeConnection().localPath}
                 onConnect={connection.openSettings}
@@ -229,8 +230,10 @@ function App() {
           isConnecting={connection.isConnecting()}
           error={connection.error()}
           onConnect={connection.handleConnect}
+          onUpdate={connection.handleUpdate}
           onDisconnect={connection.disconnect}
           onTest={connection.testConnection}
+          mode={connection.settingsMode()}
           onEditingIdChange={() => connection.setError(null)}
           onCancel={connection.closeSettings}
         />

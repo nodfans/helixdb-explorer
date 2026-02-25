@@ -138,7 +138,8 @@ pub fn run() {
             get_hql_completion,
             format_hql,
             get_vector_projections,
-            get_local_db_stats
+            get_local_db_stats,
+            validate_helix_workspace
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {

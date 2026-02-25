@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { setConnectionStore, activeConnection, getConnectionUrl, ConnectionInfo, saveConnections, validateConnection } from "../stores/connection";
 import { setWorkbenchState, queryStateCache } from "../stores/workbench";
 import { setHqlStore } from "../stores/hql";
+import { reloadDashboard } from "../components/dashboard";
 
 const isTauri = () => typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__;
 
@@ -42,6 +43,7 @@ export function createConnection() {
   const [isConnecting, setIsConnecting] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [showSuccess, setShowSuccess] = createSignal(false);
+  const [settingsMode, setSettingsMode] = createSignal<"standard" | "link">("standard");
 
   const [connectedConfig, setConnectedConfig] = createSignal<{ url: string; apiKey: string | null }>({
     url: getConnectionUrl(activeConnection()),
@@ -204,6 +206,22 @@ export function createConnection() {
     }
   };
 
+  const handleUpdate = async (conn: ConnectionInfo) => {
+    setConnectionStore("connections", (connections) => {
+      const index = connections.findIndex((c) => c.id === conn.id);
+      if (index !== -1) {
+        const newConnections = [...connections];
+        newConnections[index] = conn;
+        return newConnections;
+      }
+      return connections;
+    });
+    saveConnections();
+    setShowSettings(false);
+    // Force immediate dashboard refresh after saving connection changes
+    reloadDashboard();
+  };
+
   const handleDisconnect = () => {
     setConnectionStore("activeConnectionId", null);
     setIsConnected(false);
@@ -240,10 +258,15 @@ export function createConnection() {
     dbClient,
     apiClient,
     handleConnect,
+    handleUpdate,
     testConnection,
     setError,
+    settingsMode,
     disconnect: handleDisconnect,
-    openSettings: () => setShowSettings(true),
+    openSettings: (mode: "standard" | "link" = "standard") => {
+      setSettingsMode(mode);
+      setShowSettings(true);
+    },
     closeSettings: () => setShowSettings(false),
   };
 }
