@@ -16,13 +16,33 @@ const applyTheme = (theme: Theme) => {
   const root = document.documentElement;
 
   if (theme === "system") {
-    root.removeAttribute("data-theme");
+    const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if (isDark) {
+      root.setAttribute("data-theme", "dark");
+    } else {
+      root.removeAttribute("data-theme");
+    }
+  } else if (theme === "dark") {
+    root.setAttribute("data-theme", "dark");
   } else {
-    root.setAttribute("data-theme", theme);
+    root.removeAttribute("data-theme");
   }
 
   localStorage.setItem("theme", theme);
 };
+
+// Listen for system theme changes
+if (typeof window !== "undefined") {
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+    if (currentTheme() === "system") {
+      if (e.matches) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      } else {
+        document.documentElement.removeAttribute("data-theme");
+      }
+    }
+  });
+}
 
 // Export for use in other components
 export const useTheme = () => {

@@ -44,13 +44,13 @@ const KpiStrip = (p: { nodes: number; edges: number; vectors: number; queries: n
       <For each={items}>
         {(item, i) => (
           <Stagger index={i()}>
-            <div class="flex flex-col gap-2 px-6 py-5 bg-native-elevated group hover:bg-native-content transition-colors duration-150">
+            <div class="flex flex-col gap-2 px-6 py-4 bg-native-elevated group hover:bg-native-content transition-colors duration-150">
               <div class="flex items-center gap-2">
                 <div class="w-1.5 h-1.5 rounded-full" style={{ "background-color": item.color }} />
                 <span class="text-[10px] font-bold tracking-tight text-native-tertiary">{item.label}</span>
               </div>
               <Show when={!p.loading} fallback={<div class="animate-pulse h-8 w-20 rounded bg-native/10" />}>
-                <span class="text-[28px] font-semibold tracking-tight text-native-primary leading-none tabular-nums">
+                <span class="text-[28px] font-semibold tracking-tight text-[var(--text-highlight)] leading-none tabular-nums">
                   {item.value() > 9999 ? (item.value() / 1000).toFixed(1) + "k" : item.value().toLocaleString()}
                 </span>
               </Show>
@@ -92,7 +92,7 @@ const DonutChart = (p: { items: { type: string; count: number; queries: SchemaQu
           radius: ["78%", "94%"],
           center: ["50%", "50%"],
           avoidLabelOverlap: false,
-          itemStyle: { borderRadius: 2, borderWidth: 0 },
+          itemStyle: { borderRadius: 1, borderWidth: 0 },
           label: { show: false },
           emphasis: { scale: false, itemStyle: { shadowBlur: 0, shadowColor: "transparent" } },
           data: p.items
@@ -118,7 +118,7 @@ const DonutChart = (p: { items: { type: string; count: number; queries: SchemaQu
     <div class="relative flex items-center justify-center flex-shrink-0">
       <div ref={chartRef} style={{ width: "88px", height: "88px" }} />
       <div class="absolute flex flex-col items-center justify-center pointer-events-none">
-        <span class="text-[13px] font-bold text-native-primary tabular-nums">{p.total > 9999 ? (p.total / 1000).toFixed(1) + "k" : p.total}</span>
+        <span class="text-[13px] font-bold text-[var(--text-highlight)] tabular-nums">{p.total > 9999 ? (p.total / 1000).toFixed(1) + "k" : p.total}</span>
       </div>
     </div>
   );
@@ -140,7 +140,7 @@ const DistCard = (p: {
   const [expandedType, setExpandedType] = createSignal<string | null>(null);
   const [isListExpanded, setIsListExpanded] = createSignal(false);
 
-  const LIMIT = 5;
+  const LIMIT = 3;
 
   const processedItems = createMemo(() => {
     const sorted = [...p.items].filter((i) => i.count > 0).sort((a, b) => b.count - a.count);
@@ -167,7 +167,7 @@ const DistCard = (p: {
   });
 
   return (
-    <div class="flex flex-col gap-4 p-5 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
+    <div class="flex flex-col gap-3 px-5 pt-5 pb-2 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
       {/* Header */}
       <div class="flex flex-col pb-3 border-b border-native-subtle">
         <div class="text-[13px] font-semibold text-native-primary">{p.title}</div>
@@ -186,15 +186,15 @@ const DistCard = (p: {
 
       {/* Content */}
       <Show when={!isEmpty()}>
-        <div class="flex flex-col gap-5">
+        <div class="flex flex-col gap-3">
           {/* Donut + total */}
-          <div class="flex items-center gap-5">
+          <div class="flex items-center gap-4">
             <Show when={!p.loading} fallback={<div class="w-[88px] h-[88px] rounded-full animate-pulse bg-native/10 flex-shrink-0" />}>
               <DonutChart items={processedItems()} total={p.totalCount} />
             </Show>
             <div class="flex flex-col gap-1">
               <Show when={!p.loading} fallback={<div class="h-8 w-24 animate-pulse bg-native/10 rounded" />}>
-                <div class="text-[22px] font-bold text-native-primary tracking-tight leading-none">{p.totalCount.toLocaleString()}</div>
+                <div class="text-[22px] font-bold text-[var(--text-highlight)] tracking-tight leading-none">{p.totalCount.toLocaleString()}</div>
                 <div class="text-[10px] items-center font-bold text-native-tertiary tracking-tight mt-1">Total Records</div>
               </Show>
             </div>
@@ -211,7 +211,7 @@ const DistCard = (p: {
                 </div>
               }
             >
-              <div class="flex flex-col gap-3">
+              <div class="flex flex-col gap-1.5">
                 <For each={visibleItems()}>
                   {(item) => {
                     const pct = Math.round((item.count / (p.totalCount || 1)) * 100);
@@ -235,7 +235,7 @@ const DistCard = (p: {
                             </div>
                             <div class="flex items-center gap-2 flex-shrink-0">
                               <span class="text-[10px] text-native-tertiary">{pct}%</span>
-                              <span class="text-[12px] font-bold text-native-primary tabular-nums">{item.count.toLocaleString()}</span>
+                              <span class="text-[12px] font-bold text-[var(--text-highlight)] tabular-nums">{item.count.toLocaleString()}</span>
                             </div>
                           </div>
                           {/* Progress bar */}
@@ -271,7 +271,7 @@ const DistCard = (p: {
                 <Show when={processedItems().length > LIMIT}>
                   <button
                     onClick={() => setIsListExpanded(!isListExpanded())}
-                    class="mt-1 w-full py-2 flex items-center justify-center gap-2 text-[11px] font-medium text-native-tertiary hover:text-native-primary hover:bg-native/5 rounded-md transition-colors"
+                    class="w-full py-1 flex items-center justify-center gap-2 text-[11px] font-medium text-native-tertiary hover:text-native-primary hover:bg-native/5 rounded-md transition-colors"
                   >
                     {isListExpanded() ? (
                       <>
@@ -347,7 +347,7 @@ const StoragePanel = (p: { stats: LocalStorageStats | null; loading?: boolean; i
             <span class="text-[10px] font-bold tracking-tight">Physical Storage</span>
           </div>
           <div class="flex flex-col gap-0.5">
-            <span class="text-[22px] font-bold text-native-primary tracking-tight leading-none">{p.stats ? formatBytes(p.stats.disk_size_bytes) : "---"}</span>
+            <span class="text-[22px] font-bold text-[var(--text-highlight)] tracking-tight leading-none">{p.stats ? formatBytes(p.stats.disk_size_bytes) : "---"}</span>
             <span class="text-[10px] text-native-tertiary">data.mdb on disk</span>
           </div>
           <div class="flex flex-col gap-1.5 mt-1">
@@ -379,18 +379,18 @@ const StoragePanel = (p: { stats: LocalStorageStats | null; loading?: boolean; i
           <div class="grid grid-cols-2 gap-x-4 gap-y-3 mt-1">
             <div>
               <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Last Txn ID</div>
-              <div class="text-[15px] font-bold text-native-primary">{p.stats ? p.stats.env_info.last_txnid.toLocaleString() : "---"}</div>
+              <div class="text-[15px] font-bold text-[var(--text-highlight)]">{p.stats ? p.stats.env_info.last_txnid.toLocaleString() : "---"}</div>
             </div>
             <div>
               <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Active Readers</div>
-              <div class="text-[15px] font-bold text-native-primary">
+              <div class="text-[15px] font-bold text-[var(--text-highlight)]">
                 {p.stats ? p.stats.env_info.num_readers : "---"}
                 <span class="text-native-tertiary text-[11px] font-normal"> / {p.stats ? p.stats.env_info.max_readers : "---"}</span>
               </div>
             </div>
             <div>
               <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Last Page</div>
-              <div class="text-[15px] font-bold text-native-primary">{p.stats ? p.stats.env_info.last_pgno.toLocaleString() : "---"}</div>
+              <div class="text-[15px] font-bold text-[var(--text-highlight)]">{p.stats ? p.stats.env_info.last_pgno.toLocaleString() : "---"}</div>
             </div>
           </div>
         </div>
@@ -406,7 +406,7 @@ const StoragePanel = (p: { stats: LocalStorageStats | null; loading?: boolean; i
               {([name, stat]) => (
                 <div class="flex justify-between items-center group">
                   <span class="text-[11px] text-native-tertiary font-medium group-hover:text-native-secondary transition-colors truncate mr-3">{name}</span>
-                  <span class="text-[11px] font-bold text-native-primary flex-shrink-0">{stat.entries.toLocaleString()}</span>
+                  <span class="text-[11px] font-bold text-[var(--text-highlight)] flex-shrink-0">{stat.entries.toLocaleString()}</span>
                 </div>
               )}
             </For>
@@ -440,7 +440,7 @@ const StoragePanel = (p: { stats: LocalStorageStats | null; loading?: boolean; i
                     <div class="flex flex-col gap-1 pb-2 border-b border-native-subtle last:border-0 last:pb-0">
                       <div class="flex justify-between items-center">
                         <span class="text-[11px] text-native-secondary truncate mr-2">{field.replace("bm25_metadata_", "")}</span>
-                        <span class="text-[11px] font-bold text-native-primary flex-shrink-0">{stat.total_docs.toLocaleString()} docs</span>
+                        <span class="text-[11px] font-bold text-[var(--text-highlight)] flex-shrink-0">{stat.total_docs.toLocaleString()} docs</span>
                       </div>
                       <div class="flex items-center gap-3 text-[10px] text-native-tertiary">
                         <span>avgdl: {Math.round(stat.avgdl)}</span>
@@ -467,15 +467,15 @@ const StoragePanel = (p: { stats: LocalStorageStats | null; loading?: boolean; i
               <div class="grid grid-cols-3 gap-4 mt-1">
                 <div>
                   <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Vectors</div>
-                  <div class="text-[18px] font-bold text-native-primary">{p.stats!.hnsw_stats!.vector_count.toLocaleString()}</div>
+                  <div class="text-[18px] font-bold text-[var(--text-highlight)]">{p.stats!.hnsw_stats!.vector_count.toLocaleString()}</div>
                 </div>
                 <div>
                   <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Graph Nodes</div>
-                  <div class="text-[18px] font-bold text-native-primary">{p.stats!.hnsw_stats!.vector_data_count.toLocaleString()}</div>
+                  <div class="text-[18px] font-bold text-[var(--text-highlight)]">{p.stats!.hnsw_stats!.vector_data_count.toLocaleString()}</div>
                 </div>
                 <div>
                   <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Graph Edges</div>
-                  <div class="text-[18px] font-bold text-native-primary">{p.stats!.hnsw_stats!.out_nodes_count.toLocaleString()}</div>
+                  <div class="text-[18px] font-bold text-[var(--text-highlight)]">{p.stats!.hnsw_stats!.out_nodes_count.toLocaleString()}</div>
                 </div>
               </div>
             </div>

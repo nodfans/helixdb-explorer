@@ -15,42 +15,42 @@ const NAV_ITEMS = [
     id: "dashboard",
     label: "Dashboard",
     icon: DashboardIcon,
-    size: 24,
+    size: 28,
     color: "text-rose-500",
   },
   {
     id: "hql",
     label: "HQL",
     icon: HQLIcon,
-    size: 24,
+    size: 28,
     color: "text-emerald-500",
   },
   {
     id: "queries",
     label: "Queries",
     icon: QueriesIcon,
-    size: 24,
+    size: 28,
     color: "text-amber-500",
   },
   {
     id: "editor",
     label: "Modeler",
     icon: ModelerIcon,
-    size: 24,
+    size: 28,
     color: "text-orange-500",
   },
   {
     id: "schema",
     label: "Schema",
     icon: SchemaIcon,
-    size: 24,
+    size: 28,
     color: "text-indigo-500",
   },
   {
     id: "graph",
     label: "Graph",
     icon: GraphIcon,
-    size: 24,
+    size: 28,
     color: "text-purple-500",
   },
 ] as const;
@@ -67,13 +67,9 @@ const ConnectionButton = (props: { isConnected: boolean; onClick: () => void }) 
         title={props.isConnected ? `Connected to ${active.name} - Click to disconnect` : "Disconnected - Click to configure"}
       >
         <div class="relative w-12 h-9 flex items-center justify-center">
-          <ConnectionIcon connected={props.isConnected} size={24} class={`transition-all duration-300 ${props.isConnected ? "scale-105" : "text-native-tertiary grayscale"} group-hover:scale-110`} />
+          <ConnectionIcon connected={props.isConnected} size={28} class={`transition-all duration-300 ${props.isConnected ? "scale-105" : "text-native-tertiary grayscale"} group-hover:scale-110`} />
         </div>
-        <span
-          class={`text-[12px] font-medium leading-tight transition-colors duration-300 ${props.isConnected ? "text-emerald-500 font-semibold" : "text-native-tertiary"} group-hover:text-native-primary`}
-        >
-          Connection
-        </span>
+        <span class={`text-[12px] font-medium leading-tight transition-colors duration-300 ${props.isConnected ? "text-emerald-500 font-semibold" : "text-native-tertiary"}`}>Connection</span>
       </button>
     </div>
   );
@@ -86,8 +82,8 @@ const NavButton = (props: { label: string; icon: any; color: string; size?: numb
       class="flex flex-col items-center justify-center min-w-[72px] h-[52px] pb-px transition-all group relative outline-none select-none"
       style={{ "-webkit-tap-highlight-color": "transparent" }}
     >
-      <div class={`relative w-12 h-9 flex items-center justify-center transition-all duration-300 ${props.isActive ? "text-accent scale-110" : props.color + " group-hover:scale-110"}`}>
-        <props.icon size={props.size || 24} theme={props.isActive ? "dark" : "light"} />
+      <div class={`relative w-12 h-9 flex items-center justify-center transition-all duration-300 ${props.isActive ? "scale-110" : props.color + " group-hover:scale-110"}`}>
+        <props.icon size={props.size || 28} />
       </div>
 
       <span
@@ -111,7 +107,7 @@ export const TopNav = (props: TopNavProps) => {
     >
       {/* Title Bar Area (Draggable) */}
       <div class="h-7 flex items-center justify-center relative shrink-0" data-tauri-drag-region style={{ "-webkit-app-region": "drag" }}>
-        <span class="text-[12px] font-bold text-native-primary dark:text-white/60 antialiased select-none tracking-tight pointer-events-none">HelixDB Explorer</span>
+        <span class="text-[12px] font-bold text-native-secondary antialiased select-none tracking-tight pointer-events-none">HelixDB Explorer</span>
       </div>
 
       {/* Main Toolbar */}
