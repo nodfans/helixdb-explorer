@@ -273,8 +273,9 @@ export const HQL = (props: HQLProps) => {
               "text-native-primary": props.isConnected,
               "text-native-quaternary italic": !props.isConnected,
             }}
+            title={props.isConnected ? getConnectionUrl(activeConnection()) : "Disconnected"}
           >
-            {props.isConnected ? `${activeConnection().host}:${activeConnection().port}` : "Disconnected"}
+            {props.isConnected ? getConnectionUrl(activeConnection()).replace(/^https?:\/\//, "") : "Disconnected"}
           </span>
         </div>
         <div class="w-px h-3.5 bg-[var(--border-subtle)] ml-2 mr-1" />
