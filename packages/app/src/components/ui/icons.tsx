@@ -54,9 +54,9 @@ export const DashboardIcon = (props: IconProps) => {
   const amber = () => (isDark() ? "#f59e0b" : "#d97706");
 
   return (
-    <svg width={size()} height={size()} viewBox="0 0 24 24" fill="none" class={local.class} {...others}>
+    <svg width={size()} height={30} viewBox="0 0 24 24" fill="none" class={local.class} {...others}>
       {/* top bar: blue */}
-      <rect x="3" y="3.5" width="18" height="6.5" rx="2" fill={blue()} />
+      <rect x="3" y="3.5" width="18" height="7" rx="2" fill={blue()} />
       {/* bottom-left: green */}
       <rect x="3" y="11.5" width="6" height="9" rx="2" fill={green()} />
       {/* bottom-right: amber */}

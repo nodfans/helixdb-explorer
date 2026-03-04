@@ -56,9 +56,9 @@ export const CodePanel = (props: CodePanelProps) => {
   return (
     <div class="flex-none flex flex-col h-full bg-native-sidebar border-l border-native-subtle">
       {/* Top Toolbar */}
-      <header class="h-11 flex-none border-b border-native-subtle bg-native-sidebar-vibrant flex items-center justify-between px-4">
+      <header class="h-11 flex-none border-b border-native-subtle bg-[var(--bg-toolbar)] flex items-center justify-between px-4">
         <div class="flex items-center gap-2">
-          <FileCode size={14} class="text-accent" strokeWidth={2} />
+          <FileCode size={14} class="text-toolbar-icon" strokeWidth={2} />
           <span class="text-[12px] font-semibold text-native-primary">HQL Generation</span>
         </div>
 
@@ -74,12 +74,13 @@ export const CodePanel = (props: CodePanelProps) => {
           {/* Compile Button */}
           <Button
             variant={props.isDirty ? "primary" : "toolbar"}
+            size="sm"
             onMouseDown={(e) => {
               e.preventDefault();
               if (!props.isCompiling) props.onCompile();
             }}
             disabled={props.isCompiling}
-            class="flex items-center gap-1.5 transition-all duration-75"
+            class="h-7 px-3 flex items-center gap-1.5 transition-all duration-75"
           >
             <Show when={props.isCompiling} fallback={<Zap size={11} strokeWidth={2} class={props.isDirty ? "fill-current" : ""} />}>
               <div class="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -90,7 +91,7 @@ export const CodePanel = (props: CodePanelProps) => {
       </header>
 
       {/* Tab Bar - macOS Style */}
-      <div class="h-10 flex-none border-b border-native-subtle bg-native-sidebar/50 flex items-center px-2 gap-1 relative">
+      <div class="h-10 flex-none border-b border-native-subtle bg-[var(--bg-toolbar)] flex items-center px-2 gap-1 relative">
         <Button
           variant="toolbar"
           size="sm"
@@ -327,9 +328,9 @@ const ConfigToggle = (props: { label: string; description: string; checked: bool
         type="checkbox"
         checked={props.checked}
         onChange={(e) => props.onChange(e.currentTarget.checked)}
-        class="peer absolute inset-0 h-full w-full appearance-none rounded border border-native bg-native-elevated checked:bg-accent checked:border-accent transition-all cursor-pointer"
+        class="peer absolute inset-0 h-full w-full appearance-none rounded border border-native bg-native-elevated checked:[background:var(--checkbox-checked-bg)] checked:[border-color:var(--checkbox-checked-border)] transition-all cursor-pointer"
       />
-      <Check size={9} strokeWidth={3} class="z-10 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
+      <Check size={9} strokeWidth={3} class="z-10 [color:var(--checkbox-checked-icon)] opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
     </div>
   </label>
 );

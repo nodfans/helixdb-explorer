@@ -8,8 +8,13 @@ interface ThemeSettingsProps {
   onClose: () => void;
 }
 
+const getStoredTheme = (): Theme => {
+  const stored = localStorage.getItem("theme");
+  return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+};
+
 // Global theme state
-const [currentTheme, setCurrentTheme] = createSignal<Theme>((localStorage.getItem("theme") as Theme) || "system");
+const [currentTheme, setCurrentTheme] = createSignal<Theme>(getStoredTheme());
 
 // Apply theme to document
 const applyTheme = (theme: Theme) => {
@@ -57,9 +62,9 @@ export const useTheme = () => {
 
 // Initialize theme on app load
 export const initTheme = () => {
-  // Always default to system on app start as requested
-  setCurrentTheme("system");
-  applyTheme("system");
+  const theme = getStoredTheme();
+  setCurrentTheme(theme);
+  applyTheme(theme);
 };
 
 export const ThemeSelector = () => {
@@ -98,7 +103,7 @@ export const ThemeSelector = () => {
         ))}
       </div>
 
-      <p class="mt-4 text-[11px] text-native-tertiary leading-relaxed">Choose how Helix Explorer appears. "System" will automatically match your macOS appearance.</p>
+      <p class="mt-4 text-center text-[11px] text-native-tertiary leading-relaxed">Choose how Helix Explorer appears. "System" will automatically match your macOS appearance.</p>
     </div>
   );
 };
@@ -114,7 +119,7 @@ export const ThemeSettings = (props: ThemeSettingsProps) => {
         {/* Header */}
         <div class="flex items-center justify-between px-5 py-4 border-b border-native">
           <div class="flex items-center gap-2.5">
-            <Settings size={18} class="text-accent" />
+            <Settings size={18} class="text-toolbar-icon" />
             <h2 class="text-base font-semibold text-native-primary">Settings</h2>
           </div>
           <button onClick={props.onClose} class="p-1.5 hover:bg-native-content rounded-lg transition-colors">

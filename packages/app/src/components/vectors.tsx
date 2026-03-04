@@ -572,9 +572,9 @@ export const Vectors = (props: VectorsProps) => {
 
   return (
     <div class="flex flex-col h-full w-full bg-graph text-native-primary overflow-hidden">
-      <div class="flex-none bg-native-content/80 backdrop-blur-md border-b border-native">
+      <div class="flex-none">
         <ToolbarLayout class="justify-between">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 shrink-0">
             {/* Search */}
             <div class="relative flex items-center">
               <Input
@@ -586,14 +586,14 @@ export const Vectors = (props: VectorsProps) => {
                   if (!isSemantic()) setSemanticResults([]);
                 }}
                 onKeyDown={(e) => e.key === "Enter" && isSemantic() && handleSemanticSearch()}
-                class={`w-48 h-7 pr-8 transition-all ${isSemantic() ? "border-accent/50 bg-accent/5 shadow-[0_0_10px_rgba(59,130,246,0.1)]" : ""}`}
+                class={`w-40 sm:w-48 h-7 pr-8 transition-all ${isSemantic() ? "border-accent/50 bg-accent/5 shadow-[0_0_10px_rgba(59,130,246,0.1)]" : ""}`}
               />
               <button
                 onClick={() => {
                   setIsSemantic(!isSemantic());
                   if (!isSemantic()) setSemanticResults([]);
                 }}
-                class={`absolute right-2 p-1 rounded transition-colors ${isSemantic() ? "text-accent hover:bg-accent/10" : "text-native-tertiary hover:bg-native-content/10"}`}
+                class={`absolute right-2 p-1 rounded transition-colors ${isSemantic() ? "text-toolbar-icon hover:bg-[var(--toolbar-icon)]/10" : "text-native-tertiary hover:bg-hover"}`}
                 title="Toggle Semantic Search (AI)"
               >
                 <Sparkles size={12} class={isSemantic() ? "animate-pulse" : ""} />
@@ -603,21 +603,21 @@ export const Vectors = (props: VectorsProps) => {
             <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
             <Button variant="toolbar" active={showIndexPanel()} onClick={() => setShowIndexPanel(!showIndexPanel())} class="flex items-center gap-1.5 h-7">
-              <Sparkles size={12} class={showIndexPanel() ? "text-accent" : "text-native-tertiary"} />
+              <Sparkles size={12} class={showIndexPanel() ? "text-toolbar-icon" : "text-native-tertiary"} />
               <span class="text-[11px] font-medium">Indices</span>
             </Button>
 
             <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
             <Button variant="toolbar" active={showLabels()} onClick={() => setShowLabels(!showLabels())} class="flex items-center gap-1.5 h-7">
-              <Layers size={12} class={showLabels() ? "text-accent" : "text-native-tertiary"} />
+              <Layers size={12} class={showLabels() ? "text-toolbar-icon" : "text-native-tertiary"} />
               <span class="text-[11px] font-medium">Show Labels</span>
             </Button>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 shrink-0">
             <Button variant="toolbar" onClick={refresh} disabled={isLoading()} class="flex items-center gap-1.5 h-7 transition-all group active:scale-95">
-              <RefreshCw size={12} class={`${isLoading() ? "animate-spin" : "group-hover:rotate-180"} transition-transform text-accent`} />
+              <RefreshCw size={12} class={`${isLoading() ? "animate-spin" : "group-hover:rotate-180"} transition-transform text-toolbar-icon`} />
               <span class="text-[11px] font-medium">Refresh</span>
             </Button>
 
@@ -645,7 +645,7 @@ export const Vectors = (props: VectorsProps) => {
         <Show
           when={props.isConnected}
           fallback={
-            <div class="flex-1 flex items-center justify-center bg-native-content/50 z-10 backdrop-blur-sm">
+            <div class="flex-1 flex items-center justify-center bg-native-content/20 z-10 backdrop-blur-[2px]">
               <EmptyState icon={Radio} title="Vector Space" description="Visualize and search high-dimensional vector embeddings in 2D space. Start by connecting to an instance.">
                 <Button variant="primary" size="lg" onClick={props.onConnect}>
                   Connect Now
@@ -666,13 +666,13 @@ export const Vectors = (props: VectorsProps) => {
 
             {/* Index Selection Panel - Legend style alignment with Graph.tsx */}
             <Show when={showIndexPanel()}>
-              <div class="absolute top-4 left-4 z-40 w-56 bg-native-elevated/95 backdrop-blur-xl rounded-xl border border-native shadow-macos-lg flex flex-col max-h-[calc(100%-2rem)] overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-left-4">
+              <div class="absolute top-4 left-4 z-40 w-[min(14rem,calc(100%-2rem))] bg-native-elevated/95 backdrop-blur-xl rounded-xl border border-native shadow-macos-lg flex flex-col max-h-[calc(100%-2rem)] overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-left-4">
                 <div class="flex-none p-3 border-b border-native flex items-center justify-between">
                   <div class="flex items-center gap-2">
-                    <Sparkles size={14} class="text-accent" />
+                    <Sparkles size={14} class="text-toolbar-icon" />
                     <span class="text-[12px] font-bold text-native-primary">Indices</span>
                   </div>
-                  <button onClick={() => setShowIndexPanel(false)} class="p-1 hover:bg-native-content/10 rounded-md transition-colors text-native-tertiary hover:text-native-primary">
+                  <button onClick={() => setShowIndexPanel(false)} class="p-1 hover:bg-hover rounded-md transition-colors text-native-tertiary hover:text-native-primary">
                     <X size={14} />
                   </button>
                 </div>
@@ -681,7 +681,7 @@ export const Vectors = (props: VectorsProps) => {
                   <For each={availableIndices()}>
                     {(index) => (
                       <div
-                        class={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${selectedIndex() === index ? "bg-accent/10" : "hover:bg-native-content/5"}`}
+                        class={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${selectedIndex() === index ? "bg-accent/10" : "hover:bg-hover"}`}
                         onClick={() => setSelectedIndex(index)}
                       >
                         <div class="flex items-center gap-2.5 min-w-0">
@@ -703,9 +703,9 @@ export const Vectors = (props: VectorsProps) => {
                   </For>
                 </div>
 
-                <div class="flex-none p-2 border-t border-native bg-native-content/5">
-                  <div class="text-[9px] text-center text-native-quaternary font-medium tracking-wider">Select a vector record to visualize</div>
-                </div>
+                  <div class="flex-none p-2 border-t border-native bg-hover/50">
+                    <div class="text-[9px] text-center text-native-quaternary font-medium tracking-wider">Select a vector record to visualize</div>
+                  </div>
               </div>
             </Show>
 
@@ -723,7 +723,7 @@ export const Vectors = (props: VectorsProps) => {
           </div>
 
           <Show when={showDetailPanel()}>
-            <div class="w-72 flex-none bg-native-sidebar-vibrant backdrop-blur-xl border-l border-native animate-in slide-in-from-right duration-300 flex flex-col shadow-macos-lg">
+            <div class="w-[min(18rem,42vw)] min-w-[220px] flex-none bg-[var(--bg-toolbar)] backdrop-blur-xl border-l border-native animate-in slide-in-from-right duration-300 flex flex-col shadow-macos-lg">
               <div class="flex-none p-3 border-b border-native flex items-center justify-between">
                 <span class="text-[11px] font-bold text-native-primary tracking-tight">Properties</span>
               </div>
@@ -762,8 +762,8 @@ export const Vectors = (props: VectorsProps) => {
         </Show>
       </div>
 
-      <footer class="h-9 border-t border-native bg-native-content/50 backdrop-blur-md flex items-center justify-between px-5 flex-none select-none">
-        <div class="flex items-center gap-3 text-[11px]">
+      <footer class="h-9 border-t border-native bg-[var(--bg-toolbar)] flex items-center justify-between gap-3 overflow-x-auto px-5 flex-none select-none scrollbar-hide">
+        <div class="flex items-center gap-3 text-[11px] shrink-0">
           <Show when={props.isConnected}>
             <div class="flex items-center gap-2">
               <div class="flex items-center gap-1.5 font-semibold text-[11px]">
@@ -774,19 +774,19 @@ export const Vectors = (props: VectorsProps) => {
           </Show>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 shrink-0">
           <Show when={selectedNodeId()}>
-            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20">
-              <span class="text-[11px] font-semibold text-blue-400 tracking-wide">Selected:</span>
-              <span class="text-[11px] font-semibold text-blue-500">{selectedNodeId()}</span>
+            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent/10 border border-accent/20">
+              <span class="text-[11px] font-semibold text-accent tracking-wide">Selected:</span>
+              <span class="text-[11px] font-semibold text-accent">{selectedNodeId()}</span>
             </div>
 
             <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
-            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
-              <Crosshair size={11} class="text-emerald-500" />
-              <span class="text-[11px] font-semibold text-emerald-500 tabular-nums">{selectedNode()?.embedding?.length || 0}</span>
-              <span class="text-[10px] text-emerald-400 font-medium">dims</span>
+            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-status-success/10 border border-status-success/20">
+              <Crosshair size={11} class="text-status-success" />
+              <span class="text-[11px] font-semibold text-status-success tabular-nums">{selectedNode()?.embedding?.length || 0}</span>
+              <span class="text-[10px] text-status-success-muted font-medium">dims</span>
             </div>
           </Show>
         </div>

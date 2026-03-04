@@ -51,8 +51,8 @@ export const HqlPanel = (props: HqlPanelProps) => {
           <div
             class="absolute inset-x-0 h-[3px] -top-[1px] cursor-row-resize transition-colors"
             classList={{
-              "bg-[#007AFF]/25 dark:bg-[#0A84FF]/25": props.isResizing(),
-              "hover:bg-[#007AFF]/15 dark:hover:bg-[#0A84FF]/15": !props.isResizing(),
+              "bg-accent/25": props.isResizing(),
+              "hover:bg-accent/15": !props.isResizing(),
             }}
             onMouseDown={props.startResizing}
           />
@@ -60,7 +60,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
       </Show>
 
       {/* Panel Header */}
-      <div class="h-9 border-b border-native-subtle flex items-center justify-between bg-native-sidebar-vibrant/40 shrink-0 relative overflow-hidden">
+      <div class="h-9 border-b border-native-subtle flex items-center justify-between bg-[var(--bg-toolbar)] shrink-0 relative overflow-x-auto overflow-y-hidden scrollbar-hide">
         {/* Left Side: Toggle & Status */}
         <div class="flex items-center min-w-0 flex-1 h-full pl-0">
           <div
@@ -81,7 +81,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
           </div>
 
           <Show when={!props.viewMode || props.viewMode === "table"}>
-            <div class="flex items-center gap-2.5 h-full" style={{ "padding-left": `${props.gutterWidth() + 20}px` }}>
+            <div class="flex items-center gap-2.5 h-full shrink-0" style={{ "padding-left": `${props.gutterWidth() + 20}px` }}>
               <Switch>
                 <Match when={props.queryStatus === "loading"}>
                   <div class="flex items-center gap-1.5">
@@ -134,7 +134,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
         </div>
 
         {/* Right Side: Actions */}
-        <div class="flex items-center gap-2 flex-1 justify-end pr-4 min-w-0">
+        <div class="flex items-center gap-2 flex-1 justify-end pr-4 min-w-0 shrink-0">
           <Show when={props.output}>
             <Button variant="toolbar" size="sm" onMouseDown={props.copyOutput} class="flex items-center gap-1.5">
               <Show when={props.copied()} fallback={<Copy size={11} />}>
@@ -192,7 +192,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
                         </div>
                       </Match>
                       <Match when={props.multiTableData && Object.keys(props.multiTableData).length > 0}>
-                        <div class="flex-1 overflow-auto h-full space-y-4 px-0 pt-4 pb-8 scrollbar-thin flex flex-col">
+                        <div class="flex-1 overflow-auto h-full space-y-3 px-0.5 pt-2 pb-0 scrollbar-thin flex flex-col">
                           <For each={Object.entries(props.multiTableData || {})}>
                             {([name, rows]: [string, any[]]) => {
                               const tableCount = () => Object.keys(props.multiTableData || {}).length;
@@ -219,7 +219,7 @@ export const HqlPanel = (props: HqlPanelProps) => {
                         </div>
                       </Match>
                       <Match when={props.tableData || (Array.isArray(props.rawOutput) ? props.rawOutput : null)}>
-                        <div class="flex-1 min-h-0 flex flex-col px-0.5 pt-2 pb-0">
+                        <div class="flex-1 min-h-0 flex flex-col">
                           <ResultTable data={props.tableData || props.rawOutput} selectedRows={props.selectedRows} onSelect={(rows) => props.updateActiveTab({ selectedRows: rows })} />
                         </div>
                       </Match>
@@ -301,7 +301,7 @@ export const SyncConfirmationOverlay = (props: {
                 <div class="flex flex-col gap-3 group">
                   {/* Query Header */}
                   <div class="flex items-center gap-2.5 px-1">
-                    <span class="text-[10px] bg-native-sidebar-vibrant text-native-tertiary px-2 py-0.5 rounded font-mono font-semibold tabular-nums">#{String(index + 1).padStart(2, "0")}</span>
+                    <span class="text-[10px] bg-[var(--bg-toolbar)] text-native-tertiary px-2 py-0.5 rounded font-mono font-semibold tabular-nums">#{String(index + 1).padStart(2, "0")}</span>
                     <span class="text-[12px] font-bold text-native-primary font-mono">{item().query_name}</span>
                     <span
                       class={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${

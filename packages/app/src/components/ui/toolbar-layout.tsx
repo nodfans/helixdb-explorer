@@ -8,9 +8,9 @@ interface ToolbarLayoutProps {
 export const ToolbarLayout = (props: ToolbarLayoutProps) => {
   return (
     <div
-      class={`h-11 w-full flex-none flex items-center px-5 border-b ${props.class || ""}`}
+      class={`h-11 w-full min-w-0 flex-none flex items-center gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-hide px-5 border-b ${props.class || ""}`}
       style={{
-        "background-color": "var(--bg-sidebar-vibrant)",
+        "background-color": "var(--bg-toolbar)",
         "border-color": "var(--border-subtle)",
       }}
     >

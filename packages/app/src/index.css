@@ -1,11 +1,6 @@
 @import "tailwindcss";
 
-/* ========================================
-   Theme System - Tailwind v4 Design Tokens
-   ======================================== */
-
 @theme {
-  /* Constants */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -16,11 +11,9 @@
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
   --shadow-macos-lg: 0 20px 40px rgba(0, 0, 0, 0.2);
 
-  /* Typography */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  /* Design Tokens mapped to existing utilities */
   --color-native-sidebar: var(--bg-sidebar);
   --color-native-sidebar-vibrant: var(--bg-sidebar-vibrant);
   --color-native-content: var(--bg-content);
@@ -29,11 +22,15 @@
   --color-hover: var(--bg-hover);
   --color-active: var(--bg-active);
   --color-selected: var(--bg-selected);
+  --color-native-hover: var(--bg-hover);
+  --color-native-active: var(--border-medium);
 
   --color-native-primary: var(--text-primary);
   --color-native-secondary: var(--text-secondary);
   --color-native-tertiary: var(--text-tertiary);
   --color-native-quaternary: var(--text-quaternary);
+  --color-native-on-accent: var(--text-on-accent);
+  --color-toolbar-icon: var(--toolbar-icon);
 
   --color-accent: var(--accent);
   --color-native: var(--border-color);
@@ -42,146 +39,329 @@
   --color-success: var(--status-success);
   --color-warning: var(--status-warning);
   --color-error: var(--status-error);
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-error: var(--status-error);
+  --color-status-info: var(--status-info);
+  --color-status-feature: var(--status-feature);
+  --color-status-success-text: var(--status-success-text);
+  --color-status-success-muted: var(--status-success-muted);
+  --color-status-warning-text: var(--status-warning-text);
+  --color-status-warning-muted: var(--status-warning-muted);
+  --color-status-error-text: var(--status-error-text);
+  --color-status-error-muted: var(--status-error-muted);
+  --color-status-info-text: var(--status-info-text);
+  --color-status-info-muted: var(--status-info-muted);
+  --color-status-feature-text: var(--status-feature-text);
+  --color-status-feature-muted: var(--status-feature-muted);
 
   --shadow-macos-sm: var(--shadow-sm);
   --shadow-macos-md: var(--shadow-md);
   --shadow-macos-lg: var(--shadow-lg);
+  --color-graph: var(--graph-bg);
 }
-
-/* ========================================
-   CSS Variables - Theme Definitions
-   ======================================== */
 
 :root {
   color-scheme: light;
-  /* Light Theme Defaults */
-  --bg-primary: #eff1f3;
-  --bg-secondary: #e5e7e9;
-  --bg-elevated: #ffffff;
-  --bg-content: #ffffff;
-  --bg-sidebar: #f0f0f0;
-  --bg-sidebar-vibrant: rgba(240, 240, 240, 0.9);
-  --bg-toolbar: #e8e8e8;
-  --bg-hover: rgba(0, 0, 0, 0.05);
-  --bg-active: rgba(0, 0, 0, 0.1);
-  --bg-selected: #d7e9fb;
+  --window-bg: #e9e9ea;
+  --window-tint-1: rgba(255, 255, 255, 0.94);
+  --window-tint-2: rgba(255, 255, 255, 0.34);
+  --window-tint-3: rgba(0, 0, 0, 0.018);
 
-  /* Light */
-  --text-highlight: #374151; /* neutral-700, softer than pure black */
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-tertiary: #6b7280;
-  --text-quaternary: #9ca3af;
+  --bg-elevated: rgba(255, 255, 255, 0.9);
+  --bg-content: rgba(248, 248, 249, 0.92);
+  --bg-sidebar: rgba(239, 239, 241, 0.92);
+  --bg-sidebar-vibrant: rgba(241, 241, 243, 0.8);
+  --bg-toolbar: rgba(236, 236, 238, 0.8);
+  --dashboard-card-bg: rgba(255, 255, 255, 0.9);
+  --dashboard-card-border: rgba(0, 0, 0, 0.05);
+  --bg-hover: rgba(0, 0, 0, 0.038);
+  --bg-active: rgba(0, 0, 0, 0.068);
+  --bg-selected: color-mix(in srgb, var(--toolbar-icon) 14%, white);
 
-  --border-color: rgba(0, 0, 0, 0.12);
-  --border-subtle: rgba(0, 0, 0, 0.06);
-  --border-medium: rgba(0, 0, 0, 0.15);
-  --border-strong: rgba(0, 0, 0, 0.2);
+  --text-highlight: #111111;
+  --text-primary: #1a1a1a;
+  --text-secondary: #61656d;
+  --text-tertiary: #7b8088;
+  --text-quaternary: #8f959d;
+  --text-on-accent: #ffffff;
+  --tone-soft: rgba(0, 0, 0, 0.035);
+  --tone-muted: rgba(0, 0, 0, 0.065);
+  --tone-strong: rgba(0, 0, 0, 0.125);
 
-  --accent: #007aff;
-  --accent-light: #47a1ff;
-  --accent-dark: #005bb7;
+  --border-color: rgba(0, 0, 0, 0.09);
+  --border-subtle: rgba(0, 0, 0, 0.045);
+  --border-medium: rgba(0, 0, 0, 0.115);
+  --border-native: var(--border-color);
+  --border-table: var(--grid-border);
+
+  --accent: #2f76ee;
+  --accent-light: color-mix(in srgb, var(--accent) 74%, white);
+  --accent-dark: color-mix(in srgb, var(--accent) 68%, black);
+  --toolbar-icon: #2f76ee;
 
   --status-success: #34c759;
   --status-warning: #ff9500;
   --status-error: #ff3b30;
+  --status-success-text: #1d7a53;
+  --status-success-muted: #2f8d66;
+  --status-warning-text: #956000;
+  --status-warning-muted: #a87417;
+  --status-error-text: #b54b47;
+  --status-error-muted: #c76561;
+  --status-info-text: #4a7f99;
+  --status-info-muted: #6d9ab0;
+  --status-feature-text: #6d58cc;
+  --status-feature-muted: #8370d7;
+  --status-error-hover: #ff5d52;
+  --status-error-active: #e54036;
+  --status-error-border: rgba(255, 59, 48, 0.22);
+  --status-success-soft: rgba(52, 199, 89, 0.12);
+  --status-success-border: rgba(52, 199, 89, 0.22);
+  --status-warning-soft: rgba(255, 149, 0, 0.12);
+  --status-warning-border: rgba(255, 149, 0, 0.22);
+  --status-info: #6ea3bc;
+  --status-info-hover: #7db0c7;
+  --status-info-active: #5f92aa;
+  --status-info-soft: rgba(110, 163, 188, 0.1);
+  --status-info-border: rgba(110, 163, 188, 0.18);
+  --status-feature: #8b5cf6;
+  --status-feature-soft: rgba(139, 92, 246, 0.12);
+  --status-feature-border: rgba(139, 92, 246, 0.22);
 
-  --input-bg: #ffffff;
+  --input-bg: rgba(255, 255, 255, 0.74);
+  --bg-input: var(--input-bg);
   --input-border: rgba(0, 0, 0, 0.12);
+  --input-focus-border: rgba(0, 0, 0, 0.18);
+  --input-focus-shadow: none;
+  --selected-bg: color-mix(in srgb, var(--toolbar-icon) 18%, white);
 
-  /* Workbench Variables */
+  --bg-workbench: linear-gradient(180deg, rgba(249, 249, 250, 0.97), rgba(235, 235, 237, 0.92));
   --bg-workbench-content: var(--bg-content);
   --bg-workbench-sidebar: var(--bg-sidebar);
+  --bg-table-row: rgba(255, 255, 255, 0.6);
+  --bg-table-header: var(--surface-grid-header);
+  --graph-bg: #f7f7f8;
+  --bg-primary: #eff1f3;
+  --bg-secondary: #e5e7e9;
+  --surface-content-base: rgba(248, 248, 249, 0.92);
+  --surface-sidebar-base: rgba(239, 239, 241, 0.92);
+  --surface-sidebar-vibrant-base: rgba(241, 241, 243, 0.8);
+  --surface-elevated-base: rgba(255, 255, 255, 0.9);
+  --surface-workbench-base: linear-gradient(180deg, rgba(249, 249, 250, 0.97), rgba(235, 235, 237, 0.92));
+  --surface-graph-base: #f7f7f8;
 
-  /* Grid Variables - Premium Minimalist */
-  --grid-bg: transparent;
-  --grid-header-bg: #f9fafb;
-  --grid-header-border: rgba(0, 0, 0, 0.12);
-  --grid-border: rgba(0, 0, 0, 0.07);
-  --grid-header-text: #6b7280;
-  --grid-row-bg: transparent;
-  --grid-row-hover: rgba(0, 0, 0, 0.02);
-  --grid-row-selected: rgba(0, 122, 255, 0.1);
-  --grid-cell-text: #111827;
-  --grid-cell-secondary: #9ca3af;
+  --surface-grid: rgba(255, 255, 255, 0.84);
+  --surface-grid-header: rgba(243, 243, 245, 0.96);
+  --surface-grid-row: rgba(255, 255, 255, 0.74);
+  --surface-grid-row-hover: rgba(0, 0, 0, 0.028);
+  --surface-grid-row-selected: rgba(47, 118, 238, 0.06);
+
+  --toolbar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 1px 0 rgba(0, 0, 0, 0.04), 0 10px 22px rgba(0, 0, 0, 0.036);
+  --panel-shadow: 0 14px 28px rgba(0, 0, 0, 0.062), 0 1px 3px rgba(0, 0, 0, 0.028), inset 0 1px 0 rgba(255, 255, 255, 0.84);
+  --button-default-bg: rgba(255, 255, 255, 0.8);
+  --button-default-border: rgba(0, 0, 0, 0.06);
+  --button-default-hover: rgba(255, 255, 255, 0.98);
+  --button-default-active: rgba(240, 240, 242, 0.98);
+  --button-default-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --button-default-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 5px 12px rgba(0, 0, 0, 0.032);
+  --button-default-shadow-active: inset 0 1px 2px rgba(0, 0, 0, 0.065);
+  --button-primary-border: rgba(43, 112, 220, 0.34);
+  --button-primary-bg: #3a86ff;
+  --button-primary-hover: #5a98ff;
+  --button-primary-active: #2f76ee;
+  --button-primary-text: #f8fbff;
+  --button-primary-shadow: 0 4px 10px rgba(44, 100, 196, 0.14);
+  --button-primary-shadow-hover: 0 6px 14px rgba(44, 100, 196, 0.18);
+  --button-primary-shadow-active: inset 0 1px 2px rgba(25, 67, 140, 0.22);
+  --button-destructive-shadow: 0 10px 22px rgba(171, 36, 28, 0.16);
+  --button-destructive-shadow-hover: 0 14px 26px rgba(171, 36, 28, 0.2);
+  --button-destructive-shadow-active: inset 0 1px 2px rgba(98, 14, 10, 0.2);
+  --modal-backdrop: rgba(0, 0, 0, 0.16);
+  --control-selected-bg: rgba(47, 118, 238, 0.12);
+  --control-selected-border: rgba(47, 118, 238, 0.18);
+  --control-selected-text: #2f76ee;
+  --control-selected-shadow: none;
+  --checkbox-checked-bg: rgba(47, 118, 238, 0.15);
+  --checkbox-checked-border: rgba(47, 118, 238, 0.22);
+  --checkbox-checked-icon: #2f76ee;
+
+  --grid-bg: var(--surface-grid);
+  --grid-header-bg: var(--surface-grid-header);
+  --grid-header-border: rgba(0, 0, 0, 0.06);
+  --grid-border: rgba(0, 0, 0, 0.05);
+  --grid-header-text: #71767e;
+  --grid-row-bg: var(--surface-grid-row);
+  --grid-row-hover: var(--surface-grid-row-hover);
+  --grid-row-selected: var(--surface-grid-row-selected);
+  --grid-cell-text: var(--text-primary);
+  --grid-cell-secondary: #959aa3;
   --grid-resize-handle: rgba(0, 0, 0, 0.05);
-  --grid-resize-active: #007aff;
-  --grid-focus-ring: rgba(0, 122, 255, 0.3);
-  --grid-shadow: none;
-  --grid-input-bg: #ffffff;
+  --grid-resize-active: var(--accent);
+  --grid-focus-ring: color-mix(in srgb, var(--toolbar-icon) 24%, transparent);
+  --grid-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --grid-input-bg: rgba(255, 255, 255, 0.9);
 }
 
-/* Consolidated Dark Theme Logic */
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg-primary: #252525;
-  --bg-secondary: #2b2b2b;
-  --bg-elevated: #333333;
-  --bg-content: #2a2a2a;
-  --bg-sidebar: #252525;
-  --bg-sidebar-vibrant: rgba(37, 37, 37, 0.9);
-  --bg-toolbar: #333333;
-  --bg-hover: rgba(255, 255, 255, 0.07);
-  --bg-active: rgba(255, 255, 255, 0.12);
-  --bg-selected: rgba(10, 132, 255, 0.25);
+  --window-bg: #1f1f1f;
+  --window-tint-1: rgba(34, 34, 34, 0.98);
+  --window-tint-2: rgba(255, 255, 255, 0.032);
+  --window-tint-3: rgba(255, 255, 255, 0.024);
 
-  --text-highlight: #d1d5db; /* neutral-300, specifically for large numbers */
-  --text-primary: #f3f4f6; /* neutral-100 */
-  --text-secondary: #9ca3af; /* neutral-400 */
-  --text-tertiary: #6b7280; /* neutral-500 */
-  --text-quaternary: #4b5563; /* neutral-600 */
+  --bg-elevated: rgba(46, 46, 46, 0.94);
+  --bg-content: rgba(24, 24, 24, 0.98);
+  --bg-sidebar: rgba(27, 27, 27, 0.98);
+  --bg-sidebar-vibrant: rgba(33, 33, 33, 0.9);
+  --bg-toolbar: rgba(31, 31, 31, 0.92);
+  --dashboard-card-bg: rgba(32, 32, 32, 0.96);
+  --dashboard-card-border: rgba(255, 255, 255, 0.06);
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --bg-active: rgba(255, 255, 255, 0.125);
+  --bg-selected: color-mix(in srgb, var(--toolbar-icon) 18%, transparent);
 
-  --border-color: rgba(255, 255, 255, 0.1);
+  --text-highlight: #f5f5f5;
+  --text-primary: #efefef;
+  --text-secondary: #b0b0b0;
+  --text-tertiary: #969696;
+  --text-quaternary: #787878;
+  --text-on-accent: #111111;
+  --tone-soft: rgba(255, 255, 255, 0.05);
+  --tone-muted: rgba(255, 255, 255, 0.09);
+  --tone-strong: rgba(255, 255, 255, 0.16);
+
+  --border-color: rgba(255, 255, 255, 0.11);
   --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-medium: rgba(255, 255, 255, 0.12);
-  --border-strong: rgba(255, 255, 255, 0.18);
+  --border-medium: rgba(255, 255, 255, 0.13);
+  --border-native: var(--border-color);
+  --border-table: var(--grid-border);
 
-  --accent: #0a84ff;
+  --accent: #7db4ff;
+  --accent-light: color-mix(in srgb, var(--accent) 70%, white);
+  --accent-dark: color-mix(in srgb, var(--accent) 72%, black);
+  --toolbar-icon: #7db4ff;
+
   --status-success: #30d158;
   --status-warning: #ffd60a;
   --status-error: #ff453a;
+  --status-success-text: #67e49a;
+  --status-success-muted: #9ce9ba;
+  --status-warning-text: #ffd970;
+  --status-warning-muted: #ffe58f;
+  --status-error-text: #ff8b84;
+  --status-error-muted: #ffb0aa;
+  --status-info-text: #93c6db;
+  --status-info-muted: #b3d9e8;
+  --status-feature-text: #c4b5fd;
+  --status-feature-muted: #d7ccfe;
+  --status-error-hover: #ff655c;
+  --status-error-active: #e84f46;
+  --status-error-border: rgba(255, 69, 58, 0.24);
+  --status-success-soft: rgba(48, 209, 88, 0.14);
+  --status-success-border: rgba(48, 209, 88, 0.24);
+  --status-warning-soft: rgba(255, 214, 10, 0.14);
+  --status-warning-border: rgba(255, 214, 10, 0.24);
+  --status-info: #7fb7cf;
+  --status-info-hover: #91c4da;
+  --status-info-active: #6ca3ba;
+  --status-info-soft: rgba(127, 183, 207, 0.12);
+  --status-info-border: rgba(127, 183, 207, 0.2);
+  --status-feature: #a78bfa;
+  --status-feature-soft: rgba(167, 139, 250, 0.14);
+  --status-feature-border: rgba(167, 139, 250, 0.24);
 
-  --input-bg: #2a2a2a;
+  --input-bg: rgba(46, 46, 46, 0.9);
+  --bg-input: var(--input-bg);
   --input-border: rgba(255, 255, 255, 0.12);
+  --input-focus-border: rgba(255, 255, 255, 0.18);
+  --input-focus-shadow: none;
+  --selected-bg: color-mix(in srgb, var(--toolbar-icon) 20%, transparent);
 
-  /* Workbench Variables */
+  --bg-workbench: linear-gradient(180deg, rgba(38, 38, 38, 0.98), rgba(28, 28, 28, 1));
   --bg-workbench-content: var(--bg-content);
   --bg-workbench-sidebar: var(--bg-sidebar);
+  --bg-table-row: rgba(34, 34, 34, 0.78);
+  --bg-table-header: var(--surface-grid-header);
+  --graph-bg: #111111;
+  --bg-primary: #222222;
+  --bg-secondary: #292929;
+  --surface-content-base: #181818;
+  --surface-sidebar-base: rgba(27, 27, 27, 0.98);
+  --surface-sidebar-vibrant-base: rgba(33, 33, 33, 0.9);
+  --surface-elevated-base: rgba(46, 46, 46, 0.94);
+  --surface-workbench-base: linear-gradient(180deg, rgba(38, 38, 38, 0.98), rgba(28, 28, 28, 1));
+  --surface-graph-base: #181818;
 
-  /* Grid Variables (Dark Override) - Premium Minimalist */
-  --grid-bg: transparent;
-  --grid-header-bg: #323232;
-  --grid-header-border: rgba(255, 255, 255, 0.12);
-  --grid-border: rgba(255, 255, 255, 0.07);
-  --grid-header-text: #888888;
-  --grid-row-bg: transparent;
-  --grid-row-hover: rgba(255, 255, 255, 0.03);
-  --grid-row-selected: rgba(10, 132, 255, 0.15);
-  --grid-cell-text: #e5e7eb;
-  --grid-cell-secondary: #6b7280;
-  --grid-resize-handle: rgba(255, 255, 255, 0.05);
-  --grid-resize-active: #0a84ff;
-  --grid-focus-ring: rgba(10, 132, 255, 0.4);
-  --grid-shadow: none;
-  --grid-input-bg: #252525;
+  --surface-grid: rgba(39, 39, 39, 0.92);
+  --surface-grid-header: rgba(45, 45, 45, 0.97);
+  --surface-grid-row: rgba(34, 34, 34, 0.9);
+  --surface-grid-row-hover: rgba(255, 255, 255, 0.055);
+  --surface-grid-row-selected: rgba(125, 180, 255, 0.12);
+
+  --toolbar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 1px 0 rgba(0, 0, 0, 0.46), 0 10px 28px rgba(0, 0, 0, 0.14);
+  --panel-shadow: 0 14px 28px rgba(0, 0, 0, 0.22), 0 4px 12px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+
+  --button-default-bg: rgba(255, 255, 255, 0.075);
+  --button-default-border: rgba(255, 255, 255, 0.1);
+  --button-default-hover: rgba(255, 255, 255, 0.11);
+  --button-default-active: rgba(255, 255, 255, 0.15);
+  --button-default-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  --button-default-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 14px rgba(0, 0, 0, 0.12);
+  --button-default-shadow-active: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  --button-primary-border: rgba(109, 166, 255, 0.22);
+  --button-primary-bg: #3a86ff;
+  --button-primary-hover: #5a98ff;
+  --button-primary-active: #2f76ee;
+  --button-primary-text: #f5f9ff;
+  --button-primary-shadow: 0 5px 12px rgba(18, 46, 96, 0.22);
+  --button-primary-shadow-hover: 0 7px 16px rgba(18, 46, 96, 0.28);
+  --button-primary-shadow-active: inset 0 1px 2px rgba(14, 32, 67, 0.3);
+  --button-destructive-shadow: 0 10px 22px rgba(146, 24, 18, 0.22);
+  --button-destructive-shadow-hover: 0 14px 26px rgba(146, 24, 18, 0.26);
+  --button-destructive-shadow-active: inset 0 1px 2px rgba(80, 10, 8, 0.22);
+  --modal-backdrop: rgba(0, 0, 0, 0.42);
+  --control-selected-bg: rgba(125, 180, 255, 0.18);
+  --control-selected-border: rgba(125, 180, 255, 0.26);
+  --control-selected-text: #dbeaff;
+  --control-selected-shadow: none;
+  --checkbox-checked-bg: rgba(125, 180, 255, 0.22);
+  --checkbox-checked-border: rgba(125, 180, 255, 0.3);
+  --checkbox-checked-icon: #f3f8ff;
+
+  --grid-bg: var(--surface-grid);
+  --grid-header-bg: var(--surface-grid-header);
+  --grid-header-border: rgba(255, 255, 255, 0.08);
+  --grid-border: rgba(255, 255, 255, 0.06);
+  --grid-header-text: #8a8a8a;
+  --grid-row-bg: var(--surface-grid-row);
+  --grid-row-hover: var(--surface-grid-row-hover);
+  --grid-row-selected: var(--surface-grid-row-selected);
+  --grid-cell-text: var(--text-primary);
+  --grid-cell-secondary: #6b6b6b;
+  --grid-resize-handle: rgba(255, 255, 255, 0.06);
+  --grid-resize-active: var(--accent);
+  --grid-focus-ring: color-mix(in srgb, var(--toolbar-icon) 26%, transparent);
+  --grid-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --grid-input-bg: rgba(40, 40, 40, 0.92);
 }
-
-/* ========================================
-   Base Styles
-   ======================================== */
 
 body {
   margin: 0;
   padding: 0;
   font-family: var(--font-sans);
   font-size: 13px;
-  background-color: var(--bg-content);
+  background:
+    radial-gradient(circle at top left, var(--window-tint-1), transparent 42%), radial-gradient(circle at top right, var(--window-tint-2), transparent 36%),
+    radial-gradient(circle at bottom center, var(--window-tint-3), transparent 44%), linear-gradient(180deg, var(--window-bg), color-mix(in srgb, var(--window-bg) 88%, black));
   color: var(--text-primary);
   overflow: hidden;
-  -webkit-font-smoothing: subpixel-antialiased; /* Better for прозрачный WKWebView, antialiased is too heavy */
+  -webkit-font-smoothing: subpixel-antialiased;
   -moz-osx-font-smoothing: auto;
   letter-spacing: -0.012em;
-  transition: none; /* Disable global Transitions to avoid layout recalcs during store updates */
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
 }
 
 button,
@@ -199,16 +379,50 @@ input {
   outline: none;
 }
 
-/* ========================================
-   Components
-   ======================================== */
+#root {
+  min-height: 100vh;
+}
+
+.view-surface--queries {
+  --bg-sidebar: var(--bg-workbench-sidebar);
+  --bg-sidebar-vibrant: color-mix(in srgb, var(--bg-workbench-sidebar) 82%, transparent);
+}
+
+.view-surface--modeler {
+  --bg-content: color-mix(in srgb, var(--surface-content-base) 92%, var(--surface-elevated-base));
+  --bg-sidebar: color-mix(in srgb, var(--surface-sidebar-base) 90%, var(--surface-elevated-base));
+  --bg-sidebar-vibrant: color-mix(in srgb, var(--surface-sidebar-vibrant-base) 88%, var(--surface-elevated-base));
+}
+
+.view-surface--schema {
+  --bg-content: color-mix(in srgb, var(--surface-content-base) 95%, var(--surface-elevated-base));
+  --bg-elevated: color-mix(in srgb, var(--surface-elevated-base) 96%, var(--surface-content-base));
+  --bg-sidebar-vibrant: color-mix(in srgb, var(--surface-sidebar-vibrant-base) 90%, var(--surface-elevated-base));
+}
+
+.view-surface--dashboard {
+  --bg-content: color-mix(in srgb, var(--surface-content-base) 88%, var(--surface-elevated-base));
+  --bg-elevated: color-mix(in srgb, var(--surface-elevated-base) 97%, var(--surface-content-base));
+  --bg-sidebar: color-mix(in srgb, var(--surface-sidebar-base) 90%, var(--surface-elevated-base));
+}
+
+.view-surface--hql {
+  --bg-content: color-mix(in srgb, var(--surface-content-base) 90%, var(--surface-sidebar-base));
+  --bg-elevated: color-mix(in srgb, var(--surface-elevated-base) 94%, var(--surface-content-base));
+  --bg-sidebar-vibrant: color-mix(in srgb, var(--surface-sidebar-vibrant-base) 86%, var(--surface-elevated-base));
+}
+
+.view-surface--graph {
+  --bg-content: var(--surface-graph-base);
+  --graph-bg: var(--surface-graph-base);
+}
 
 .context-menu {
   background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(20px);
+  box-shadow: var(--panel-shadow);
+  backdrop-filter: blur(24px) saturate(155%);
   padding: 4px;
   min-width: 160px;
   z-index: 1000;
@@ -225,8 +439,8 @@ input {
 }
 
 .context-menu-item:hover {
-  background: var(--accent);
-  color: white;
+  background: var(--button-default-hover);
+  color: var(--text-primary);
 }
 
 .context-menu-separator {
@@ -235,20 +449,19 @@ input {
   margin: 4px 6px;
 }
 
-/* ========================================
-   Utilities & Animations
-   ======================================== */
-
 @layer utilities {
   .macos-vibrant-sidebar {
     background-color: var(--bg-sidebar-vibrant);
-    backdrop-filter: blur(25px) saturate(180%);
-    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    backdrop-filter: blur(28px) saturate(170%);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
   }
 
-  /* Shortcut for common theme backgrounds if needed */
   .bg-native-sidebar {
     background-color: var(--bg-sidebar);
+  }
+
+  .bg-graph {
+    background-color: var(--graph-bg);
   }
 
   .scrollbar-hide {

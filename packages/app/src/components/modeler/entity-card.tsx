@@ -101,7 +101,9 @@ export const ProEntityCard = (props: ProCardProps) => {
             <button
               onClick={() => props.onUpdate(props.entity.id, (prev) => ({ isUniqueRelation: !prev.isUniqueRelation }))}
               class={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all border ${
-                props.entity.isUniqueRelation ? "bg-accent/10 border-accent/30 text-accent" : "bg-transparent border-native text-native-tertiary hover:border-native"
+                props.entity.isUniqueRelation
+                  ? "[background:var(--control-selected-bg)] [border-color:var(--control-selected-border)] [color:var(--control-selected-text)] [box-shadow:var(--control-selected-shadow)]"
+                  : "bg-transparent border-native text-native-tertiary hover:border-native"
               }`}
               title="Unique Edge"
             >
@@ -165,7 +167,7 @@ export const ProEntityCard = (props: ProCardProps) => {
           <input
             type="number"
             value={props.entity.vectorDim || ""}
-            class="w-16 bg-native-content border border-native rounded px-1.5 py-0.5 text-[11px] font-mono outline-none focus:border-accent/50 transition-colors dark:[color-scheme:dark]"
+            class="w-16 bg-native-content border border-native rounded px-1.5 py-0.5 text-[11px] font-mono outline-none focus:[border-color:var(--input-focus-border)] transition-colors dark:[color-scheme:dark]"
             placeholder="Auto"
             onInput={(e) =>
               props.onUpdate(props.entity.id, () => ({

@@ -177,7 +177,7 @@ const VectorCard = (props: { vector: VectorType; expanded: boolean; onToggle: ()
 };
 
 export const Schema = (props: SchemaProps) => {
-  const [schemaData, { refetch }] = createResource(
+  const [schemaData, { refetch, mutate }] = createResource(
     () => (props.isConnected ? props.api : null),
     async (api) => {
       if (!api) return null;
@@ -202,6 +202,13 @@ export const Schema = (props: SchemaProps) => {
   const [activeTab, setActiveTab] = createSignal<"nodes" | "relationships" | "vectors">(persistentStore?.activeTab ?? "nodes");
   const [searchQuery, setSearchQuery] = createSignal(persistentStore?.searchQuery ?? "");
   const [expandedCards, setExpandedCards] = createSignal<Record<string, boolean>>(persistentStore?.expandedCards ?? {});
+
+  createEffect(() => {
+    if (!props.isConnected) {
+      mutate(null);
+      persistentStore = null;
+    }
+  });
 
   const isAnyExpanded = createMemo(() => Object.values(expandedCards()).some((v) => v === true));
 
@@ -308,7 +315,7 @@ export const Schema = (props: SchemaProps) => {
 
             <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
-            <div class="flex items-center p-0.5 rounded-lg bg-native-content/50 border border-native-subtle">
+            <div class="flex items-center p-0.5 rounded-lg bg-[var(--bg-toolbar)] border border-native-subtle">
               {[
                 { id: "nodes", label: "Nodes", icon: CircleDot, count: schema()?.nodes?.length || 0, color: "text-emerald-500" },
                 { id: "relationships", label: "Edges", icon: Share2, count: schema()?.edges?.length || 0, color: "text-blue-500" },
@@ -335,12 +342,12 @@ export const Schema = (props: SchemaProps) => {
                 when={isAnyExpanded()}
                 fallback={
                   <>
-                    <ChevronsUpDown size={13} strokeWidth={2.5} class="text-accent group-hover:scale-110 transition-transform" />
+                    <ChevronsUpDown size={13} strokeWidth={2.5} class="text-toolbar-icon group-hover:scale-110 transition-transform" />
                     <span class="font-medium">Expand</span>
                   </>
                 }
               >
-                <ChevronsDownUp size={13} strokeWidth={2.5} class="text-accent group-hover:scale-110 transition-transform" />
+                <ChevronsDownUp size={13} strokeWidth={2.5} class="text-toolbar-icon group-hover:scale-110 transition-transform" />
                 <span class="font-medium">Collapse</span>
               </Show>
             </Button>
@@ -356,7 +363,7 @@ export const Schema = (props: SchemaProps) => {
               disabled={loading()}
               class="flex items-center gap-1.5 transition-all group active:scale-95"
             >
-              <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : "group-hover:rotate-180"} transition-transform text-accent`} />
+              <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : "group-hover:rotate-180"} transition-transform text-toolbar-icon`} />
               <span class="font-medium">Refresh</span>
             </Button>
           </div>

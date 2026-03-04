@@ -325,10 +325,10 @@ export const Modeler = (_props: ModelerProps) => {
                   <EmptyState icon={DraftingCompass} title="Empty Modeler" description="Start building your graph schema by adding nodes, edges, or vectors from the toolbar." class="mt-20" />
                   <div class="mt-12 flex flex-col items-center gap-6">
                     <span class="text-[11px] font-medium text-[var(--text-tertiary)] uppercase tracking-widest opacity-60">Quick Start Templates</span>
-                    <div class="flex gap-4">
+                    <div class="flex flex-col gap-4 sm:flex-row">
                       <button
                         onClick={() => applyTemplate("Social")}
-                        class="group flex flex-col items-center gap-3 p-4 rounded-[1.25rem] bg-native-sidebar/40 border border-native hover:border-blue-500/30 hover:bg-blue-500/[0.04] transition-all duration-300 w-36 text-center shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1"
+                        class="group flex flex-col items-center gap-3 p-4 rounded-[1.25rem] bg-[var(--bg-toolbar)] border border-native hover:border-blue-500/25 hover:bg-blue-500/[0.03] transition-all duration-300 w-36 text-center shadow-sm hover:shadow-lg hover:shadow-blue-500/8 hover:-translate-y-1"
                       >
                         <div class="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:bg-blue-500/20 group-hover:scale-110 transition-all duration-300">
                           <Share2 size={20} />
@@ -341,7 +341,7 @@ export const Modeler = (_props: ModelerProps) => {
 
                       <button
                         onClick={() => applyTemplate("Ecom")}
-                        class="group flex flex-col items-center gap-3 p-4 rounded-[1.25rem] bg-native-sidebar/40 border border-native hover:border-orange-500/30 hover:bg-orange-500/[0.04] transition-all duration-300 w-36 text-center shadow-sm hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1"
+                        class="group flex flex-col items-center gap-3 p-4 rounded-[1.25rem] bg-[var(--bg-toolbar)] border border-native hover:border-orange-500/25 hover:bg-orange-500/[0.03] transition-all duration-300 w-36 text-center shadow-sm hover:shadow-lg hover:shadow-orange-500/8 hover:-translate-y-1"
                       >
                         <div class="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:bg-orange-500/20 group-hover:scale-110 transition-all duration-300">
                           <Layers size={20} />
@@ -354,7 +354,7 @@ export const Modeler = (_props: ModelerProps) => {
 
                       <button
                         onClick={() => applyTemplate("Wiki")}
-                        class="group flex flex-col items-center gap-3 p-4 rounded-[1.25rem] bg-native-sidebar/40 border border-native hover:border-purple-500/30 hover:bg-purple-500/[0.04] transition-all duration-300 w-36 text-center shadow-sm hover:shadow-xl hover:shadow-purple-500/10 hover:-translate-y-1"
+                        class="group flex flex-col items-center gap-3 p-4 rounded-[1.25rem] bg-[var(--bg-toolbar)] border border-native hover:border-purple-500/25 hover:bg-purple-500/[0.03] transition-all duration-300 w-36 text-center shadow-sm hover:shadow-lg hover:shadow-purple-500/8 hover:-translate-y-1"
                       >
                         <div class="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500 group-hover:bg-purple-500/20 group-hover:scale-110 transition-all duration-300">
                           <DraftingCompass size={20} />
@@ -439,10 +439,7 @@ export const Modeler = (_props: ModelerProps) => {
 
       {/* Resize Handle - macOS style */}
       <div class="w-px h-full flex-none relative group z-50 bg-[var(--border-subtle)]" onMouseDown={startResizing}>
-        <div
-          class="absolute inset-y-0 w-[3px] -left-[1px] cursor-col-resize hover:bg-[#007AFF]/10 dark:hover:bg-[#0A84FF]/10 transition-colors"
-          classList={{ "bg-[#007AFF]/20 dark:bg-[#0A84FF]/20": isResizing() }}
-        />
+        <div class="absolute inset-y-0 w-[3px] -left-[1px] cursor-col-resize hover:bg-accent/10 transition-colors" classList={{ "bg-accent/20": isResizing() }} />
       </div>
 
       <div style={{ width: `${modelerStore.sidebarWidth}px` }}>

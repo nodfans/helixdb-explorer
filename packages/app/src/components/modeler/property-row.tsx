@@ -123,7 +123,7 @@ export const PropertyRow = (props: PropertyRowProps) => {
           <div class="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity shrink-0">
             <button
               onClick={() => setIsExpanded(!isExpanded())}
-              class={`p-1 rounded hover:bg-hover transition-colors ${isExpanded() ? "text-accent bg-accent/10" : "text-native-tertiary"}`}
+              class={`p-1 rounded hover:bg-hover transition-colors ${isExpanded() ? "[color:var(--control-selected-text)] [background:var(--control-selected-bg)]" : "text-native-tertiary"}`}
               title="Configure field"
             >
               <Settings2 size={13} />
@@ -144,7 +144,7 @@ export const PropertyRow = (props: PropertyRowProps) => {
               <label class="text-[9px] uppercase font-bold tracking-wider text-native-tertiary ml-0.5">Default Value</label>
               <input
                 value={props.property.defaultValue || ""}
-                class="w-full h-7 bg-native-content border border-native rounded px-2 text-[11px] font-mono outline-none focus:border-accent/50 transition-colors"
+                class="w-full h-7 bg-native-content border border-native rounded px-2 text-[11px] font-mono outline-none focus:[border-color:var(--input-focus-border)] transition-colors"
                 placeholder="None..."
                 onInput={(e) =>
                   props.onUpdate({
@@ -158,7 +158,7 @@ export const PropertyRow = (props: PropertyRowProps) => {
               <label class="text-[9px] uppercase font-bold tracking-wider text-native-tertiary ml-0.5">Description</label>
               <input
                 value={props.property.description || ""}
-                class="w-full h-7 bg-native-content border border-native rounded px-2 text-[11px] outline-none focus:border-accent/50 transition-colors"
+                class="w-full h-7 bg-native-content border border-native rounded px-2 text-[11px] outline-none focus:[border-color:var(--input-focus-border)] transition-colors"
                 placeholder="Optional description..."
                 onInput={(e) =>
                   props.onUpdate({
@@ -203,7 +203,9 @@ const Toggle = (props: { label: string; active: boolean; onChange: (v: boolean) 
   <button
     onClick={() => props.onChange(!props.active)}
     class={`flex items-center gap-1.5 px-2 py-1 rounded border transition-all duration-200 ${
-      props.active ? "bg-accent/10 border-accent/30 text-accent" : "bg-transparent border-native text-native-tertiary hover:border-native"
+      props.active
+        ? "[background:var(--control-selected-bg)] [border-color:var(--control-selected-border)] [color:var(--control-selected-text)] [box-shadow:var(--control-selected-shadow)]"
+        : "bg-transparent border-native text-native-tertiary hover:border-native"
     }`}
   >
     <div class={`w-2 h-2 rounded-full ${props.active ? "bg-current shadow-[0_0_4px_currentColor]" : "bg-native"}`} />

@@ -41,10 +41,16 @@ export const HQL = (props: HQLProps) => {
   };
 
   const activeTab = createMemo(() => hqlStore.tabs.find((t) => t.id === hqlStore.activeTabId) || hqlStore.tabs[0]);
+  const hasUsableConnection = (conn = activeConnection()) => {
+    if (conn.type === "cloud") {
+      return Boolean(conn.cloudHost?.trim() && conn.apiKey?.trim());
+    }
+    return Boolean(conn.host?.trim() && conn.port?.trim());
+  };
 
   onMount(async () => {
     const active = activeConnection();
-    if (active && active.host) {
+    if (active && hasUsableConnection(active)) {
       const api = new HelixApi(getConnectionUrl(active), null);
       try {
         const schema = await api.fetchSchema();
@@ -150,10 +156,10 @@ export const HQL = (props: HQLProps) => {
     }
 
     const conn = activeConnection();
-    if (!conn.host || !props.isConnected) {
+    if (!hasUsableConnection(conn) || !props.isConnected) {
       updateTargetTab({
         status: "error",
-        output: !conn.host ? "❌ No active connection. Please add one in 'Connections' tab." : "❌ Disconnected. Please connect to the database first.",
+        output: !hasUsableConnection(conn) ? "❌ No active connection. Please add one in 'Connections' tab." : "❌ Disconnected. Please connect to the database first.",
       });
       setHqlStore("showResults", true);
       if (!props.isConnected) handleConnect();
@@ -228,7 +234,7 @@ export const HQL = (props: HQLProps) => {
 
   return (
     <div class="flex-1 flex flex-col bg-native-content min-h-0 min-w-0 overflow-hidden" classList={{ "cursor-row-resize": isResizing() }}>
-      <div class="flex items-center h-9 bg-native-sidebar-vibrant/40 border-b border-native-subtle px-5 gap-1.5 overflow-x-auto scrollbar-hide shrink-0">
+      <div class="flex items-center h-9 bg-[var(--bg-toolbar)] border-b border-native-subtle px-5 gap-1.5 overflow-x-auto scrollbar-hide shrink-0">
         <For each={hqlStore.tabs}>
           {(tab) => (
             <div
@@ -259,13 +265,13 @@ export const HQL = (props: HQLProps) => {
         </button>
       </div>
 
-      <div class="h-9 border-b border-native-subtle bg-native-sidebar-vibrant/40 flex items-center px-5 gap-2 shrink-0">
+      <div class="h-9 border-b border-native-subtle bg-[var(--bg-toolbar)] flex items-center px-5 gap-2 shrink-0 overflow-x-auto scrollbar-hide">
         <div
           onClick={handleConnect}
-          class="flex items-center h-[26px] bg-[var(--bg-input)] border border-native-subtle rounded-md px-2 gap-2 hover:border-native-active transition-colors min-w-[160px] max-w-[240px] group cursor-default select-none"
+          class="flex shrink-0 items-center h-[26px] bg-[var(--bg-input)] border border-native-subtle rounded-md px-2 gap-2 hover:border-native-active transition-colors min-w-[160px] max-w-[240px] group cursor-default select-none"
         >
           <div class="flex items-center justify-center w-4 h-4 bg-accent/10 rounded p-0.5">
-            <PanelTopDashed size={11} strokeWidth={2.5} class="text-accent" />
+            <PanelTopDashed size={11} strokeWidth={2.5} class="text-toolbar-icon" />
           </div>
           <span
             class="flex-1 text-[11px] font-medium truncate"
@@ -279,7 +285,7 @@ export const HQL = (props: HQLProps) => {
           </span>
         </div>
         <div class="w-px h-3.5 bg-[var(--border-subtle)] ml-2 mr-1" />
-        <button onClick={beautifyCode} class="h-7 w-7 p-0 flex items-center justify-center rounded-md transition-colors" title="Format Query">
+        <button onClick={beautifyCode} class="h-7 w-7 shrink-0 p-0 flex items-center justify-center rounded-md transition-colors" title="Format Query">
           <Show when={formatted()} fallback={<Sparkles size={16} class="text-purple-500" strokeWidth={2} />}>
             <Check size={16} class="text-emerald-500 animate-in fade-in zoom-in duration-200" strokeWidth={2} />
           </Show>
@@ -287,7 +293,7 @@ export const HQL = (props: HQLProps) => {
         <button
           onClick={() => executeHql()}
           disabled={executing() || !activeTab().code.trim()}
-          class="h-7 w-7 p-0 flex items-center justify-center rounded-md transition-colors disabled:opacity-40"
+          class="h-7 w-7 shrink-0 p-0 flex items-center justify-center rounded-md transition-colors disabled:opacity-40"
           title={executing() ? "Running..." : selectedText().trim() ? "Run Selection" : "Run Query"}
         >
           <Show when={executing()} fallback={<Play size={16} class={selectedText().trim() ? "text-accent" : "text-emerald-500"} strokeWidth={2} fill="currentColor" />}>
@@ -297,8 +303,8 @@ export const HQL = (props: HQLProps) => {
         <button
           onClick={async () => {
             const conn = activeConnection();
-            if (!conn.host || !props.isConnected) {
-              updateActiveTab({ status: "error", syncStatus: "error", output: !conn.host ? "❌ No active connection." : "❌ Disconnected.", viewMode: "log" });
+            if (!hasUsableConnection(conn) || !props.isConnected) {
+              updateActiveTab({ status: "error", syncStatus: "error", output: !hasUsableConnection(conn) ? "❌ No active connection." : "❌ Disconnected.", viewMode: "log" });
               setHqlStore("showResults", true);
               if (!props.isConnected) handleConnect();
               return;
@@ -330,14 +336,14 @@ export const HQL = (props: HQLProps) => {
             }
           }}
           disabled={!activeTab().code.trim() || syncing()}
-          class="h-7 w-7 p-0 flex items-center justify-center rounded-md transition-colors disabled:opacity-40"
+          class="h-7 w-7 shrink-0 p-0 flex items-center justify-center rounded-md text-[var(--button-primary-bg)] active:bg-[color-mix(in_srgb,var(--button-primary-bg)_16%,transparent)] transition-colors disabled:opacity-40"
           title={syncing() ? "Syncing..." : "Sync to Project"}
         >
-          <Show when={syncing()} fallback={<Upload size={16} class={activeConnection().localPath ? "text-accent" : "text-native-quaternary"} strokeWidth={2} />}>
-            <div class="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+          <Show when={syncing()} fallback={<Upload size={16} class="text-[var(--button-primary-bg)]" strokeWidth={2} />}>
+            <div class="w-4 h-4 border-2 border-[color-mix(in_srgb,var(--button-primary-bg)_30%,transparent)] border-t-[var(--button-primary-bg)] rounded-full animate-spin" />
           </Show>
         </button>
-        <div class="flex-1" />
+        <div class="flex-1 shrink-0 min-w-6" />
       </div>
 
       <div class="flex-1 flex flex-col min-h-0 relative">

@@ -773,13 +773,13 @@ export const Graph = (props: GraphProps) => {
       {/* Header & Controls */}
       <div class="flex-none">
         <ToolbarLayout class="justify-between">
-          <div class="flex items-center gap-2">
-            <Input variant="search" placeholder="Search nodes..." value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-48 h-7 shrink-0" />
+          <div class="flex items-center gap-2 shrink-0">
+            <Input variant="search" placeholder="Search nodes..." value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)} class="w-40 sm:w-48 h-7 shrink-0" />
 
             <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
             {/* Top N & Limit Group */}
-            <div class="flex items-center">
+            <div class="flex items-center shrink-0">
               <Button
                 variant="toolbar"
                 active={rankingMode()}
@@ -799,7 +799,7 @@ export const Graph = (props: GraphProps) => {
                   min="1"
                   max="50"
                   step="1"
-                  class="w-8 bg-transparent border-none outline-none text-[11px] font-mono font-bold text-native-primary text-center focus:ring-0 dark:[color-scheme:dark] tabular-nums"
+                  class="w-8 bg-transparent border-none outline-none text-[11px] font-mono font-bold text-native-primary text-center focus:ring-0 [color-scheme:light] dark:[color-scheme:dark] tabular-nums"
                   value={nodeLimit()}
                   onInput={(e) => {
                     let val = parseInt(e.currentTarget.value) || 1;
@@ -813,13 +813,13 @@ export const Graph = (props: GraphProps) => {
             <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
             <Button variant="toolbar" active={showLegend()} onClick={() => setShowLegend(!showLegend())} class="flex items-center gap-1.5 h-7 transition-all">
-              <Layers size={13} class={showLegend() ? "text-accent" : "text-native-tertiary"} />
+              <Layers size={13} class={showLegend() ? "text-toolbar-icon" : "text-native-tertiary"} />
               <span class="font-medium text-[11px]">Legend</span>
             </Button>
           </div>
 
           {/* Right: Actions */}
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 shrink-0">
             <Button
               variant="toolbar"
               onClick={() => {
@@ -831,14 +831,14 @@ export const Graph = (props: GraphProps) => {
               class="flex items-center gap-1.5 transition-all group active:scale-95"
               title="Center View"
             >
-              <Maximize size={12} strokeWidth={2.5} class="text-accent group-hover:scale-110 transition-transform" />
+              <Maximize size={12} strokeWidth={2.5} class="text-toolbar-icon group-hover:scale-110 transition-transform" />
               <span class="font-medium">Center</span>
             </Button>
 
             <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
             <Button variant="toolbar" onClick={refresh} disabled={loading()} class="flex items-center gap-1.5 transition-all group active:scale-95">
-              <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : "group-hover:rotate-180"} transition-transform text-accent`} />
+              <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : "group-hover:rotate-180"} transition-transform text-toolbar-icon`} />
               <span class="font-medium">Refresh</span>
             </Button>
 
@@ -861,7 +861,7 @@ export const Graph = (props: GraphProps) => {
           <Show
             when={props.isConnected}
             fallback={
-              <div class="flex-1 flex items-center justify-center bg-native-content/50 z-10 backdrop-blur-sm">
+              <div class="flex-1 flex items-center justify-center bg-native-content/20 z-10 backdrop-blur-[2px]">
                 <EmptyState icon={Radio} title="Graph Explorer" description="Connect to your HelixDB instance to visualize your database as an interactive network.">
                   <Button variant="primary" size="lg" onClick={props.onConnect}>
                     Connect Now
@@ -876,13 +876,13 @@ export const Graph = (props: GraphProps) => {
 
         {/* Schema Legend Panel */}
         <Show when={showLegend()}>
-          <div class="absolute top-4 left-4 z-40 w-56 bg-native-elevated/95 backdrop-blur-xl rounded-xl border border-native shadow-macos-lg flex flex-col max-h-[calc(100%-2rem)] overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-left-4">
+          <div class="absolute top-4 left-4 z-40 w-[min(14rem,calc(100%-2rem))] bg-native-elevated/95 backdrop-blur-xl rounded-xl border border-native shadow-macos-lg flex flex-col max-h-[calc(100%-2rem)] overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-left-4">
             <div class="flex-none p-3 border-b border-native flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <Layers size={14} class="text-accent" />
+                <Layers size={14} class="text-toolbar-icon" />
                 <span class="text-[12px] font-bold text-native-primary">Legend</span>
               </div>
-              <button onClick={() => setShowLegend(false)} class="p-1 hover:bg-native-content/10 rounded-md transition-colors text-native-tertiary hover:text-native-primary">
+              <button onClick={() => setShowLegend(false)} class="p-1 hover:bg-hover rounded-md transition-colors text-native-tertiary hover:text-native-primary">
                 <X size={14} />
               </button>
             </div>
@@ -892,7 +892,7 @@ export const Graph = (props: GraphProps) => {
                 {(item) => (
                   <div
                     class={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
-                      hiddenTypes().has(item.type) ? "opacity-50 grayscale bg-transparent" : "hover:bg-native-content/5"
+                      hiddenTypes().has(item.type) ? "opacity-50 grayscale bg-transparent" : "hover:bg-hover"
                     }`}
                     onClick={() => toggleHiddenType(item.type)}
                   >
@@ -914,14 +914,14 @@ export const Graph = (props: GraphProps) => {
               </For>
             </div>
 
-            <div class="flex-none p-2 border-t border-native bg-native-content/5">
+            <div class="flex-none p-2 border-t border-native bg-hover/50">
               <div class="text-[9px] text-center text-native-quaternary font-medium tracking-wider">Toggle types to filter view</div>
             </div>
           </div>
         </Show>
 
         <Show when={showDetailPanel()}>
-          <div class="w-72 flex-none bg-native-sidebar-vibrant backdrop-blur-xl border-l border-native animate-in slide-in-from-right duration-300 flex flex-col shadow-macos-lg">
+          <div class="w-[min(18rem,42vw)] min-w-[220px] flex-none bg-[var(--bg-toolbar)] backdrop-blur-xl border-l border-native animate-in slide-in-from-right duration-300 flex flex-col shadow-macos-lg">
             <div class="flex-none p-3 border-b border-native flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <span class="text-[11px] font-bold text-native-primary tracking-tight">Properties</span>
@@ -1011,8 +1011,8 @@ export const Graph = (props: GraphProps) => {
         </Show>
       </div>
 
-      <footer class="h-9 border-t border-native bg-native-content/50 backdrop-blur-md flex items-center justify-between px-5 flex-none select-none">
-        <div class="flex items-center gap-4 text-[11px]">
+      <footer class="h-9 border-t border-native bg-[var(--bg-toolbar)] flex items-center justify-between gap-3 overflow-x-auto px-5 flex-none select-none scrollbar-hide">
+        <div class="flex items-center gap-4 text-[11px] shrink-0">
           <Show when={props.isConnected}>
             <div class="flex items-center gap-3">
               <div class="flex items-center gap-1.5 font-semibold text-[11px]">
@@ -1028,18 +1028,17 @@ export const Graph = (props: GraphProps) => {
           </Show>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 shrink-0">
           <Show when={selectedNode()}>
-            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20">
-              <span class="text-[11px] font-semibold text-blue-400 tracking-wide">Selected:</span>
-              <span class="text-[11px] font-semibold text-blue-500">{(selectedNode() as any).id}</span>
+            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent/10 border border-accent/20">
+              <span class="text-[11px] font-semibold text-accent tracking-wide">Selected:</span>
+              <span class="text-[11px] font-semibold text-accent">{(selectedNode() as any).id}</span>
             </div>
 
             <div class="w-px h-3.5 bg-native-subtle mx-1" />
 
-            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
-              <GitGraph size={11} class="text-emerald-500" />
-              <span class="text-[11px] font-semibold text-emerald-500 tabular-nums">
+            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-status-success/10 border border-status-success/20">
+              <span class="text-[11px] font-semibold text-status-success tabular-nums">
                 {
                   allEdges().filter((e) => {
                     const node = selectedNode()!;
@@ -1049,7 +1048,7 @@ export const Graph = (props: GraphProps) => {
                   }).length
                 }
               </span>
-              <span class="text-[10px] text-emerald-400 font-medium">edges</span>
+              <span class="text-[11px] font-semibold text-status-success">edges</span>
             </div>
           </Show>
         </div>

@@ -143,6 +143,10 @@ export const SplashScreen = (props: SplashScreenProps) => {
 
   return (
     <div class="splash-root" classList={{ "splash-exit": !active() }}>
+      {/* Frosted backdrop */}
+      <div class="splash-backdrop-blur" />
+      <div class="splash-backdrop-tint" />
+
       {/* Gradient background layers */}
       <div class="splash-bg-base" />
       <div class="splash-bg-glow" />
@@ -178,7 +182,7 @@ export const SplashScreen = (props: SplashScreenProps) => {
               <span class="splash-dot splash-dot-yellow" />
               <span class="splash-dot splash-dot-green" />
             </div>
-            <span class="splash-titlebar-text">query.hql</span>
+            <span class="splash-titlebar-text">QUERY</span>
             <div class="splash-titlebar-spacer" />
           </div>
 
@@ -226,12 +230,39 @@ export const SplashScreen = (props: SplashScreenProps) => {
       <style>{`
         /* ===== Root ===== */
         .splash-root {
+          --splash-surface-bg: color-mix(in srgb, var(--window-bg) 95%, white 5%);
+          --splash-editor-bg: color-mix(in srgb, var(--window-bg) 94%, white 6%);
+          --splash-editor-border: rgba(255,255,255,0.5);
+          --splash-editor-line-num: #a7abb3;
+          --splash-token-keyword-color: #ec7d43;
+          --splash-token-type-color: #8d63ee;
+          --splash-token-operator-color: #ec7d43;
+          --splash-token-fn-color: #3d73df;
+          --splash-token-param-color: #2d8fb3;
+          --splash-token-punc-color: #58a7cf;
+          --splash-token-default-color: #66758c;
+          --splash-token-builtin-color: #b15fd6;
           position: fixed; inset: 0; z-index: 9999;
           display: flex; align-items: center; justify-content: center;
           overflow: hidden;
+          background: transparent;
           transition: opacity 0.7s cubic-bezier(0.4, 0, 0, 1),
                       transform 0.7s cubic-bezier(0.4, 0, 0, 1),
                       filter 0.7s cubic-bezier(0.4, 0, 0, 1);
+        }
+        [data-theme="dark"] .splash-root {
+          --splash-surface-bg: color-mix(in srgb, var(--bg-content) 95%, white 5%);
+          --splash-editor-bg: color-mix(in srgb, var(--bg-content) 94%, white 6%);
+          --splash-editor-border: rgba(255,255,255,0.08);
+          --splash-editor-line-num: #6f7783;
+          --splash-token-keyword-color: #f49a63;
+          --splash-token-type-color: #b28dff;
+          --splash-token-operator-color: #f49a63;
+          --splash-token-fn-color: #6ba7ff;
+          --splash-token-param-color: #73c4d4;
+          --splash-token-punc-color: #73d5e6;
+          --splash-token-default-color: #b6c0d1;
+          --splash-token-builtin-color: #d78dff;
         }
         .splash-exit {
           opacity: 0;
@@ -239,17 +270,46 @@ export const SplashScreen = (props: SplashScreenProps) => {
           filter: blur(12px);
         }
 
+        .splash-backdrop-blur {
+          position: absolute;
+          inset: -24px;
+          backdrop-filter: blur(34px) saturate(145%);
+          -webkit-backdrop-filter: blur(34px) saturate(145%);
+          transform: scale(1.04);
+          pointer-events: none;
+        }
+        .splash-backdrop-tint {
+          position: absolute;
+          inset: 0;
+          background:
+            linear-gradient(180deg,
+              color-mix(in srgb, var(--window-bg) 78%, transparent),
+              color-mix(in srgb, var(--bg-content) 86%, transparent)
+            );
+          opacity: 0.94;
+          pointer-events: none;
+        }
+
         /* ===== Background layers ===== */
         .splash-bg-base {
           position: absolute; inset: 0;
-          background: var(--bg-content);
+          background:
+            radial-gradient(circle at top left, color-mix(in srgb, var(--window-tint-1) 88%, transparent), transparent 42%),
+            radial-gradient(circle at top right, color-mix(in srgb, var(--window-tint-2) 80%, transparent), transparent 36%),
+            radial-gradient(circle at bottom center, color-mix(in srgb, var(--window-tint-3) 70%, transparent), transparent 44%),
+            linear-gradient(
+              180deg,
+              color-mix(in srgb, var(--bg-content) 92%, transparent),
+              color-mix(in srgb, var(--window-bg) 88%, transparent)
+            );
+          opacity: 0.92;
         }
         .splash-bg-glow {
           position: absolute; inset: 0;
           background:
-            radial-gradient(ellipse 600px 400px at 50% 40%, color-mix(in srgb, var(--accent) 4%, transparent), transparent),
-            radial-gradient(ellipse 400px 300px at 30% 70%, color-mix(in srgb, var(--accent) 2%, transparent), transparent),
-            radial-gradient(ellipse 400px 300px at 70% 60%, color-mix(in srgb, var(--color-purple, #bf5af2) 2%, transparent), transparent);
+            radial-gradient(ellipse 600px 400px at 50% 40%, color-mix(in srgb, var(--accent) 6%, transparent), transparent),
+            radial-gradient(ellipse 400px 300px at 30% 70%, color-mix(in srgb, var(--accent) 3%, transparent), transparent),
+            radial-gradient(ellipse 400px 300px at 70% 60%, color-mix(in srgb, var(--color-purple, #bf5af2) 3%, transparent), transparent);
           animation: glow-drift 12s ease-in-out infinite alternate;
         }
         @keyframes glow-drift {
@@ -268,7 +328,7 @@ export const SplashScreen = (props: SplashScreenProps) => {
         .splash-content {
           position: relative; z-index: 10;
           display: flex; flex-direction: column; align-items: center;
-          gap: 40px;
+          gap: 34px;
           max-width: 560px; width: 100%;
           padding: 0 20px;
         }
@@ -329,13 +389,37 @@ export const SplashScreen = (props: SplashScreenProps) => {
           width: 100%;
           border-radius: 10px;
           overflow: hidden;
-          background: var(--bg-elevated);
-          border: 1px solid var(--border-color);
+          position: relative;
+          background: var(--splash-surface-bg);
+          border: 1px solid color-mix(in srgb, var(--border-color) 88%, white 12%);
+          backdrop-filter: blur(22px) saturate(130%);
+          -webkit-backdrop-filter: blur(22px) saturate(130%);
           box-shadow:
-            0 1px 1px rgba(0,0,0,0.02),
-            0 4px 8px rgba(0,0,0,0.04),
-            0 12px 24px rgba(0,0,0,0.06),
-            0 24px 48px rgba(0,0,0,0.08);
+            inset 0 1px 0 rgba(255,255,255,0.2),
+            0 1px 1px rgba(0,0,0,0.03),
+            0 8px 20px rgba(0,0,0,0.08),
+            0 24px 48px rgba(0,0,0,0.14);
+        }
+        .splash-window::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: rgba(255,255,255,0.04);
+          opacity: 0.5;
+          pointer-events: none;
+        }
+        .splash-window::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.38),
+            inset 0 -1px 0 rgba(255,255,255,0.12),
+            inset 1px 0 0 rgba(255,255,255,0.14),
+            inset -1px 0 0 rgba(255,255,255,0.12);
+          opacity: 0.72;
+          pointer-events: none;
         }
 
         /* Title bar */
@@ -343,9 +427,17 @@ export const SplashScreen = (props: SplashScreenProps) => {
           height: 36px;
           display: flex; align-items: center;
           padding: 0 14px;
-          background: var(--bg-toolbar);
-          border-bottom: 1px solid var(--border-subtle);
+          position: relative;
+          background: var(--splash-surface-bg);
+          border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 92%, transparent);
           user-select: none;
+        }
+        .splash-titlebar::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: rgba(255,255,255,0.06);
+          pointer-events: none;
         }
         .splash-traffic-lights {
           display: flex; gap: 7px;
@@ -379,12 +471,14 @@ export const SplashScreen = (props: SplashScreenProps) => {
 
         /* Editor body */
         .splash-editor {
-          padding: 18px 20px 20px 1px;
+          padding: 10px 20px 20px 1px;
           font-family: var(--font-mono);
           font-size: 12.5px;
           line-height: 1.85;
           position: relative;
           min-height: 160px;
+          background: var(--splash-surface-bg);
+          box-shadow: none;
         }
         .splash-code-line {
           display: flex;
@@ -400,12 +494,12 @@ export const SplashScreen = (props: SplashScreenProps) => {
         .splash-line-num {
           width: 28px;
           text-align: right;
-          color: var(--text-quaternary);
+          color: var(--splash-editor-line-num);
           font-size: 11px;
           margin-right: 14px;
           user-select: none;
           flex-shrink: 0;
-          opacity: 0.6;
+          opacity: 0.92;
         }
         .splash-line-content {
           white-space: pre;
@@ -428,26 +522,29 @@ export const SplashScreen = (props: SplashScreenProps) => {
         }
 
         /* Token colors - Sync with reference image (Tokyo Night) */
-        .splash-token-keyword { color: #ff9e64; font-weight: 600; } /* Orange */
-        .splash-token-type { color: #bb9af7; } /* Purple */
-        .splash-token-operator { color: #ff9e64; } /* Orange (<-) */
-        .splash-token-fn { color: #7aa2f7; font-weight: 500; } /* Blue (CreateUser, AddN) */
-        .splash-token-param { color: #c0caf5; } /* Foreground blue-white */
-        .splash-token-punc { color: #89ddff; } /* Light cyan (brackets, commas) */
-        .splash-token-default { color: #c0caf5; }
-        .splash-token-builtin { color: #7dcfff; } /* Cyan (String, I32) */
+        .splash-token-keyword { color: var(--splash-token-keyword-color); font-weight: 680; }
+        .splash-token-type { color: var(--splash-token-type-color); font-weight: 620; }
+        .splash-token-operator { color: var(--splash-token-operator-color); font-weight: 680; }
+        .splash-token-fn { color: var(--splash-token-fn-color); font-weight: 620; }
+        .splash-token-param { color: var(--splash-token-param-color); font-weight: 560; }
+        .splash-token-punc { color: var(--splash-token-punc-color); font-weight: 540; }
+        .splash-token-default { color: var(--splash-token-default-color); font-weight: 540; }
+        .splash-token-builtin { color: var(--splash-token-builtin-color); font-weight: 580; }
 
         /* ===== Progress ===== */
         .splash-progress-region {
           display: flex; flex-direction: column; align-items: center;
-          gap: 16px; width: 240px;
+          gap: 18px; width: 260px;
         }
         .splash-progress-track {
-          width: 100%; height: 3px;
+          width: 100%; height: 4px;
           background: var(--border-subtle);
           border-radius: 2px;
           overflow: hidden;
           position: relative;
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.35),
+            0 0 0 1px rgba(255,255,255,0.08);
         }
         .splash-progress-fill {
           position: absolute; top: 0; left: 0; height: 100%;
@@ -478,31 +575,32 @@ export const SplashScreen = (props: SplashScreenProps) => {
         /* ===== Continue Button (macOS pill) ===== */
         .splash-enter-btn {
           display: inline-flex; align-items: center; gap: 6px;
-          height: 28px;
-          padding: 0 14px 0 16px;
-          border-radius: 10px;
-          background: var(--accent);
-          border: none;
-          color: #fff;
-          font-size: 12px;
+          height: 34px;
+          padding: 0 18px 0 20px;
+          border-radius: 11px;
+          background: var(--button-primary-bg);
+          border: 1px solid var(--button-primary-border);
+          color: var(--button-primary-text);
+          font-size: 13px;
           font-weight: 600;
           font-family: var(--font-sans);
           cursor: pointer;
           transition: all 0.2s ease;
           animation: splash-reveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          box-shadow: 0 0.5px 1px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+          box-shadow: var(--button-primary-shadow);
           letter-spacing: 0.01em;
         }
         .splash-enter-btn:hover {
-          filter: brightness(1.1);
-          box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.08);
+          background: var(--button-primary-bg);
+          box-shadow: var(--button-primary-shadow);
         }
         .splash-enter-btn:active {
-          filter: brightness(0.95);
+          background: var(--button-primary-active);
+          box-shadow: var(--button-primary-shadow-active);
           transform: scale(0.98);
         }
         .splash-enter-arrow {
-          width: 13px; height: 13px;
+          width: 14px; height: 14px;
           opacity: 0.85;
         }
       `}</style>

@@ -40,21 +40,21 @@ const KpiStrip = (p: { nodes: number; edges: number; vectors: number; queries: n
   ];
 
   return (
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-px p-px bg-native-subtle rounded-xl overflow-hidden shadow-sm">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-px p-px bg-[var(--dashboard-card-border)] rounded-xl overflow-hidden shadow-sm">
       <For each={items}>
         {(item, i) => (
           <Stagger index={i()}>
-            <div class="flex flex-col gap-2 px-6 py-4 bg-native-elevated group hover:bg-native-content transition-colors duration-150">
+            <div class="flex flex-col gap-2 px-6 py-4 bg-[var(--dashboard-card-bg)] group hover:bg-[var(--dashboard-card-bg)] transition-colors duration-150">
               <div class="flex items-center gap-2">
                 <div class="w-1.5 h-1.5 rounded-full" style={{ "background-color": item.color }} />
-                <span class="text-[10px] font-bold tracking-tight text-native-tertiary">{item.label}</span>
+                <span class="text-[10px] font-semibold tracking-tight text-native-secondary">{item.label}</span>
               </div>
               <Show when={!p.loading} fallback={<div class="animate-pulse h-8 w-20 rounded bg-native/10" />}>
                 <span class="text-[28px] font-semibold tracking-tight text-[var(--text-highlight)] leading-none tabular-nums">
                   {item.value() > 9999 ? (item.value() / 1000).toFixed(1) + "k" : item.value().toLocaleString()}
                 </span>
               </Show>
-              <span class="text-[10px] text-native-tertiary">{item.sub}</span>
+              <span class="text-[10px] text-native-secondary">{item.sub}</span>
             </div>
           </Stagger>
         )}
@@ -70,7 +70,9 @@ const DonutChart = (p: { items: { type: string; count: number; queries: SchemaQu
   createEffect(() => {
     if (!chartRef || p.items.length === 0) return;
     const chart = echarts.init(chartRef);
-    const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches || document.documentElement.classList.contains("dark");
+    const isDark =
+      document.documentElement.getAttribute("data-theme") === "dark" ||
+      (!document.documentElement.hasAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
     chart.setOption({
       tooltip: {
@@ -167,20 +169,20 @@ const DistCard = (p: {
   });
 
   return (
-    <div class="flex flex-col gap-3 px-5 pt-5 pb-2 rounded-xl bg-native-elevated border border-native-subtle shadow-sm">
+    <div class="flex flex-col gap-3 px-5 pt-5 pb-2 rounded-xl bg-[var(--dashboard-card-bg)] border border-[var(--dashboard-card-border)] shadow-sm">
       {/* Header */}
       <div class="flex flex-col pb-3 border-b border-native-subtle">
         <div class="text-[13px] font-semibold text-native-primary">{p.title}</div>
-        <div class="text-[11px] text-native-tertiary">{p.subtitle}</div>
+        <div class="text-[11px] text-native-secondary">{p.subtitle}</div>
       </div>
 
       {/* Empty state */}
       <Show when={isEmpty()}>
         <div class="flex flex-col items-center justify-center gap-2 py-6 text-center select-none">
           <div class="w-9 h-9 rounded-full bg-native/10 flex items-center justify-center">
-            <Ghost size={15} class="text-native-quaternary opacity-40" />
+            <Ghost size={15} class="text-native-quaternary opacity-60" />
           </div>
-          <span class="text-[12px] text-native-tertiary opacity-50">{p.emptyTitle || "No data yet"}</span>
+          <span class="text-[12px] text-native-secondary opacity-80">{p.emptyTitle || "No data yet"}</span>
         </div>
       </Show>
 
@@ -195,7 +197,7 @@ const DistCard = (p: {
             <div class="flex flex-col gap-1">
               <Show when={!p.loading} fallback={<div class="h-8 w-24 animate-pulse bg-native/10 rounded" />}>
                 <div class="text-[22px] font-bold text-[var(--text-highlight)] tracking-tight leading-none">{p.totalCount.toLocaleString()}</div>
-                <div class="text-[10px] items-center font-bold text-native-tertiary tracking-tight mt-1">Total Records</div>
+                <div class="text-[10px] items-center font-semibold text-native-secondary tracking-tight mt-1">Total Records</div>
               </Show>
             </div>
           </div>
@@ -234,7 +236,7 @@ const DistCard = (p: {
                               </Show>
                             </div>
                             <div class="flex items-center gap-2 flex-shrink-0">
-                              <span class="text-[10px] text-native-tertiary">{pct}%</span>
+                              <span class="text-[10px] text-native-secondary">{pct}%</span>
                               <span class="text-[12px] font-bold text-[var(--text-highlight)] tabular-nums">{item.count.toLocaleString()}</span>
                             </div>
                           </div>
@@ -246,7 +248,7 @@ const DistCard = (p: {
 
                         <Show when={isExpanded() && item.queries.length > 0}>
                           <div class="flex flex-col gap-1.5 pl-3.5 border-l-2 border-native-subtle mt-1 mb-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
-                            <div class="text-[9px] font-bold text-native-tertiary tracking-tight mb-0.5">Associated Queries</div>
+                            <div class="text-[10px] font-semibold text-native-secondary tracking-tight mb-0.5">Associated Queries</div>
                             <div class="flex flex-wrap gap-1.5">
                               {item.queries.map((q) => (
                                 <div
@@ -271,7 +273,7 @@ const DistCard = (p: {
                 <Show when={processedItems().length > LIMIT}>
                   <button
                     onClick={() => setIsListExpanded(!isListExpanded())}
-                    class="w-full py-1 flex items-center justify-center gap-2 text-[11px] font-medium text-native-tertiary hover:text-native-primary hover:bg-native/5 rounded-md transition-colors"
+                    class="w-full py-1 flex items-center justify-center gap-2 text-[11px] font-medium text-native-secondary hover:text-native-primary hover:bg-native/5 rounded-md transition-colors"
                   >
                     {isListExpanded() ? (
                       <>
@@ -307,7 +309,7 @@ const StoragePanel = (p: { stats: LocalStorageStats | null; loading?: boolean; i
   const dbEntries = () => (p.stats ? Object.entries(p.stats.core_dbs).sort((a, b) => b[1].entries - a[1].entries) : []);
 
   return (
-    <div class="rounded-xl bg-native-elevated border border-native-subtle shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500 relative">
+    <div class="rounded-xl bg-[var(--dashboard-card-bg)] border border-[var(--dashboard-card-border)] shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500 relative">
       <Show when={!p.stats && !p.loading}>
         <div class="absolute inset-0 z-10 bg-native-elevated/40 backdrop-blur-[2px] flex items-center justify-center p-6 text-center">
           <div class="max-w-[400px] flex flex-col items-center gap-3 animate-in zoom-in-95 duration-300">
@@ -316,7 +318,7 @@ const StoragePanel = (p: { stats: LocalStorageStats | null; loading?: boolean; i
             </div>
             <div class="space-y-1">
               <h4 class="text-[13px] font-bold text-native-primary">Local Statistics Unavailable</h4>
-              <p class="text-[11px] text-native-tertiary leading-relaxed">
+              <p class="text-[11px] text-native-secondary leading-relaxed">
                 {p.isCloud && !p.linkedPath
                   ? "Link a local workspace to see physical storage metrics and engine health for this cloud connection."
                   : p.isCloud && p.linkedPath
@@ -342,54 +344,58 @@ const StoragePanel = (p: { stats: LocalStorageStats | null; loading?: boolean; i
       <div class={`grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-native-subtle ${!p.stats ? "opacity-20 grayscale" : ""}`}>
         {/* Physical Storage */}
         <div class="flex flex-col gap-3 p-5">
-          <div class="flex items-center gap-2 text-native-tertiary">
-            <HardDrive size={13} class="text-accent" />
-            <span class="text-[10px] font-bold tracking-tight">Physical Storage</span>
+          <div class="flex items-center gap-2 text-native-secondary">
+            <div class="flex h-5 w-5 items-center justify-center rounded-md bg-accent/12">
+              <HardDrive size={12} class="text-accent" />
+            </div>
+            <span class="text-[10px] font-bold tracking-tight text-accent">Physical Storage</span>
           </div>
           <div class="flex flex-col gap-0.5">
             <span class="text-[22px] font-bold text-[var(--text-highlight)] tracking-tight leading-none">{p.stats ? formatBytes(p.stats.disk_size_bytes) : "---"}</span>
-            <span class="text-[10px] text-native-tertiary">data.mdb on disk</span>
+            <span class="text-[10px] text-native-secondary">data.mdb on disk</span>
           </div>
           <div class="flex flex-col gap-1.5 mt-1">
             <div class="flex justify-between text-[10px]">
-              <span class="text-native-tertiary">Env max</span>
-              <span class="text-native-tertiary">{p.stats ? formatBytes(p.stats.env_info.map_size) : "---"}</span>
+              <span class="text-native-secondary">Env max</span>
+              <span class="text-native-secondary">{p.stats ? formatBytes(p.stats.env_info.map_size) : "---"}</span>
             </div>
             <div class="w-full bg-native/10 h-1 rounded-full overflow-hidden">
               <div class="bg-accent h-full transition-all duration-700" style={{ width: `${usagePct()}%` }} />
             </div>
-            <span class="text-[10px] text-native-tertiary">{usagePct().toFixed(1)}% used</span>
+            <span class="text-[10px] text-native-secondary">{usagePct().toFixed(1)}% used</span>
           </div>
         </div>
 
         {/* Engine Health */}
         <div class="flex flex-col gap-3 p-5">
           <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2 text-native-tertiary">
-              <Activity size={13} class="text-emerald-500" />
-              <span class="text-[10px] font-bold tracking-tight">Engine Health</span>
+            <div class="flex items-center gap-2 text-native-secondary">
+              <div class="flex h-5 w-5 items-center justify-center rounded-md bg-status-success/12">
+                <Activity size={12} class="text-status-success" />
+              </div>
+              <span class="text-[10px] font-bold tracking-tight text-status-success">Engine Health</span>
             </div>
             <Show when={p.stats}>
-              <div class="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500">
-                <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <div class="flex items-center gap-1.5 rounded-full bg-status-success/10 px-2 py-0.5 text-[10px] font-semibold text-status-success">
+                <div class="w-1.5 h-1.5 rounded-full bg-status-success animate-pulse" />
                 Healthy
               </div>
             </Show>
           </div>
           <div class="grid grid-cols-2 gap-x-4 gap-y-3 mt-1">
             <div>
-              <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Last Txn ID</div>
+              <div class="text-[10px] text-native-secondary font-semibold tracking-tight mb-0.5">Last Txn ID</div>
               <div class="text-[15px] font-bold text-[var(--text-highlight)]">{p.stats ? p.stats.env_info.last_txnid.toLocaleString() : "---"}</div>
             </div>
             <div>
-              <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Active Readers</div>
+              <div class="text-[10px] text-native-secondary font-semibold tracking-tight mb-0.5">Active Readers</div>
               <div class="text-[15px] font-bold text-[var(--text-highlight)]">
                 {p.stats ? p.stats.env_info.num_readers : "---"}
-                <span class="text-native-tertiary text-[11px] font-normal"> / {p.stats ? p.stats.env_info.max_readers : "---"}</span>
+                <span class="text-native-secondary text-[11px] font-normal"> / {p.stats ? p.stats.env_info.max_readers : "---"}</span>
               </div>
             </div>
             <div>
-              <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Last Page</div>
+              <div class="text-[10px] text-native-secondary font-semibold tracking-tight mb-0.5">Last Page</div>
               <div class="text-[15px] font-bold text-[var(--text-highlight)]">{p.stats ? p.stats.env_info.last_pgno.toLocaleString() : "---"}</div>
             </div>
           </div>
@@ -397,15 +403,17 @@ const StoragePanel = (p: { stats: LocalStorageStats | null; loading?: boolean; i
 
         {/* Core Subscriptions */}
         <div class="flex flex-col gap-3 p-5">
-          <div class="flex items-center gap-2 text-native-tertiary">
-            <Database size={13} class="text-indigo-400" />
-            <span class="text-[10px] font-bold tracking-tight">Core Subscriptions</span>
+          <div class="flex items-center gap-2 text-native-secondary">
+            <div class="flex h-5 w-5 items-center justify-center rounded-md bg-status-info/12">
+              <Database size={12} class="text-status-info" />
+            </div>
+            <span class="text-[10px] font-bold tracking-tight text-status-info">Core Subscriptions</span>
           </div>
           <div class="flex flex-col gap-2 overflow-y-auto max-h-[140px] pr-1">
             <For each={dbEntries()}>
               {([name, stat]) => (
                 <div class="flex justify-between items-center group">
-                  <span class="text-[11px] text-native-tertiary font-medium group-hover:text-native-secondary transition-colors truncate mr-3">{name}</span>
+                  <span class="text-[11px] text-native-secondary font-medium group-hover:text-native-primary transition-colors truncate mr-3">{name}</span>
                   <span class="text-[11px] font-bold text-[var(--text-highlight)] flex-shrink-0">{stat.entries.toLocaleString()}</span>
                 </div>
               )}
@@ -429,10 +437,12 @@ const StoragePanel = (p: { stats: LocalStorageStats | null; loading?: boolean; i
             <div class="flex flex-col gap-3 p-5">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                  <Search size={13} class="text-pink-400" />
-                  <span class="text-[10px] font-bold tracking-tight text-native-tertiary">BM25 Search Index</span>
+                  <div class="flex h-5 w-5 items-center justify-center rounded-md bg-status-feature/12">
+                    <Search size={12} class="text-status-feature" />
+                  </div>
+                  <span class="text-[10px] font-bold tracking-tight text-status-feature">BM25 Search Index</span>
                 </div>
-                <span class="text-[9px] text-native-tertiary tracking-tight">Full-Text</span>
+                <span class="rounded-full bg-status-feature/10 px-2 py-0.5 text-[10px] font-medium text-status-feature tracking-tight">Full-Text</span>
               </div>
               <div class="flex flex-col gap-2">
                 <For each={Object.entries(p.stats!.bm25_stats!)}>
@@ -442,7 +452,7 @@ const StoragePanel = (p: { stats: LocalStorageStats | null; loading?: boolean; i
                         <span class="text-[11px] text-native-secondary truncate mr-2">{field.replace("bm25_metadata_", "")}</span>
                         <span class="text-[11px] font-bold text-[var(--text-highlight)] flex-shrink-0">{stat.total_docs.toLocaleString()} docs</span>
                       </div>
-                      <div class="flex items-center gap-3 text-[10px] text-native-tertiary">
+                      <div class="flex items-center gap-3 text-[10px] text-native-secondary">
                         <span>avgdl: {Math.round(stat.avgdl)}</span>
                         <span>k1: {stat.k1.toFixed(1)}</span>
                         <span>b: {stat.b.toFixed(1)}</span>
@@ -459,22 +469,24 @@ const StoragePanel = (p: { stats: LocalStorageStats | null; loading?: boolean; i
             <div class="flex flex-col gap-3 p-5">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                  <Sparkles size={13} class="text-amber-400" />
-                  <span class="text-[10px] font-bold tracking-tight text-native-tertiary">HNSW Vector Index</span>
+                  <div class="flex h-5 w-5 items-center justify-center rounded-md bg-status-warning/12">
+                    <Sparkles size={12} class="text-status-warning" />
+                  </div>
+                  <span class="text-[10px] font-bold tracking-tight text-status-warning">HNSW Vector Index</span>
                 </div>
-                <span class="text-[9px] text-native-tertiary tracking-tight">Embeddings</span>
+                <span class="rounded-full bg-status-warning/10 px-2 py-0.5 text-[10px] font-medium text-status-warning tracking-tight">Embeddings</span>
               </div>
               <div class="grid grid-cols-3 gap-4 mt-1">
                 <div>
-                  <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Vectors</div>
+                  <div class="text-[10px] text-native-secondary font-semibold tracking-tight mb-0.5">Vectors</div>
                   <div class="text-[18px] font-bold text-[var(--text-highlight)]">{p.stats!.hnsw_stats!.vector_count.toLocaleString()}</div>
                 </div>
                 <div>
-                  <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Graph Nodes</div>
+                  <div class="text-[10px] text-native-secondary font-semibold tracking-tight mb-0.5">Graph Nodes</div>
                   <div class="text-[18px] font-bold text-[var(--text-highlight)]">{p.stats!.hnsw_stats!.vector_data_count.toLocaleString()}</div>
                 </div>
                 <div>
-                  <div class="text-[9px] text-native-tertiary font-bold tracking-tight mb-0.5">Graph Edges</div>
+                  <div class="text-[10px] text-native-secondary font-semibold tracking-tight mb-0.5">Graph Edges</div>
                   <div class="text-[18px] font-bold text-[var(--text-highlight)]">{p.stats!.hnsw_stats!.out_nodes_count.toLocaleString()}</div>
                 </div>
               </div>
@@ -753,7 +765,7 @@ export const Dashboard = (props: DashboardProps) => {
             class="flex items-center gap-1.5 px-2 py-0.5 rounded-[8px] transition-colors"
             classList={{
               "bg-accent/10 border border-accent/20": props.isConnected,
-              "bg-native-content/50 border border-native-subtle": !props.isConnected,
+              "bg-[var(--bg-toolbar)] border border-native-subtle": !props.isConnected,
             }}
           >
             <Globe size={10} class={props.isConnected ? "text-accent" : "text-native-quaternary"} />
@@ -768,17 +780,17 @@ export const Dashboard = (props: DashboardProps) => {
             </span>
           </div>
           <Show when={lastUpdated()}>
-            <div class="flex items-center gap-1.5 text-[11px] text-native-tertiary">
+            <div class="flex items-center gap-1.5 text-[11px] text-native-secondary">
               <Clock size={10} class="opacity-60" />
               <span>Updated {formatTime(lastUpdated()!)}</span>
             </div>
           </Show>
           <Show when={loading() && !lastUpdated()}>
-            <span class="text-[11px] text-native-tertiary animate-pulse">Loading statistics…</span>
+            <span class="text-[11px] text-native-secondary animate-pulse">Loading statistics…</span>
           </Show>
         </div>
         <Button variant="toolbar" onClick={loadStats} disabled={loading()} class="flex items-center gap-1.5 transition-all group active:scale-95">
-          <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : "group-hover:rotate-180"} transition-transform text-accent`} />
+          <RefreshCw size={12} strokeWidth={2.5} class={`${loading() ? "animate-spin" : "group-hover:rotate-180"} transition-transform text-toolbar-icon`} />
           <span class="font-medium">Refresh</span>
         </Button>
       </ToolbarLayout>

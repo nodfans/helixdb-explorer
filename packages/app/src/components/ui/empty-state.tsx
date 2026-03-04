@@ -17,7 +17,7 @@ export const EmptyState = (props: EmptyStateProps) => {
       class={`flex flex-col items-center justify-center text-center p-8 transition-all ${props.class || ""}`}
       classList={{
         "flex-1 h-full": isLarge(),
-        "h-full bg-native-sidebar/30": !isLarge(),
+        "h-full": !isLarge(),
       }}
     >
       <div class="relative mb-6 group">

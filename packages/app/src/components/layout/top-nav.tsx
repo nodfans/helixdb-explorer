@@ -75,14 +75,14 @@ const ConnectionButton = (props: { isConnected: boolean; onClick: () => void }) 
   );
 };
 
-const NavButton = (props: { label: string; icon: any; color: string; size?: number; isActive: boolean; onClick: () => void }) => {
+const NavButton = (props: { label: string; icon: any; color: string; size?: number; iconClass?: string; isActive: boolean; onClick: () => void }) => {
   return (
     <button
       onClick={props.onClick}
       class="flex flex-col items-center justify-center min-w-[72px] h-[52px] pb-px transition-all group relative outline-none select-none"
       style={{ "-webkit-tap-highlight-color": "transparent" }}
     >
-      <div class={`relative w-12 h-9 flex items-center justify-center transition-all duration-300 ${props.isActive ? "scale-110" : props.color + " group-hover:scale-110"}`}>
+      <div class={`relative w-12 h-9 flex items-center justify-center transition-all duration-300 ${props.iconClass || ""} ${props.isActive ? "scale-110" : props.color + " group-hover:scale-110"}`}>
         <props.icon size={props.size || 28} />
       </div>
 
@@ -111,14 +111,14 @@ export const TopNav = (props: TopNavProps) => {
       </div>
 
       {/* Main Toolbar */}
-      <div class="flex-1 flex items-center px-3 gap-2">
+      <div class="flex-1 flex items-center gap-2 overflow-x-auto overflow-y-hidden px-3 scrollbar-hide">
         {/* Connection Button */}
         <ConnectionButton isConnected={props.isConnected} onClick={props.onOpenSettings} />
 
         <Divider />
 
         {/* View Switchers */}
-        <div class="flex items-center gap-0.5">
+        <div class="flex items-center gap-0.5 shrink-0">
           <For each={NAV_ITEMS}>
             {(item) => <NavButton label={item.label} icon={item.icon} color={item.color} size={item.size} isActive={props.activeView === item.id} onClick={() => props.onSelectView(item.id)} />}
           </For>

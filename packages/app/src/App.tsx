@@ -175,15 +175,15 @@ function App() {
 
         <main class="flex-1 flex flex-col overflow-hidden bg-native-content relative">
           <div class="flex-1 overflow-hidden flex flex-col relative">
-            <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "editor", "view-enter": currentView() === "editor" }}>
+            <div class="view-surface--modeler flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "editor", "view-enter": currentView() === "editor" }}>
               <Modeler api={connection.apiClient()} onExecute={executeQuery} isExecuting={isExecuting()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
             </div>
 
-            <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "schema", "view-enter": currentView() === "schema" }}>
+            <div class="view-surface--schema flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "schema", "view-enter": currentView() === "schema" }}>
               <Schema api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
             </div>
 
-            <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "queries", "view-enter": currentView() === "queries" }}>
+            <div class="view-surface--queries flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "queries", "view-enter": currentView() === "queries" }}>
               <Queries
                 api={connection.apiClient()}
                 isActive={currentView() === "queries"}
@@ -194,7 +194,7 @@ function App() {
               />
             </div>
 
-            <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "dashboard", "view-enter": currentView() === "dashboard" }}>
+            <div class="view-surface--dashboard flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "dashboard", "view-enter": currentView() === "dashboard" }}>
               <Dashboard
                 api={connection.apiClient()}
                 isConnected={connection.isConnected()}
@@ -207,17 +207,17 @@ function App() {
             </div>
 
             <Show when={currentView() === "graph"}>
-              <div class="flex-1 flex flex-col overflow-hidden view-enter">
+              <div class="view-surface--graph flex-1 flex flex-col overflow-hidden view-enter">
                 <Graph api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
               </div>
             </Show>
 
-            <div class="flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "hql", "view-enter": currentView() === "hql" }}>
+            <div class="view-surface--hql flex-1 flex flex-col overflow-hidden" classList={{ hidden: currentView() !== "hql", "view-enter": currentView() === "hql" }}>
               <HQL isConnected={connection.isConnected()} onConnect={connection.openSettings} />
             </div>
 
             <Show when={currentView() === "vectors"}>
-              <div class="flex-1 flex flex-col overflow-hidden view-enter">
+              <div class="view-surface--graph flex-1 flex flex-col overflow-hidden view-enter">
                 <Vectors api={connection.apiClient()} isConnected={connection.isConnected()} onConnect={connection.openSettings} />
               </div>
             </Show>

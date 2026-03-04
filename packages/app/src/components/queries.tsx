@@ -368,7 +368,7 @@ export const Queries = (props: QueriesProps) => {
               value={searchQuery()}
               onInput={(e) => setSearchQuery(e.currentTarget.value)}
               fullWidth
-              class="h-7.5 bg-native-sidebar/40 border-native-subtle focus:bg-native-elevated transition-all"
+              class="h-7.5 bg-[var(--bg-toolbar)] border-native-subtle focus:bg-native-elevated transition-all"
             />
           </div>
 
@@ -377,7 +377,7 @@ export const Queries = (props: QueriesProps) => {
               when={props.isConnected}
               fallback={
                 <div class="px-4 py-12 text-center flex flex-col items-center gap-3 opacity-40">
-                  <div class="w-12 h-12 rounded-2xl bg-native-content/50 flex items-center justify-center border border-native-subtle shadow-sm mb-1">
+                  <div class="w-12 h-12 rounded-2xl bg-native-content/25 flex items-center justify-center border border-native-subtle shadow-sm mb-1">
                     <Radio size={24} class="text-native-quaternary" />
                   </div>
                   <p class="text-[11px] font-bold text-native-tertiary uppercase tracking-tight">Offline Mode</p>
@@ -388,16 +388,23 @@ export const Queries = (props: QueriesProps) => {
               <For each={filteredEndpoints()}>
                 {(endpoint) => (
                   <button
-                    class="w-full text-left px-2.5 py-1.5 rounded-lg transition-all duration-200 group relative flex items-center justify-between outline-none"
+                    class="w-full text-left px-2.5 py-1.5 rounded-md transition-all duration-200 group relative flex items-center justify-between outline-none"
                     classList={{
-                      "bg-accent/10 border border-accent/20 shadow-sm": selectedEndpoint()?.name === endpoint.name,
+                      "bg-native-elevated/90 border border-native-subtle shadow-sm": selectedEndpoint()?.name === endpoint.name,
                       "hover:bg-native-hover/60 text-native-secondary hover:text-native-primary border border-transparent": selectedEndpoint()?.name !== endpoint.name,
                     }}
                     onClick={() => handleSelect(endpoint)}
                   >
+                    <div
+                      class="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-sm transition-opacity"
+                      classList={{
+                        "bg-toolbar-icon opacity-80": selectedEndpoint()?.name === endpoint.name,
+                        "opacity-0": selectedEndpoint()?.name !== endpoint.name,
+                      }}
+                    />
                     <div class="flex items-center gap-3 overflow-hidden">
                       <div
-                        class="text-[9px] font-extrabold px-1 py-0.5 rounded-md shrink-0 w-[38px] text-center tracking-tighter shadow-sm border"
+                        class="text-[9px] font-extrabold px-1 py-0.5 rounded shrink-0 w-[38px] text-center tracking-tighter shadow-sm border"
                         classList={{
                           "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20": endpoint.method.toUpperCase() === "GET",
                           "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20": endpoint.method.toUpperCase() === "POST",
@@ -422,7 +429,7 @@ export const Queries = (props: QueriesProps) => {
                       size={11}
                       strokeWidth={2.5}
                       class={`shrink-0 transition-all duration-300 ${
-                        selectedEndpoint()?.name === endpoint.name ? "text-accent translate-x-0" : "text-native-quaternary opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0"
+                        selectedEndpoint()?.name === endpoint.name ? "text-toolbar-icon opacity-80 translate-x-0" : "text-native-quaternary opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0"
                       }`}
                     />
                   </button>
@@ -431,7 +438,7 @@ export const Queries = (props: QueriesProps) => {
 
               <Show when={props.isConnected && filteredEndpoints().length === 0 && !loading()}>
                 <div class="px-4 py-12 text-center flex flex-col items-center gap-3">
-                  <div class="w-12 h-12 rounded-2xl bg-native-content/50 flex items-center justify-center border border-native-subtle opacity-40">
+                  <div class="w-12 h-12 rounded-2xl bg-native-content/25 flex items-center justify-center border border-native-subtle opacity-40">
                     <Search size={24} class="text-native-quaternary" />
                   </div>
                   <p class="text-[11px] font-bold text-native-quaternary uppercase tracking-tight">No match found</p>
@@ -443,8 +450,8 @@ export const Queries = (props: QueriesProps) => {
 
         <div class="w-px h-full flex-none relative group z-50 bg-native">
           <div
-            class="absolute inset-y-0 w-[3px] -left-[1px] cursor-col-resize hover:bg-[#007AFF]/15 dark:hover:bg-[#0A84FF]/15 transition-colors"
-            classList={{ "bg-[#007AFF]/25 dark:bg-[#0A84FF]/25": isResizing() }}
+            class="absolute inset-y-0 w-[3px] -left-[1px] cursor-col-resize hover:bg-accent/15 transition-colors"
+            classList={{ "bg-accent/25": isResizing() }}
             onMouseDown={startResizing}
           />
         </div>
@@ -468,7 +475,7 @@ export const Queries = (props: QueriesProps) => {
             }
           >
             <ToolbarLayout class="justify-between items-center pl-1">
-              <div class="flex items-center gap-2 min-w-0">
+              <div class="flex items-center gap-2 min-w-0 shrink-0">
                 <Show when={selectedEndpoint()} fallback={<span class="text-[10px] font-semibold text-native-tertiary tracking-tight">Overview</span>}>
                   <div
                     class="flex items-center gap-1.5 cursor-pointer hover:bg-native-hover/60 px-1.5 py-0.5 rounded transition-colors group/path"
@@ -492,7 +499,7 @@ export const Queries = (props: QueriesProps) => {
                   disabled={props.isExecuting || !canExecute()}
                   onClick={executeQuery}
                   title="Run (⌘+Enter)"
-                  class="h-7 w-7 flex items-center justify-center rounded-md hover:bg-native-content/50 active:bg-native-content transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+                  class="h-7 w-7 flex items-center justify-center rounded-md hover:bg-hover active:bg-active transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Show when={!props.isExecuting} fallback={<LoaderCircle size={14} class="animate-spin text-emerald-500" strokeWidth={2.5} />}>
                     <Play size={14} class="text-emerald-500" strokeWidth={2.5} fill="currentColor" />
@@ -502,7 +509,7 @@ export const Queries = (props: QueriesProps) => {
                 <button
                   disabled={!hasParams()}
                   onClick={() => setShowParamsSidebar(!showParamsSidebar())}
-                  class="h-7 w-7 flex items-center justify-center rounded-md hover:bg-native-content/50 active:bg-native-content transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+                  class="h-7 w-7 flex items-center justify-center rounded-md hover:bg-hover active:bg-active transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
                   title={!hasParams() ? "No parameters" : showParamsSidebar() ? "Close Parameters" : "Add Parameters"}
                 >
                   <Show when={showParamsSidebar()} fallback={<Plus size={18} class="text-accent" strokeWidth={3} />}>
@@ -511,13 +518,13 @@ export const Queries = (props: QueriesProps) => {
                 </button>
               </div>
 
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-3 min-w-0 shrink-0">
                 <Show when={rawResult()}>
                   <span class="text-[10px] text-native-tertiary tabular-nums font-medium">{Object.values(multiTableData()).reduce((acc, rows) => acc + rows.length, 0)} results</span>
                   <div class="w-px h-3.5 bg-native-subtle opacity-30" />
                 </Show>
 
-                <div class="relative transition-all duration-300 ease-out z-10" style={{ width: searchFocused() || resultSearchQuery() ? "180px" : "110px" }}>
+                <div class="relative shrink-0 transition-all duration-300 ease-out z-10" style={{ width: searchFocused() || resultSearchQuery() ? "180px" : "110px" }}>
                   <Input
                     variant="search"
                     fullWidth
@@ -529,7 +536,7 @@ export const Queries = (props: QueriesProps) => {
                   <Show when={resultSearchQuery()}>
                     <button
                       onClick={() => setResultSearchQuery("")}
-                      class="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 hover:bg-native-content/80 rounded-md text-native-quaternary hover:text-native-primary transition-colors z-20"
+                      class="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 hover:bg-hover rounded-md text-native-quaternary hover:text-native-primary transition-colors z-20"
                     >
                       <X size={12} />
                     </button>
@@ -538,20 +545,20 @@ export const Queries = (props: QueriesProps) => {
 
                 <div class="flex items-center gap-1.5">
                   <Button variant="toolbar" size="sm" active={viewMode() === "table"} onClick={() => setViewMode("table")} class="flex items-center gap-1.5 transition-all duration-75">
-                    <Table size={13} class={viewMode() === "table" ? "text-accent" : "text-[#007AFF] dark:text-[#0A84FF]"} />
+                    <Table size={13} class={viewMode() === "table" ? "text-accent" : "text-native-tertiary"} />
                     Table
                   </Button>
 
                   <Button variant="toolbar" size="sm" active={viewMode() === "json"} onClick={() => setViewMode("json")} class="flex items-center gap-1.5 transition-all duration-75">
-                    <Braces size={13} class={viewMode() === "json" ? "text-accent" : "text-[#007AFF] dark:text-[#0A84FF]"} />
+                    <Braces size={13} class={viewMode() === "json" ? "text-accent" : "text-native-tertiary"} />
                     Json
                   </Button>
                 </div>
               </div>
             </ToolbarLayout>
 
-            <div class="flex-1 flex flex-row overflow-hidden">
-              <div class="flex-1 flex flex-col overflow-hidden relative">
+            <div class="flex-1 flex flex-row overflow-hidden min-w-0">
+              <div class="flex-1 min-w-0 flex flex-col overflow-hidden relative">
                 <Show when={props.isExecuting || isRunning()}>
                   <div class="flex-1 flex items-center justify-center">
                     <div class="flex flex-col items-center gap-4">
@@ -593,7 +600,7 @@ export const Queries = (props: QueriesProps) => {
                       </div>
                     }
                   >
-                    <div class="flex-1 overflow-auto h-full flex flex-col p-0 pt-4 space-y-4 pb-8 scrollbar-thin">
+                    <div class="flex-1 min-h-0 overflow-auto h-full flex flex-col gap-3 px-0.5 pt-2 pb-0 scrollbar-thin">
                       <For each={Object.entries(multiTableData())}>
                         {([name, rows]) => {
                           const tableCount = () => Object.keys(multiTableData()).length;
@@ -605,7 +612,7 @@ export const Queries = (props: QueriesProps) => {
                                 <span class="text-[10px] text-native-quaternary tabular-nums">({rows.length})</span>
                               </div>
                               <div
-                                class="border border-native rounded-sm overflow-hidden bg-native-sidebar/20 flex flex-col"
+                                class="border border-native rounded-sm overflow-hidden bg-native-content/15 flex flex-col"
                                 classList={{
                                   "max-h-[400px]": tableCount() > 1,
                                   "flex-1": tableCount() === 1,
@@ -629,13 +636,13 @@ export const Queries = (props: QueriesProps) => {
               <Show when={showParamsSidebar()}>
                 <div class="w-px h-full flex-none relative group z-50 bg-native">
                   <div
-                    class="absolute inset-y-0 w-[3px] -left-[1px] cursor-col-resize hover:bg-[#007AFF]/15 dark:hover:bg-[#0A84FF]/15 transition-colors"
-                    classList={{ "bg-[#007AFF]/25 dark:bg-[#0A84FF]/25": isResizingRight() }}
+                    class="absolute inset-y-0 w-[3px] -left-[1px] cursor-col-resize hover:bg-accent/15 transition-colors"
+                    classList={{ "bg-accent/25": isResizingRight() }}
                     onMouseDown={startResizingRight}
                   />
                 </div>
 
-                <div class="w-[260px] flex-none flex flex-col macos-vibrant-sidebar overflow-hidden" style={{ width: `${rightSidebarWidth()}px` }}>
+                <div class="w-[260px] flex-none flex flex-col macos-vibrant-sidebar overflow-hidden" style={{ width: `min(${rightSidebarWidth()}px, 40vw)` }}>
                   <div class="px-3.5 py-3 flex-none flex flex-col gap-2">
                     <div class="flex items-center justify-between px-0.5">
                       <h2 class="text-[11px] font-bold text-native-tertiary uppercase tracking-wider">Parameters</h2>
@@ -663,18 +670,18 @@ export const Queries = (props: QueriesProps) => {
                       {(param) => (
                         <div class="space-y-1.5">
                           <div class="flex items-center justify-between gap-2 overflow-hidden px-0.5">
-                            <span class="text-[11px] font-bold text-native-tertiary uppercase tracking-tight truncate flex-1 min-w-0" title={param.name}>
+                            <span class="text-[11px] font-bold text-native-tertiary tracking-tight truncate flex-1 min-w-0" title={param.name}>
                               {param.name}
                             </span>
                             <Show when={!params()[param.name] && params()[param.name] !== false}>
-                              <span class="text-status-error text-[9px] font-black uppercase tracking-tighter shrink-0 drop-shadow-sm">Required</span>
+                              <span class="text-status-error text-[9px] font-black tracking-tighter shrink-0 drop-shadow-sm">Required</span>
                             </Show>
                           </div>
 
                           <Show
                             when={param.param_type.toLowerCase() !== "boolean" && param.param_type.toLowerCase() !== "bool"}
                             fallback={
-                              <label class="flex items-center gap-2.5 cursor-pointer group h-8.5 px-3 bg-native-sidebar/40 border border-native-subtle rounded-lg hover:border-accent/40 hover:bg-native-sidebar/60 transition-all">
+                              <label class="flex items-center gap-2.5 cursor-pointer group h-8.5 px-3 bg-[var(--bg-toolbar)] border border-native-subtle rounded-lg hover:border-accent/40 hover:bg-native-elevated transition-all">
                                 <div class="relative flex items-center justify-center w-3.5 h-3.5">
                                   <input
                                     type="checkbox"
@@ -685,9 +692,9 @@ export const Queries = (props: QueriesProps) => {
                                         [param.name]: e.currentTarget.checked,
                                       })
                                     }
-                                    class="peer absolute inset-0 w-full h-full appearance-none rounded border border-native-subtle bg-native-content checked:bg-accent checked:border-accent transition-all cursor-pointer"
+                                    class="peer absolute inset-0 w-full h-full appearance-none rounded border border-native-subtle bg-native-content checked:[background:var(--checkbox-checked-bg)] checked:[border-color:var(--checkbox-checked-border)] transition-all cursor-pointer"
                                   />
-                                  <Check size={9} strokeWidth={3} class="z-10 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
+                                  <Check size={9} strokeWidth={3} class="z-10 [color:var(--checkbox-checked-icon)] opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
                                 </div>
                                 <span class="text-[12px] text-native-secondary font-medium tabular-nums">{params()[param.name] ? "true" : "false"}</span>
                               </label>
@@ -703,7 +710,7 @@ export const Queries = (props: QueriesProps) => {
                                   [param.name]: e.currentTarget.value,
                                 })
                               }
-                              class="w-full h-8.5 px-3 bg-native-sidebar/40 border border-native-subtle rounded-lg text-[12px] text-native-primary placeholder:text-native-quaternary/60 outline-none focus:bg-native-elevated focus:border-accent/50 focus:shadow-[0_0_12px_rgba(0,122,255,0.05)] transition-all"
+                              class="w-full h-8.5 px-3 bg-[var(--bg-toolbar)] border border-native-subtle rounded-lg text-[12px] text-native-primary placeholder:text-native-quaternary/60 outline-none focus:bg-native-elevated focus:border-accent/50 focus:shadow-[0_0_12px_rgba(0,122,255,0.05)] transition-all"
                             />
                           </Show>
                         </div>
@@ -711,7 +718,7 @@ export const Queries = (props: QueriesProps) => {
                     </For>
                   </div>
 
-                  <div class="p-4 border-t border-native bg-native-sidebar/80 backdrop-blur-sm">
+                  <div class="p-4 border-t border-native bg-[var(--bg-toolbar)]">
                     <Button onClick={executeQuery} disabled={props.isExecuting || !canExecute()} variant="primary" class="w-full h-9.5 font-bold shadow-lg shadow-accent/10">
                       <Show
                         when={!props.isExecuting}

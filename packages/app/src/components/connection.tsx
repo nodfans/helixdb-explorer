@@ -1,5 +1,6 @@
 import { For, Show, createSignal, createEffect, onMount, onCleanup } from "solid-js";
 import { Input } from "./ui/input";
+import { Button } from "./ui/button";
 import { CircleAlert, Plus, Trash2, Server, Globe, Hash, ShieldCheck, CircleCheck, Database, Zap, Activity } from "lucide-solid";
 import { connectionStore, setConnectionStore, saveConnections, ConnectionInfo, activeConnection } from "../stores/connection";
 import { invoke } from "@tauri-apps/api/core";
@@ -122,17 +123,17 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
     <Show when={props.isOpen}>
       <div class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/25 backdrop-blur-[12px] p-4 animate-in fade-in duration-300 select-none" onClick={props.onCancel}>
         <div
-          class="w-[720px] h-[520px] flex overflow-hidden shadow-[0_25px_80px_rgba(0,0,0,0.35),0_10px_30px_rgba(0,0,0,0.2)] border border-[var(--border-subtle)] rounded-2xl bg-native-elevated animate-in zoom-in-95 duration-200 select-none"
+          class="flex h-auto max-h-[calc(100vh-2rem)] w-full max-w-[720px] flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-native-elevated shadow-[0_25px_80px_rgba(0,0,0,0.35),0_10px_30px_rgba(0,0,0,0.2)] animate-in zoom-in-95 duration-200 sm:h-[520px] sm:flex-row select-none"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Sidebar */}
-          <div class="w-[220px] flex-none flex flex-col border-r border-native bg-native-sidebar/50">
+          <div class="flex max-h-[180px] w-full flex-none flex-col border-b border-native bg-native-sidebar/50 sm:max-h-none sm:w-[220px] sm:border-b-0 sm:border-r">
             <div class="p-4 border-b border-native flex items-center justify-between">
               <h2 class="text-[11px] font-bold text-native-tertiary tracking-tight">Connections</h2>
               <button
                 onMouseDown={handleAdd}
                 title="Add Connection"
-                class="w-6 h-6 flex items-center justify-center rounded-md text-native-tertiary hover:text-accent hover:bg-[var(--accent)]/10 transition-all duration-150"
+                class="w-6 h-6 flex items-center justify-center rounded-md text-native-tertiary hover:text-toolbar-icon hover:bg-[var(--toolbar-icon)]/10 transition-all duration-150"
               >
                 <Plus size={14} strokeWidth={2.5} />
               </button>
@@ -173,7 +174,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                               setShowMenu(false);
                             }}
                           >
-                            <Plus size={12} class="text-accent" /> Edit
+                            <Plus size={12} class="text-toolbar-icon" /> Edit
                           </div>
                           <div class="context-menu-separator" />
                           <div
@@ -252,14 +253,14 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                 <div class="space-y-5">
                   <div class="space-y-2">
                     <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
-                      <Server size={12} class="text-accent opacity-80" /> Connection Name
+                      <Server size={12} class="text-toolbar-icon" /> Connection Name
                     </label>
                     <Input fullWidth value={editingConn()!.name} onInput={(e) => updateEditing({ name: e.currentTarget.value })} placeholder="Production DB" />
                   </div>
 
                   <div class="space-y-2">
                     <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
-                      <Activity size={12} class="text-accent opacity-80" /> Connection Type
+                      <Activity size={12} class="text-toolbar-icon" /> Connection Type
                     </label>
                     <div class="grid grid-cols-2 gap-3">
                       {/* Local Card */}
@@ -270,7 +271,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                           transition-all duration-200 outline-none
                           ${
                             (editingConn()?.type || "local") === "local"
-                              ? "border-[var(--accent)]/50 bg-[var(--accent)]/8 shadow-[0_0_0_1px_var(--accent)]"
+                              ? "[border-color:var(--control-selected-border)] [background:var(--control-selected-bg)] [box-shadow:var(--control-selected-shadow)]"
                               : "border-native bg-native-content/40 hover:border-native-secondary/40 hover:bg-native-content/70"
                           }
                           ${isModeLocked(editingConn()?.id) ? "opacity-60 cursor-not-allowed" : ""}
@@ -280,21 +281,21 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                         <div
                           class={`
                           w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-all duration-200
-                          ${(editingConn()?.type || "local") === "local" ? "bg-[var(--accent)]" : "bg-native-content border border-native"}
+                          ${(editingConn()?.type || "local") === "local" ? "bg-native-elevated border border-native-subtle" : "bg-native-content border border-native"}
                         `}
                         >
-                          <Server size={11} strokeWidth={2} class={(editingConn()?.type || "local") === "local" ? "text-white" : "text-native-tertiary"} />
+                          <Server size={11} strokeWidth={2} class={(editingConn()?.type || "local") === "local" ? "text-native-primary" : "text-native-tertiary"} />
                         </div>
                         <div class="flex flex-col">
-                          <span class={`text-[12px] font-semibold transition-colors ${(editingConn()?.type || "local") === "local" ? "text-[var(--accent)]" : "text-native-primary"}`}>Local</span>
+                          <span class={`text-[12px] font-semibold transition-colors ${(editingConn()?.type || "local") === "local" ? "[color:var(--control-selected-text)]" : "text-native-primary"}`}>Local</span>
                           <Show when={isModeLocked(editingConn()?.id) && (editingConn()?.type || "local") === "local"}>
                             <span class="text-[9px] text-native-tertiary font-medium">Locked</span>
                           </Show>
                         </div>
                         <Show when={(editingConn()?.type || "local") === "local"}>
-                          <div class="ml-auto shrink-0 w-3.5 h-3.5 rounded-full bg-[var(--accent)] flex items-center justify-center animate-in zoom-in-75 duration-150">
+                          <div class="ml-auto shrink-0 w-3.5 h-3.5 rounded-full border flex items-center justify-center animate-in zoom-in-75 duration-150 [background:var(--checkbox-checked-bg)] [border-color:var(--checkbox-checked-border)]">
                             <svg width="7" height="7" viewBox="0 0 8 8" fill="none">
-                              <path d="M1.5 4L3 5.5L6.5 2" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                              <path d="M1.5 4L3 5.5L6.5 2" stroke="var(--checkbox-checked-icon)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                           </div>
                         </Show>
@@ -308,7 +309,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                           transition-all duration-200 outline-none
                           ${
                             editingConn()?.type === "cloud"
-                              ? "border-[var(--accent)]/50 bg-[var(--accent)]/8 shadow-[0_0_0_1px_var(--accent)]"
+                              ? "[border-color:var(--control-selected-border)] [background:var(--control-selected-bg)] [box-shadow:var(--control-selected-shadow)]"
                               : "border-native bg-native-content/40 hover:border-native-secondary/40 hover:bg-native-content/70"
                           }
                           ${isModeLocked(editingConn()?.id) ? "opacity-60 cursor-not-allowed" : ""}
@@ -318,21 +319,21 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                         <div
                           class={`
                           w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-all duration-200
-                          ${editingConn()?.type === "cloud" ? "bg-[var(--accent)]" : "bg-native-content border border-native"}
+                          ${editingConn()?.type === "cloud" ? "bg-native-elevated border border-native-subtle" : "bg-native-content border border-native"}
                         `}
                         >
-                          <Globe size={11} strokeWidth={2} class={editingConn()?.type === "cloud" ? "text-white" : "text-native-tertiary"} />
+                          <Globe size={11} strokeWidth={2} class={editingConn()?.type === "cloud" ? "text-native-primary" : "text-native-tertiary"} />
                         </div>
                         <div class="flex flex-col">
-                          <span class={`text-[12px] font-semibold transition-colors ${editingConn()?.type === "cloud" ? "text-[var(--accent)]" : "text-native-primary"}`}>Helix Cloud</span>
+                          <span class={`text-[12px] font-semibold transition-colors ${editingConn()?.type === "cloud" ? "[color:var(--control-selected-text)]" : "text-native-primary"}`}>Helix Cloud</span>
                           <Show when={isModeLocked(editingConn()?.id) && editingConn()?.type === "cloud"}>
                             <span class="text-[9px] text-native-tertiary font-medium">Locked</span>
                           </Show>
                         </div>
                         <Show when={editingConn()?.type === "cloud"}>
-                          <div class="ml-auto shrink-0 w-3.5 h-3.5 rounded-full bg-[var(--accent)] flex items-center justify-center animate-in zoom-in-75 duration-150">
+                          <div class="ml-auto shrink-0 w-3.5 h-3.5 rounded-full border flex items-center justify-center animate-in zoom-in-75 duration-150 [background:var(--checkbox-checked-bg)] [border-color:var(--checkbox-checked-border)]">
                             <svg width="7" height="7" viewBox="0 0 8 8" fill="none">
-                              <path d="M1.5 4L3 5.5L6.5 2" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                              <path d="M1.5 4L3 5.5L6.5 2" stroke="var(--checkbox-checked-icon)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                           </div>
                         </Show>
@@ -344,7 +345,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                     <div class="space-y-5 animate-in fade-in slide-in-from-top-2 duration-300">
                       <div class="space-y-2">
                         <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
-                          <Globe size={12} class="text-accent opacity-80" /> Cloud URL
+                          <Globe size={12} class="text-toolbar-icon" /> Cloud URL
                         </label>
                         <div class="relative group/input">
                           <Input
@@ -359,7 +360,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
 
                       <div class="space-y-2">
                         <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
-                          <ShieldCheck size={12} class="text-accent opacity-80" /> API Key
+                          <ShieldCheck size={12} class="text-toolbar-icon" /> API Key
                         </label>
                         <div class="relative group/input">
                           <Input
@@ -376,7 +377,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                       <div class="space-y-2 pt-2 border-t border-native">
                         <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center justify-between">
                           <span class="flex items-center gap-2">
-                            <Database size={12} class="text-accent opacity-80" /> Link Local Workspace (Optional)
+                            <Database size={12} class="text-toolbar-icon" /> Link Local Workspace (Optional)
                           </span>
                         </label>
                         <div class="relative group/input">
@@ -407,13 +408,13 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                       <div class="grid grid-cols-3 gap-3">
                         <div class="col-span-2 space-y-2">
                           <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
-                            <Globe size={12} class="text-accent opacity-80" /> Host
+                            <Globe size={12} class="text-toolbar-icon" /> Host
                           </label>
                           <Input fullWidth value={editingConn()?.host || ""} onInput={(e) => updateEditing({ host: e.currentTarget.value })} placeholder="127.0.0.1" />
                         </div>
                         <div class="space-y-2">
                           <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
-                            <Hash size={12} class="text-accent opacity-80" /> Port
+                            <Hash size={12} class="text-toolbar-icon" /> Port
                           </label>
                           <Input fullWidth value={editingConn()?.port || ""} onInput={(e) => updateEditing({ port: e.currentTarget.value })} placeholder="6969" />
                         </div>
@@ -421,10 +422,10 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
 
                       <div class="space-y-2">
                         <label class="text-[11px] font-bold text-native-tertiary tracking-tight flex items-center gap-2">
-                          <Database size={12} class="text-accent opacity-80" /> Local Workspace Path
+                          <Database size={12} class="text-toolbar-icon" /> Local Workspace Path
                         </label>
                         <div class="flex gap-2 w-full">
-                          <div class="flex-1 px-3 py-1.5 min-h-[30px] flex items-center bg-native-content/50 border border-native rounded-md text-[12px] text-native-secondary truncate cursor-default">
+                          <div class="flex-1 px-3 py-1.5 min-h-[30px] flex items-center bg-[var(--bg-toolbar)] border border-native rounded-md text-[12px] text-native-secondary truncate cursor-default">
                             <Show when={editingConn()!.localPath} fallback={<span class="text-native-quaternary">Not configured (Auto-detected on Connection)</span>}>
                               <span class="font-mono">{editingConn()!.localPath}</span>
                             </Show>
@@ -439,7 +440,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                     <div
                       class={`mt-4 p-2.5 px-3.5 rounded-lg flex gap-2.5 items-center animate-in fade-in slide-in-from-top-2 duration-300 ${
                         testResult()?.loading
-                          ? "bg-native-content/50 text-native-tertiary border border-native-subtle"
+                          ? "bg-[var(--bg-toolbar)] text-native-tertiary border border-native-subtle"
                           : testResult()?.success
                             ? "bg-emerald-500/8 text-emerald-600 dark:text-emerald-400 border border-emerald-500/15"
                             : "bg-red-500/8 text-red-600 dark:text-red-400 border border-red-500/15"
@@ -467,7 +468,7 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                     onMouseDown={handleTest}
                     class="group h-7 px-3 flex items-center gap-2 rounded-md text-[11px] font-medium text-native-secondary hover:text-native-primary hover:bg-[var(--bg-hover)] active:bg-[var(--bg-active)] transition-all duration-150"
                   >
-                    <Zap size={12} strokeWidth={2.5} class="text-native-tertiary group-hover:text-[var(--accent)] transition-colors duration-150" />
+                    <Zap size={12} strokeWidth={2.5} class="text-toolbar-icon transition-colors duration-150" />
                     Test Connection
                   </button>
 
@@ -492,18 +493,22 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                 </div>
 
                 <div class="flex items-center gap-2">
-                  <button
+                  <Button
                     onMouseDown={props.onCancel}
-                    class="h-7 px-3.5 rounded-md text-[11px] font-medium text-native-secondary hover:text-native-primary hover:bg-[var(--bg-hover)] active:bg-[var(--bg-active)] transition-all duration-150"
+                    variant="default"
+                    size="md"
+                    class="h-7 px-3.5 font-medium"
                   >
                     Cancel
-                  </button>
+                  </Button>
 
                   <Show
                     when={activeConnection().id === editingConn()?.id && props.isConnected}
                     fallback={
-                      <button
+                      <Button
                         disabled={props.isConnecting}
+                        variant="primary"
+                        size="md"
                         onMouseDown={async () => {
                           setTestResult(null);
                           const conn = editingConn()!;
@@ -511,30 +516,34 @@ export const Connection = (props: ConnectionProps & { isOpen: boolean; onCancel:
                           triggerAutoDetect(conn, currentId);
                           props.onConnect(conn);
                         }}
-                        class="h-7 px-4 rounded-md text-[11px] font-semibold text-white bg-[var(--accent)] hover:bg-[#0066DD] dark:hover:bg-[#0077EE] active:bg-[#0055CC] dark:active:bg-[#0066DD] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 flex items-center gap-1.5"
+                        class="h-7 px-4 font-semibold"
                       >
                         {props.isConnecting && <div class="w-3 h-3 border-[1.5px] border-white/30 border-t-white rounded-full animate-spin" />}
                         {props.isConnecting ? "Connecting…" : "Connect"}
-                      </button>
+                      </Button>
                     }
                   >
                     <Show
                       when={props.mode === "link"}
                       fallback={
-                        <button
+                        <Button
                           onMouseDown={props.onDisconnect}
-                          class="h-7 px-4 rounded-md text-[11px] font-semibold text-white bg-[#FF3B30] hover:bg-[#E6352B] active:bg-[#CC2F26] dark:bg-[#FF453A] dark:hover:bg-[#E63E34] dark:active:bg-[#CC372E] shadow-sm transition-all duration-150"
+                          variant="destructive"
+                          size="md"
+                          class="h-7 px-4 font-semibold"
                         >
                           Disconnect
-                        </button>
+                        </Button>
                       }
                     >
-                      <button
+                      <Button
                         onMouseDown={() => props.onUpdate(editingConn()!)}
-                        class="h-7 px-4 rounded-md text-[11px] font-semibold text-white bg-[var(--accent)] hover:bg-[#0066DD] dark:hover:bg-[#0077EE] active:bg-[#0055CC] dark:active:bg-[#0066DD] shadow-sm transition-all duration-150"
+                        variant="primary"
+                        size="md"
+                        class="h-7 px-4 font-semibold"
                       >
                         Save
-                      </button>
+                      </Button>
                     </Show>
                   </Show>
                 </div>
