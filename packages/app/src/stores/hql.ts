@@ -50,4 +50,19 @@ const [hqlStore, setHqlStore] = createStore<HqlState>({
   resultsHeight: 300,
 });
 
+export function resetHqlWorkspaceState() {
+  setHqlStore("tabs", () => true, {
+    output: "",
+    rawOutput: null,
+    status: "idle",
+    queryStatus: "idle",
+    syncStatus: "idle",
+    tableData: [],
+    multiTableData: {},
+    selectedRows: [],
+    logs: "",
+  });
+  setHqlStore("schema", null);
+}
+
 export { hqlStore, setHqlStore };

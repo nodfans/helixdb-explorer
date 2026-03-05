@@ -22,27 +22,6 @@ interface QueriesProps {
   onConnect: () => void;
 }
 
-const PARAM_MEMORY_KEY = "helix_workbench_param_memory_v1";
-
-type EndpointParamMemory = Record<string, Record<string, any>>;
-
-const readParamMemory = (): EndpointParamMemory => {
-  try {
-    const raw = localStorage.getItem(PARAM_MEMORY_KEY);
-    return raw ? (JSON.parse(raw) as EndpointParamMemory) : {};
-  } catch {
-    return {};
-  }
-};
-
-const writeParamMemory = (memory: EndpointParamMemory) => {
-  try {
-    localStorage.setItem(PARAM_MEMORY_KEY, JSON.stringify(memory));
-  } catch {
-    // Ignore storage issues.
-  }
-};
-
 const isBooleanType = (paramType: string) => {
   const t = paramType.toLowerCase();
   return t === "boolean" || t === "bool";
@@ -140,17 +119,6 @@ export const Queries = (props: QueriesProps) => {
 
   const deepClone = (v: any) => (v ? JSON.parse(JSON.stringify(v)) : v);
 
-  const persistParamsForEndpoint = (endpointId: string, values: Record<string, any>) => {
-    const memory = readParamMemory();
-    memory[endpointId] = values;
-    writeParamMemory(memory);
-  };
-
-  const getRememberedParamsForEndpoint = (endpointId: string): Record<string, any> => {
-    const memory = readParamMemory();
-    return memory[endpointId] || {};
-  };
-
   const updateViewMode = (mode: "table" | "json") => {
     setViewMode(mode);
     const ep = selectedEndpoint();
@@ -170,7 +138,6 @@ export const Queries = (props: QueriesProps) => {
       [name]: value,
     };
     setParams(next);
-    persistParamsForEndpoint(ep.id, next);
   };
 
   const handleSelect = (endpoint: EndpointConfig) => {
@@ -214,15 +181,7 @@ export const Queries = (props: QueriesProps) => {
             initialParams[p.name] = defaultParamValue(p.param_type);
           });
         }
-        const remembered = getRememberedParamsForEndpoint(endpoint.id);
-        const merged = { ...initialParams };
-        for (const p of endpoint.params || []) {
-          if (Object.prototype.hasOwnProperty.call(remembered, p.name)) {
-            merged[p.name] = remembered[p.name];
-          }
-        }
-        setParams(merged);
-        persistParamsForEndpoint(endpoint.id, merged);
+        setParams(initialParams);
         setResult(null);
         setRawResult(null);
         setError(null);
@@ -256,7 +215,6 @@ export const Queries = (props: QueriesProps) => {
       });
     }
     setParams(initialParams);
-    persistParamsForEndpoint(endpoint.id, initialParams);
     setParamHint("Parameters reset to defaults.");
     setTimeout(() => setParamHint(null), 1800);
   };

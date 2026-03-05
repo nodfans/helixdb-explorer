@@ -3,8 +3,7 @@ import { HelixDB } from "helix-ts";
 import { HelixApi } from "../lib/api";
 import { invoke } from "@tauri-apps/api/core";
 import { setConnectionStore, activeConnection, getConnectionUrl, ConnectionInfo, saveConnections, validateConnection } from "../stores/connection";
-import { setWorkbenchState, queryStateCache } from "../stores/workbench";
-import { setHqlStore } from "../stores/hql";
+import { resetWorkspaceContext } from "../stores/workspace";
 import { reloadDashboard, resetDashboardCache } from "../components/dashboard";
 import { resetGraphCache } from "../components/graph";
 import { resetSchemaCache } from "../components/schema";
@@ -12,34 +11,6 @@ import { resetVectorsCache } from "../components/vectors";
 import { reportUiError } from "../lib/error-normalizer";
 
 const isTauri = () => typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__;
-
-export const resetWorkspaceState = () => {
-  setWorkbenchState({
-    endpoints: [],
-    selectedEndpoint: null,
-    params: {},
-    result: null,
-    rawResult: null,
-    error: null,
-    loading: false,
-  });
-
-  queryStateCache.clear();
-
-  setHqlStore("tabs", () => true, {
-    output: "",
-    rawOutput: null,
-    status: "idle",
-    queryStatus: "idle",
-    syncStatus: "idle",
-    tableData: [],
-    multiTableData: {},
-    selectedRows: [],
-    logs: "",
-  });
-
-  setHqlStore("schema", null);
-};
 
 export function createConnection() {
   const [showSettings, setShowSettings] = createSignal(false);
@@ -130,7 +101,7 @@ export function createConnection() {
       console.log("[handleConnect] Existing connection detected, disconnecting first...");
       handleDisconnect();
     }
-    resetWorkspaceState();
+    resetWorkspaceContext("connection_switch");
     setIsConnecting(true);
     setError(null);
 
@@ -240,16 +211,7 @@ export function createConnection() {
     resetDashboardCache();
     resetSchemaCache();
     resetVectorsCache();
-
-    setWorkbenchState({
-      endpoints: [],
-      selectedEndpoint: null,
-      params: {},
-      result: null,
-      rawResult: null,
-      error: null,
-    });
-    queryStateCache.clear();
+    resetWorkspaceContext("disconnect");
   };
 
   return {

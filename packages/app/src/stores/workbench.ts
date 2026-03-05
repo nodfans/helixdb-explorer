@@ -11,6 +11,8 @@ export type QueryState = {
 
 export const queryStateCache = new Map<string, QueryState>();
 
+const deepClone = <T>(v: T): T => (v ? JSON.parse(JSON.stringify(v)) : v);
+
 export interface WorkbenchState {
   endpoints: EndpointConfig[];
   selectedEndpoint: EndpointConfig | null;
@@ -27,7 +29,7 @@ export interface WorkbenchState {
   loading: boolean;
 }
 
-const [workbenchState, setWorkbenchState] = createStore<WorkbenchState>({
+const createInitialWorkbenchState = (): WorkbenchState => ({
   endpoints: [],
   selectedEndpoint: null,
   params: {},
@@ -42,5 +44,67 @@ const [workbenchState, setWorkbenchState] = createStore<WorkbenchState>({
   rightSidebarWidth: 220,
   loading: false,
 });
+
+const [workbenchState, setWorkbenchState] = createStore<WorkbenchState>(createInitialWorkbenchState());
+
+export type WorkbenchResetScope = "workspace" | "view";
+
+export function resetWorkbenchState(scope: WorkbenchResetScope = "workspace") {
+  if (scope === "view") {
+    setWorkbenchState({
+      resultSearchQuery: "",
+      showParamsSidebar: false,
+      error: null,
+      loading: false,
+    });
+    return;
+  }
+
+  const current = workbenchState;
+  const initial = createInitialWorkbenchState();
+  setWorkbenchState({
+    ...initial,
+    // Preserve layout/search preferences for better UX continuity.
+    sidebarWidth: current.sidebarWidth,
+    rightSidebarWidth: current.rightSidebarWidth,
+    searchQuery: current.searchQuery,
+  });
+  queryStateCache.clear();
+}
+
+export function activateWorkbenchEndpoint(endpoint: EndpointConfig) {
+  const current = workbenchState.selectedEndpoint;
+  if (current) {
+    queryStateCache.set(current.id, {
+      params: deepClone(workbenchState.params),
+      result: workbenchState.result,
+      rawResult: deepClone(workbenchState.rawResult),
+      error: workbenchState.error,
+      viewMode: workbenchState.viewMode,
+    });
+  }
+
+  setWorkbenchState("selectedEndpoint", deepClone(endpoint));
+  setWorkbenchState("showParamsSidebar", endpoint.params && endpoint.params.length > 0);
+
+  const cached = queryStateCache.get(endpoint.id);
+  if (cached) {
+    setWorkbenchState("params", deepClone(cached.params));
+    setWorkbenchState("result", cached.result);
+    setWorkbenchState("rawResult", deepClone(cached.rawResult));
+    setWorkbenchState("error", cached.error);
+    setWorkbenchState("viewMode", cached.viewMode);
+    return;
+  }
+
+  const initialParams: Record<string, any> = {};
+  endpoint.params.forEach((p) => {
+    initialParams[p.name] = p.param_type.toLowerCase().includes("bool") ? false : "";
+  });
+  setWorkbenchState("params", initialParams);
+  setWorkbenchState("result", null);
+  setWorkbenchState("rawResult", null);
+  setWorkbenchState("error", null);
+}
 
 export { workbenchState, setWorkbenchState };

@@ -1,6 +1,6 @@
 [package]
 name = "helixdb-explorer"
-version = "0.4.7"
+version = "0.4.8"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"

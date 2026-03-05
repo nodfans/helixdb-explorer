@@ -17,8 +17,7 @@ import { Vectors } from "./components/vectors";
 import { Button } from "./components/ui/button";
 import { CircleAlert } from "lucide-solid";
 import { SchemaQuery } from "./lib/types";
-import { workbenchState, setWorkbenchState, queryStateCache } from "./stores/workbench";
-import { batch } from "solid-js";
+import { workbenchState, activateWorkbenchEndpoint } from "./stores/workbench";
 import { activeConnection, saveConnections } from "./stores/connection";
 import { reportUiError } from "./lib/error-normalizer";
 
@@ -127,43 +126,8 @@ function App() {
       return;
     }
 
-    batch(() => {
-      // Save current if any
-      const current = workbenchState.selectedEndpoint;
-      if (current) {
-        queryStateCache.set(current.id, {
-          params: JSON.parse(JSON.stringify(workbenchState.params)),
-          result: workbenchState.result,
-          rawResult: JSON.parse(JSON.stringify(workbenchState.rawResult)),
-          error: workbenchState.error,
-          viewMode: workbenchState.viewMode,
-        });
-      }
-
-      // Select new
-      setWorkbenchState("selectedEndpoint", JSON.parse(JSON.stringify(endpoint)));
-      setWorkbenchState("showParamsSidebar", endpoint.params && endpoint.params.length > 0);
-
-      const cached = queryStateCache.get(endpoint.id);
-      if (cached) {
-        setWorkbenchState("params", JSON.parse(JSON.stringify(cached.params)));
-        setWorkbenchState("result", cached.result);
-        setWorkbenchState("rawResult", JSON.parse(JSON.stringify(cached.rawResult)));
-        setWorkbenchState("error", cached.error);
-        setWorkbenchState("viewMode", cached.viewMode);
-      } else {
-        const initialParams: Record<string, any> = {};
-        endpoint.params.forEach((p) => {
-          initialParams[p.name] = p.param_type.toLowerCase().includes("bool") ? false : "";
-        });
-        setWorkbenchState("params", initialParams);
-        setWorkbenchState("result", null);
-        setWorkbenchState("rawResult", null);
-        setWorkbenchState("error", null);
-      }
-
-      setCurrentView("queries");
-    });
+    activateWorkbenchEndpoint(endpoint);
+    setCurrentView("queries");
   };
 
   return (
