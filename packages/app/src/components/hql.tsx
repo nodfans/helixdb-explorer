@@ -12,6 +12,7 @@ import { extractTableData, extractMultiTableData } from "../lib/result-helper";
 import { hqlLanguage } from "../lib/hql-syntax";
 import { EmptyState } from "./ui/empty-state";
 import { Button } from "./ui/button";
+import { reportUiError } from "../lib/error-normalizer";
 
 // --- HQL Page Component ---
 export interface HQLProps {
@@ -198,15 +199,13 @@ export const HQL = (props: HQLProps) => {
         multiTableData: extractMultiTableData(result),
         logs: `[${new Date().toLocaleTimeString()}] Query executed in ${duration}ms\nSize: ${result ? JSON.stringify(result).length : 0} bytes`,
       });
-    } catch (err: any) {
-      let errorMsg = err.toString();
-      if (errorMsg.includes("connection")) {
-        errorMsg = `Connection Error: Couldn't connect to ${getConnectionUrl(activeConnection())}. (Original: ${err})`;
-      } else {
-        errorMsg = `Execution Failed: ${err}`;
-      }
-
-      updateTargetTab({ status: "error", queryStatus: "error", output: `❌ ${errorMsg}` });
+    } catch (err: unknown) {
+      const uiErr = reportUiError("hql.execute", err);
+      updateTargetTab({
+        status: "error",
+        queryStatus: "error",
+        output: uiErr.hint ? `${uiErr.title}: ${uiErr.message}\nHint: ${uiErr.hint}` : `${uiErr.title}: ${uiErr.message}`,
+      });
     } finally {
       setExecuting(false);
     }
@@ -226,6 +225,7 @@ export const HQL = (props: HQLProps) => {
       setFormatted(true);
       setTimeout(() => setFormatted(false), 800);
     } catch (err) {
+      reportUiError("hql.format", err);
       console.error("Format error:", err);
       updateActiveTab({ status: "error", output: `❌ Format Error: ${err}` });
       setHqlStore("showResults", true);

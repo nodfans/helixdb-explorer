@@ -4,6 +4,7 @@ import { Button } from "./button";
 import { ResultTable } from "./result-table";
 import type { HqlTab } from "../../stores/hql";
 import { invoke } from "@tauri-apps/api/core";
+import { ErrorBanner } from "./error-banner";
 
 export interface HqlPanelProps {
   viewMode?: "table" | "json" | "log";
@@ -185,8 +186,8 @@ export const HqlPanel = (props: HqlPanelProps) => {
                     <Switch>
                       <Match when={props.queryStatus === "error"}>
                         <div class="flex-1 overflow-auto overscroll-behavior-y-contain min-h-0 select-text">
-                          <div class="p-3 text-native-primary font-mono text-[12px] whitespace-pre-wrap leading-relaxed">
-                            {props.output}
+                          <div class="p-3">
+                            <ErrorBanner error={props.output || "Execution failed"} />
                             <SupportedOperationsHelp />
                           </div>
                         </div>

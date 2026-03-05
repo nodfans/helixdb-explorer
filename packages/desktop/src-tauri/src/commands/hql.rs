@@ -914,6 +914,11 @@ pub fn format_hql(code: String) -> Result<String, String> {
                 if !processed.is_empty() && !processed.ends_with('\n') && !processed.ends_with(' ') && !processed.ends_with('(') && !processed.ends_with('[') && !processed.ends_with('{') && !processed.ends_with('<') && !processed.ends_with("::") {
                     if c == '{' || c == '[' { processed.push(' '); }
                 }
+                // Keep a visible separator in query/function signatures:
+                // `QUERY Name () =>` instead of `QUERY Name() =>`.
+                if is_query_params && !processed.ends_with(' ') {
+                    processed.push(' ');
+                }
                 if c == '<' {
                     if iter.peek() == Some(&'-') {
                         iter.next();

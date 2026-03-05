@@ -5,7 +5,7 @@ export type QueryState = {
   params: Record<string, any>;
   result: string | null;
   rawResult: any;
-  error: string | null;
+  error: unknown | null;
   viewMode: "json" | "table";
 };
 
@@ -17,7 +17,7 @@ export interface WorkbenchState {
   params: Record<string, any>;
   result: string | null;
   rawResult: any;
-  error: string | null;
+  error: unknown | null;
   viewMode: "json" | "table";
   searchQuery: string;
   resultSearchQuery: string;

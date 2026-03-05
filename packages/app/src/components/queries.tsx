@@ -10,6 +10,8 @@ import { ResultTable } from "./ui/result-table";
 import { ToolbarLayout } from "./ui/toolbar-layout";
 import { EmptyState } from "./ui/empty-state";
 import { extractMultiTableData } from "../lib/result-helper";
+import { reportUiError } from "../lib/error-normalizer";
+import { ErrorBanner } from "./ui/error-banner";
 
 interface QueriesProps {
   api: HelixApi;
@@ -19,6 +21,34 @@ interface QueriesProps {
   isConnected: boolean;
   onConnect: () => void;
 }
+
+const PARAM_MEMORY_KEY = "helix_workbench_param_memory_v1";
+
+type EndpointParamMemory = Record<string, Record<string, any>>;
+
+const readParamMemory = (): EndpointParamMemory => {
+  try {
+    const raw = localStorage.getItem(PARAM_MEMORY_KEY);
+    return raw ? (JSON.parse(raw) as EndpointParamMemory) : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeParamMemory = (memory: EndpointParamMemory) => {
+  try {
+    localStorage.setItem(PARAM_MEMORY_KEY, JSON.stringify(memory));
+  } catch {
+    // Ignore storage issues.
+  }
+};
+
+const isBooleanType = (paramType: string) => {
+  const t = paramType.toLowerCase();
+  return t === "boolean" || t === "bool";
+};
+
+const defaultParamValue = (paramType: string) => (isBooleanType(paramType) ? false : "");
 
 export const Queries = (props: QueriesProps) => {
   const endpoints = () => workbenchState.endpoints;
@@ -66,6 +96,7 @@ export const Queries = (props: QueriesProps) => {
   const [isCopied, setIsCopied] = createSignal(false);
   const [searchFocused, setSearchFocused] = createSignal(false);
   const [isRunning, setIsRunning] = createSignal(false);
+  const [paramHint, setParamHint] = createSignal<string | null>(null);
 
   const hasParams = () => {
     const ep = selectedEndpoint();
@@ -109,6 +140,28 @@ export const Queries = (props: QueriesProps) => {
 
   const deepClone = (v: any) => (v ? JSON.parse(JSON.stringify(v)) : v);
 
+  const persistParamsForEndpoint = (endpointId: string, values: Record<string, any>) => {
+    const memory = readParamMemory();
+    memory[endpointId] = values;
+    writeParamMemory(memory);
+  };
+
+  const getRememberedParamsForEndpoint = (endpointId: string): Record<string, any> => {
+    const memory = readParamMemory();
+    return memory[endpointId] || {};
+  };
+
+  const updateSingleParam = (name: string, value: any) => {
+    const ep = selectedEndpoint();
+    if (!ep) return;
+    const next = {
+      ...params(),
+      [name]: value,
+    };
+    setParams(next);
+    persistParamsForEndpoint(ep.id, next);
+  };
+
   const handleSelect = (endpoint: EndpointConfig) => {
     batch(() => {
       const currentEndpoint = selectedEndpoint();
@@ -147,14 +200,18 @@ export const Queries = (props: QueriesProps) => {
         const initialParams: Record<string, any> = {};
         if (endpoint.params) {
           endpoint.params.forEach((p) => {
-            if (p.param_type.toLowerCase() === "boolean" || p.param_type.toLowerCase() === "bool") {
-              initialParams[p.name] = false;
-            } else {
-              initialParams[p.name] = "";
-            }
+            initialParams[p.name] = defaultParamValue(p.param_type);
           });
         }
-        setParams(initialParams);
+        const remembered = getRememberedParamsForEndpoint(endpoint.id);
+        const merged = { ...initialParams };
+        for (const p of endpoint.params || []) {
+          if (Object.prototype.hasOwnProperty.call(remembered, p.name)) {
+            merged[p.name] = remembered[p.name];
+          }
+        }
+        setParams(merged);
+        persistParamsForEndpoint(endpoint.id, merged);
         setResult(null);
         setRawResult(null);
         setError(null);
@@ -183,14 +240,13 @@ export const Queries = (props: QueriesProps) => {
     const initialParams: Record<string, any> = {};
     if (endpoint.params) {
       endpoint.params.forEach((p) => {
-        if (p.param_type.toLowerCase() === "boolean" || p.param_type.toLowerCase() === "bool") {
-          initialParams[p.name] = false;
-        } else {
-          initialParams[p.name] = "";
-        }
+        initialParams[p.name] = defaultParamValue(p.param_type);
       });
     }
     setParams(initialParams);
+    persistParamsForEndpoint(endpoint.id, initialParams);
+    setParamHint("Parameters reset to defaults.");
+    setTimeout(() => setParamHint(null), 1800);
   };
 
   const [runId, setRunId] = createSignal(0);
@@ -235,10 +291,11 @@ export const Queries = (props: QueriesProps) => {
       } else if (typeof res === "object" && res !== null) {
         setSelectedRows([res]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // GUARD: If user switched endpoints or started new run, DISCARD the error
       if (selectedEndpoint()?.id !== targetEndpointId || runId() !== currentRunId) return;
-      setError(err.message || "Query execution failed");
+      const uiErr = reportUiError("queries.execute", err);
+      setError(uiErr);
     } finally {
       setIsRunning(false);
     }
@@ -301,8 +358,21 @@ export const Queries = (props: QueriesProps) => {
 
     return endpoint.params.every((p) => {
       const val = params()[p.name];
+      if (!p.required) return true;
       return val !== undefined && val !== null && String(val).trim() !== "";
     });
+  });
+
+  const missingRequiredParams = createMemo(() => {
+    const endpoint = selectedEndpoint();
+    if (!endpoint?.params) return [] as string[];
+    return endpoint.params
+      .filter((p) => p.required)
+      .filter((p) => {
+        const val = params()[p.name];
+        return val === undefined || val === null || String(val).trim() === "";
+      })
+      .map((p) => p.name);
   });
 
   const multiTableData = createMemo(() => {
@@ -429,7 +499,9 @@ export const Queries = (props: QueriesProps) => {
                       size={11}
                       strokeWidth={2.5}
                       class={`shrink-0 transition-all duration-300 ${
-                        selectedEndpoint()?.name === endpoint.name ? "text-toolbar-icon opacity-80 translate-x-0" : "text-native-quaternary opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0"
+                        selectedEndpoint()?.name === endpoint.name
+                          ? "text-toolbar-icon opacity-80 translate-x-0"
+                          : "text-native-quaternary opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0"
                       }`}
                     />
                   </button>
@@ -449,11 +521,7 @@ export const Queries = (props: QueriesProps) => {
         </div>
 
         <div class="w-px h-full flex-none relative group z-50 bg-native">
-          <div
-            class="absolute inset-y-0 w-[3px] -left-[1px] cursor-col-resize hover:bg-accent/15 transition-colors"
-            classList={{ "bg-accent/25": isResizing() }}
-            onMouseDown={startResizing}
-          />
+          <div class="absolute inset-y-0 w-[3px] -left-[1px] cursor-col-resize hover:bg-accent/15 transition-colors" classList={{ "bg-accent/25": isResizing() }} onMouseDown={startResizing} />
         </div>
 
         <div class="flex-1 flex flex-col overflow-hidden bg-[var(--bg-workbench-content)]">
@@ -498,7 +566,7 @@ export const Queries = (props: QueriesProps) => {
                 <button
                   disabled={props.isExecuting || !canExecute()}
                   onClick={executeQuery}
-                  title="Run (⌘+Enter)"
+                  title={canExecute() ? "Run (⌘+Enter)" : `Missing required: ${missingRequiredParams().slice(0, 3).join(", ")}${missingRequiredParams().length > 3 ? "..." : ""}`}
                   class="h-7 w-7 flex items-center justify-center rounded-md hover:bg-hover active:bg-active transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Show when={!props.isExecuting} fallback={<LoaderCircle size={14} class="animate-spin text-emerald-500" strokeWidth={2.5} />}>
@@ -534,12 +602,14 @@ export const Queries = (props: QueriesProps) => {
                     onInput={(e) => setResultSearchQuery(e.currentTarget.value)}
                   />
                   <Show when={resultSearchQuery()}>
-                    <button
+                    <Button
+                      variant="toolbar"
+                      size="sm"
                       onClick={() => setResultSearchQuery("")}
                       class="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 hover:bg-hover rounded-md text-native-quaternary hover:text-native-primary transition-colors z-20"
                     >
                       <X size={12} />
-                    </button>
+                    </Button>
                   </Show>
                 </div>
 
@@ -570,12 +640,12 @@ export const Queries = (props: QueriesProps) => {
 
                 <Show when={error()}>
                   <div class="flex-1 flex items-center justify-center p-6 bg-[var(--bg-workbench-content)]">
-                    <div class="max-w-md text-center">
+                    <div class="max-w-lg w-full text-center">
                       <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-status-error/10 border border-status-error/20 flex items-center justify-center shadow-sm">
                         <CircleAlert class="w-7 h-7 text-status-error" />
                       </div>
                       <p class="text-[14px] font-semibold text-native-primary mb-2">Query Failed</p>
-                      <p class="text-[12px] text-native-secondary font-mono bg-native-sidebar px-4 py-3 rounded-lg border border-native">{error()}</p>
+                      <ErrorBanner error={error()} />
                     </div>
                   </div>
                 </Show>
@@ -673,7 +743,10 @@ export const Queries = (props: QueriesProps) => {
                             <span class="text-[11px] font-bold text-native-tertiary tracking-tight truncate flex-1 min-w-0" title={param.name}>
                               {param.name}
                             </span>
-                            <Show when={!params()[param.name] && params()[param.name] !== false}>
+                            <span class="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-native-content/70 text-native-quaternary border border-native-subtle">
+                              {param.param_type}
+                            </span>
+                            <Show when={param.required && (params()[param.name] === undefined || params()[param.name] === null || String(params()[param.name]).trim() === "")}>
                               <span class="text-status-error text-[9px] font-black tracking-tighter shrink-0 drop-shadow-sm">Required</span>
                             </Show>
                           </div>
@@ -686,12 +759,7 @@ export const Queries = (props: QueriesProps) => {
                                   <input
                                     type="checkbox"
                                     checked={params()[param.name] === true}
-                                    onChange={(e) =>
-                                      setParams({
-                                        ...params(),
-                                        [param.name]: e.currentTarget.checked,
-                                      })
-                                    }
+                                    onChange={(e) => updateSingleParam(param.name, e.currentTarget.checked)}
                                     class="peer absolute inset-0 w-full h-full appearance-none rounded border border-native-subtle bg-native-content checked:[background:var(--checkbox-checked-bg)] checked:[border-color:var(--checkbox-checked-border)] transition-all cursor-pointer"
                                   />
                                   <Check size={9} strokeWidth={3} class="z-10 [color:var(--checkbox-checked-icon)] opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
@@ -704,18 +772,19 @@ export const Queries = (props: QueriesProps) => {
                               type="text"
                               placeholder={`Enter ${param.param_type.toLowerCase()}...`}
                               value={params()[param.name] ?? ""}
-                              onInput={(e) =>
-                                setParams({
-                                  ...params(),
-                                  [param.name]: e.currentTarget.value,
-                                })
-                              }
+                              onInput={(e) => updateSingleParam(param.name, e.currentTarget.value)}
                               class="w-full h-8.5 px-3 bg-[var(--bg-toolbar)] border border-native-subtle rounded-lg text-[12px] text-native-primary placeholder:text-native-quaternary/60 outline-none focus:bg-native-elevated focus:border-accent/50 focus:shadow-[0_0_12px_rgba(0,122,255,0.05)] transition-all"
+                              classList={{
+                                "!border-status-error/50": param.required && (params()[param.name] === undefined || params()[param.name] === null || String(params()[param.name]).trim() === ""),
+                              }}
                             />
                           </Show>
                         </div>
                       )}
                     </For>
+                    <Show when={paramHint()}>
+                      <div class="text-[11px] text-accent font-medium">{paramHint()}</div>
+                    </Show>
                   </div>
 
                   <div class="p-4 border-t border-native bg-[var(--bg-toolbar)]">

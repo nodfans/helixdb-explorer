@@ -6,6 +6,7 @@ import { setConnectionStore, activeConnection, getConnectionUrl, ConnectionInfo,
 import { setWorkbenchState, queryStateCache } from "../stores/workbench";
 import { setHqlStore } from "../stores/hql";
 import { reloadDashboard } from "../components/dashboard";
+import { reportUiError } from "../lib/error-normalizer";
 
 const isTauri = () => typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__;
 
@@ -178,7 +179,8 @@ export function createConnection() {
       setShowSettings(false);
     } catch (err: any) {
       console.error(`[handleConnect] Connection failed:`, err);
-      setError(err.message || String(err));
+      const uiErr = reportUiError("connection.handleConnect", err);
+      setError(uiErr.hint ? `${uiErr.title}: ${uiErr.message}\nHint: ${uiErr.hint}` : `${uiErr.title}: ${uiErr.message}`);
       setIsConnected(false);
     } finally {
       setIsConnecting(false);

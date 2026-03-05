@@ -39,11 +39,11 @@ export function Grid(props: GridProps) {
 
   // Selection anchor for shift-click range selection (original index)
   const [anchorIndex, setAnchorIndex] = createSignal<number | null>(null);
-  // Hover tracking via signal (sorted index)
-  const [hoveredSortedIndex, setHoveredSortedIndex] = createSignal<number | null>(null);
 
   let containerRef: HTMLDivElement | undefined;
   let inputRef: HTMLInputElement | undefined;
+  let pendingScrollTop = 0;
+  let scrollRafId: number | null = null;
 
   // Initialize column widths and viewport height
   onMount(() => {
@@ -112,6 +112,10 @@ export function Grid(props: GridProps) {
   onCleanup(() => {
     window.removeEventListener("mousemove", handleMouseMove);
     window.removeEventListener("mouseup", handleMouseUp);
+    if (scrollRafId !== null) {
+      cancelAnimationFrame(scrollRafId);
+      scrollRafId = null;
+    }
   });
 
   const handleResizeStart = (e: MouseEvent, colKey: string) => {
@@ -198,7 +202,12 @@ export function Grid(props: GridProps) {
   });
 
   const handleScroll = (e: Event) => {
-    setScrollTop((e.currentTarget as HTMLDivElement).scrollTop);
+    pendingScrollTop = (e.currentTarget as HTMLDivElement).scrollTop;
+    if (scrollRafId !== null) return;
+    scrollRafId = requestAnimationFrame(() => {
+      setScrollTop(pendingScrollTop);
+      scrollRafId = null;
+    });
   };
 
   // --- Cell editing ---
@@ -235,7 +244,18 @@ export function Grid(props: GridProps) {
     if (!props.onSelectionChange) return;
     const current = props.selectedRowIndices || [];
 
-    if (e.shiftKey && anchorIndex() !== null) {
+    // Selection is intentionally shift-driven:
+    // - Plain click does not keep row selection highlight.
+    // - Shift+Click selects range based on anchor.
+    if (!e.shiftKey) {
+      if (current.length > 0) {
+        props.onSelectionChange([]);
+      }
+      setAnchorIndex(originalIndex);
+      return;
+    }
+
+    if (anchorIndex() !== null) {
       // Range select in visual (sorted) order
       const anchorSorted = originalToSortedMap().get(anchorIndex()!);
       if (anchorSorted !== undefined) {
@@ -246,25 +266,10 @@ export function Grid(props: GridProps) {
           .map((x) => x.originalIndex);
         props.onSelectionChange(rangeOriginals);
       }
-      // Don't update anchor on shift-click
-    } else if (e.metaKey) {
-      // Cmd+Click: toggle individual row
-      const isSelected = selectedSet().has(originalIndex);
-      if (isSelected) {
-        props.onSelectionChange(current.filter((i) => i !== originalIndex));
-      } else {
-        props.onSelectionChange([...current, originalIndex]);
-      }
-      setAnchorIndex(originalIndex);
     } else {
-      // Plain click: select single row, or deselect if already sole selection
-      if (current.length === 1 && current[0] === originalIndex) {
-        props.onSelectionChange([]);
-        setAnchorIndex(null);
-      } else {
-        props.onSelectionChange([originalIndex]);
-        setAnchorIndex(originalIndex);
-      }
+      // First shift-click without anchor selects current row and sets anchor.
+      props.onSelectionChange([originalIndex]);
+      setAnchorIndex(originalIndex);
     }
   };
 
@@ -427,7 +432,7 @@ export function Grid(props: GridProps) {
               position: "absolute",
               top: "32px",
               left: 0,
-              transform: `translateY(${virtualStore().offset}px)`,
+              transform: `translate3d(0, ${virtualStore().offset}px, 0)`,
             }}
           >
             <For each={virtualStore().visibleRows}>
@@ -436,25 +441,23 @@ export function Grid(props: GridProps) {
                 const originalIndex = item.originalIndex;
                 const sortedIndex = item.sortedIndex;
                 const isRowSelected = () => selectedSet().has(originalIndex);
-                const isHovered = () => hoveredSortedIndex() === sortedIndex;
-
                 return (
                   <div
-                    class="flex transition-colors duration-100"
+                    class="flex"
+                    classList={{
+                      "hover:bg-[var(--grid-row-hover)]": !isRowSelected(),
+                    }}
                     style={{
                       height: `${ROW_HEIGHT}px`,
+                      "box-sizing": "border-box",
                       "border-bottom": "1px solid var(--grid-border)",
-                      "background-color": isRowSelected() ? "var(--grid-row-selected)" : isHovered() ? "var(--grid-row-hover)" : "var(--grid-row-bg)",
+                      "background-color": isRowSelected() ? "var(--grid-row-selected)" : "var(--grid-row-bg)",
                       cursor: "pointer",
                     }}
                     onClick={(e) => handleRowClick(sortedIndex, originalIndex, e)}
                     onMouseDown={(e) => {
                       // Prevent text selection during shift-click
                       if (e.shiftKey) e.preventDefault();
-                    }}
-                    onMouseEnter={() => setHoveredSortedIndex(sortedIndex)}
-                    onMouseLeave={() => {
-                      if (hoveredSortedIndex() === sortedIndex) setHoveredSortedIndex(null);
                     }}
                     onContextMenu={(e) => handleContextMenu(e, originalIndex)}
                   >
@@ -464,6 +467,7 @@ export function Grid(props: GridProps) {
                       style={{
                         width: `${rowNumberWidth()}px`,
                         height: `${ROW_HEIGHT}px`,
+                        "box-sizing": "border-box",
                         "border-right": "1px solid var(--grid-border)",
                         color: "var(--grid-cell-secondary)",
                         "font-size": "11px",
@@ -483,10 +487,11 @@ export function Grid(props: GridProps) {
 
                         return (
                           <div
-                            class="flex-shrink-0 flex items-center transition-colors duration-100 cursor-cell relative"
+                            class="flex-shrink-0 flex items-center transition-colors duration-100 cursor-text relative"
                             style={{
                               width: `${columnWidths()[column.key] || 150}px`,
                               height: `${ROW_HEIGHT}px`,
+                              "box-sizing": "border-box",
                               "border-right": "1px solid var(--grid-border)",
                             }}
                             onDblClick={() => handleCellDoubleClick(originalIndex, column.key, value())}
@@ -495,17 +500,33 @@ export function Grid(props: GridProps) {
                               when={isEditing()}
                               fallback={
                                 <div
-                                  class="px-1.5 w-full whitespace-nowrap overflow-x-auto scrollbar-hide"
+                                  class="px-1.5 w-full whitespace-nowrap overflow-hidden text-ellipsis"
                                   style={{
                                     color: "var(--grid-cell-text)",
                                     "font-size": "12px",
                                     "text-align": column.align || "left",
                                     "line-height": "1.2",
-                                    "mask-image": "linear-gradient(to right, black calc(100% - 15px), transparent 100%)",
-                                    "-webkit-mask-image": "linear-gradient(to right, black calc(100% - 15px), transparent 100%)",
                                   }}
                                 >
-                                  {value() !== null && value() !== undefined ? String(value()) : ""}
+                                  <span
+                                    class="inline-block"
+                                    onMouseDown={(e) => {
+                                      // Keep browser default on single/double click.
+                                      // For triple-click and above, avoid line-wide selection
+                                      // and clamp selection to this text only.
+                                      if (e.detail < 3) return;
+                                      e.preventDefault();
+                                      const target = e.currentTarget as HTMLSpanElement;
+                                      const sel = window.getSelection();
+                                      if (!sel) return;
+                                      const range = document.createRange();
+                                      range.selectNodeContents(target);
+                                      sel.removeAllRanges();
+                                      sel.addRange(range);
+                                    }}
+                                  >
+                                    {value() !== null && value() !== undefined ? String(value()) : ""}
+                                  </span>
                                 </div>
                               }
                             >

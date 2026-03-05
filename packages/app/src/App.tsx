@@ -20,6 +20,7 @@ import { SchemaQuery } from "./lib/types";
 import { workbenchState, setWorkbenchState, queryStateCache } from "./stores/workbench";
 import { batch } from "solid-js";
 import { activeConnection, saveConnections } from "./stores/connection";
+import { reportUiError } from "./lib/error-normalizer";
 
 function App() {
   const connection = createConnection();
@@ -109,9 +110,10 @@ function App() {
           await executeFn();
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Query Error:", error);
-      alert("Execution Failed: " + String(error));
+      const uiErr = reportUiError("app.executeQuery", error);
+      alert(uiErr.hint ? `${uiErr.title}: ${uiErr.message}\nHint: ${uiErr.hint}` : `${uiErr.title}: ${uiErr.message}`);
     } finally {
       setIsExecuting(false);
     }
