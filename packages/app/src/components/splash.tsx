@@ -1,4 +1,6 @@
 import { createSignal, onMount, onCleanup, For, Show } from "solid-js";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getVersion } from "@tauri-apps/api/app";
 
 interface SplashScreenProps {
   onComplete?: () => void;
@@ -80,12 +82,10 @@ export const SplashScreen = (props: SplashScreenProps) => {
 
   onMount(async () => {
     try {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().show();
     } catch {}
 
     try {
-      const { getVersion } = await import("@tauri-apps/api/app");
       setAppVersion(await getVersion());
     } catch {}
 
@@ -102,11 +102,11 @@ export const SplashScreen = (props: SplashScreenProps) => {
 
     // Preload tasks
     const tasks = [
-      { desc: "Loading modules", weight: 40, fn: () => Promise.all([import("./modeler"), import("./schema"), import("./queries"), import("./graph"), import("./hql")].map((p) => p.catch(() => {}))) },
+      { desc: "Loading modules", weight: 40, fn: () => new Promise<void>((r) => setTimeout(r, 180)) },
       {
         desc: "Preparing stores",
         weight: 30,
-        fn: () => Promise.all([import("../stores/modeler"), import("../stores/hql"), import("../stores/workbench"), import("../stores/connection")].map((p) => p.catch(() => {}))),
+        fn: () => new Promise<void>((r) => setTimeout(r, 160)),
       },
       { desc: "Finalizing", weight: 30, fn: () => new Promise<void>((r) => setTimeout(r, 400)) },
     ];

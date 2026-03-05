@@ -1,3 +1,5 @@
+import { invoke } from "@tauri-apps/api/core";
+
 export type UiErrorCode =
   | "READ_ONLY_BLOCKED"
   | "MCP_UNSUPPORTED_STEP"
@@ -160,15 +162,11 @@ export function reportUiError(context: string, err: unknown): UiError {
   console.error("[ui-error]", event, err);
 
   if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
-    import("@tauri-apps/api/core")
-      .then(({ invoke }) =>
-        invoke("log_to_terminal", {
-          message: `[ui-error] ${event.at} ${event.context} ${event.code} ${event.message}`,
-        }),
-      )
-      .catch(() => {
-        // Best effort logging only.
-      });
+    invoke("log_to_terminal", {
+      message: `[ui-error] ${event.at} ${event.context} ${event.code} ${event.message}`,
+    }).catch(() => {
+      // Best effort logging only.
+    });
   }
 
   return normalized;

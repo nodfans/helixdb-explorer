@@ -1,4 +1,5 @@
 import { createSignal, For, Show, onMount, onCleanup, createEffect, createMemo } from "solid-js";
+import { invoke } from "@tauri-apps/api/core";
 
 export interface GridColumn {
   key: string;
@@ -327,9 +328,7 @@ export function Grid(props: GridProps) {
       rowsToCopy = [props.data[originalIndex]];
     }
 
-    import("@tauri-apps/api/core").then(({ invoke }) => {
-      invoke("show_grid_context_menu", { rows: rowsToCopy, columns: props.columns });
-    });
+    invoke("show_grid_context_menu", { rows: rowsToCopy, columns: props.columns });
   };
 
   // --- Keyboard shortcuts ---

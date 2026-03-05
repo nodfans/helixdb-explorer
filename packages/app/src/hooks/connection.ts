@@ -5,7 +5,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { setConnectionStore, activeConnection, getConnectionUrl, ConnectionInfo, saveConnections, validateConnection } from "../stores/connection";
 import { setWorkbenchState, queryStateCache } from "../stores/workbench";
 import { setHqlStore } from "../stores/hql";
-import { reloadDashboard } from "../components/dashboard";
+import { reloadDashboard, resetDashboardCache } from "../components/dashboard";
+import { resetGraphCache } from "../components/graph";
+import { resetSchemaCache } from "../components/schema";
+import { resetVectorsCache } from "../components/vectors";
 import { reportUiError } from "../lib/error-normalizer";
 
 const isTauri = () => typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__;
@@ -233,22 +236,20 @@ export function createConnection() {
     setConnectedConfig({ url: "", apiKey: null });
 
     // Clear graph and dashboard cache so next connection starts fresh
-    import("../components/graph").then(({ resetGraphCache }) => resetGraphCache());
-    import("../components/dashboard").then(({ resetDashboardCache }) => resetDashboardCache());
-    import("../components/schema").then(({ resetSchemaCache }) => resetSchemaCache());
-    import("../components/vectors").then(({ resetVectorsCache }) => resetVectorsCache());
+    resetGraphCache();
+    resetDashboardCache();
+    resetSchemaCache();
+    resetVectorsCache();
 
-    import("../stores/workbench").then(({ setWorkbenchState, queryStateCache }) => {
-      setWorkbenchState({
-        endpoints: [],
-        selectedEndpoint: null,
-        params: {},
-        result: null,
-        rawResult: null,
-        error: null,
-      });
-      queryStateCache.clear();
+    setWorkbenchState({
+      endpoints: [],
+      selectedEndpoint: null,
+      params: {},
+      result: null,
+      rawResult: null,
+      error: null,
     });
+    queryStateCache.clear();
   };
 
   return {
