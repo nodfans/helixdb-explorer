@@ -29,6 +29,9 @@ jobs:
       - name: install dependencies
         run: npm install -g pnpm && pnpm install
 
+      - name: check version consistency
+        run: pnpm version:check
+
       - name: build frontend
         run: pnpm --filter @helixdb/app build
 

@@ -19,7 +19,7 @@ import { CircleAlert } from "lucide-solid";
 import { SchemaQuery } from "./lib/types";
 import { workbenchState, setWorkbenchState, queryStateCache } from "./stores/workbench";
 import { batch } from "solid-js";
-import { activeConnection } from "./stores/connection";
+import { activeConnection, saveConnections } from "./stores/connection";
 
 function App() {
   const connection = createConnection();
@@ -37,6 +37,20 @@ function App() {
 
   let unlistenSettings: UnlistenFn | undefined;
   let unlistenClose: UnlistenFn | undefined;
+  let unlistenCleanupOnExit: UnlistenFn | undefined;
+  let hasExitCleanupRun = false;
+
+  const runExitCleanup = () => {
+    if (hasExitCleanupRun) return;
+    hasExitCleanupRun = true;
+
+    try {
+      saveConnections();
+      connection.disconnect();
+    } catch (e) {
+      console.warn("Exit cleanup encountered an error", e);
+    }
+  };
 
   onMount(async () => {
     initTheme();
@@ -52,23 +66,31 @@ function App() {
           setShowExitModal(true);
         }
       });
+      unlistenCleanupOnExit = await listen("cleanup-on-exit", () => {
+        runExitCleanup();
+      });
     } catch (e) {
       console.warn("Failed to set exit listener", e);
     }
   });
 
   onCleanup(() => {
+    runExitCleanup();
     if (unlistenSettings) unlistenSettings();
     if (unlistenClose) unlistenClose();
+    if (unlistenCleanupOnExit) unlistenCleanupOnExit();
   });
 
   const handleFinalExit = async () => {
     try {
-      await invoke("terminate_app");
-    } catch (e) {
-      console.error("Failed to terminate app", e);
+      runExitCleanup();
+      allowedToClose = true;
+      setShowExitModal(false);
       const appWindow = getCurrentWindow();
-      await appWindow.destroy();
+      await appWindow.close();
+    } catch (e) {
+      console.error("Failed to close app window gracefully", e);
+      await invoke("terminate_app");
     }
   };
 

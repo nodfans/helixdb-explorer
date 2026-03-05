@@ -7,7 +7,9 @@
     "dev": "pnpm --filter @helixdb/desktop dev",
     "ui": "pnpm --filter @helixdb/app dev",
     "build": "pnpm --filter @helixdb/app build && pnpm --filter @helixdb/desktop build",
-    "tauri": "pnpm --filter @helixdb/desktop tauri"
+    "tauri": "pnpm --filter @helixdb/desktop tauri",
+    "version:sync": "node scripts/sync-versions.mjs",
+    "version:check": "node scripts/sync-versions.mjs --check"
   },
   "license": "MIT",
   "devDependencies": {

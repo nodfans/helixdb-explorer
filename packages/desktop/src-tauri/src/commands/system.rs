@@ -8,8 +8,8 @@ pub fn log_to_terminal(message: String) {
 }
 
 #[tauri::command]
-pub fn terminate_app() {
-    std::process::exit(0);
+pub fn terminate_app(app: tauri::AppHandle) {
+    app.exit(0);
 }
 
 #[tauri::command]
