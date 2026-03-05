@@ -23,6 +23,7 @@ interface GridProps {
 
 const ROW_HEIGHT = 30;
 const BUFFER_ROWS = 10;
+const HOVER_PREVIEW_MAX_WIDTH = 340;
 
 export function Grid(props: GridProps) {
   const [editingCell, setEditingCell] = createSignal<string | null>(null);
@@ -36,6 +37,7 @@ export function Grid(props: GridProps) {
   const [sortConfig, setSortConfig] = createSignal<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportHeight, setViewportHeight] = createSignal(0);
+  const [hoverPreview, setHoverPreview] = createSignal<{ text: string; x: number; y: number; visible: boolean } | null>(null);
 
   // Selection anchor for shift-click range selection (original index)
   const [anchorIndex, setAnchorIndex] = createSignal<number | null>(null);
@@ -44,6 +46,7 @@ export function Grid(props: GridProps) {
   let inputRef: HTMLInputElement | undefined;
   let pendingScrollTop = 0;
   let scrollRafId: number | null = null;
+  let hoverTimerId: number | null = null;
 
   // Initialize column widths and viewport height
   onMount(() => {
@@ -116,7 +119,40 @@ export function Grid(props: GridProps) {
       cancelAnimationFrame(scrollRafId);
       scrollRafId = null;
     }
+    if (hoverTimerId !== null) {
+      window.clearTimeout(hoverTimerId);
+      hoverTimerId = null;
+    }
   });
+
+  const hideHoverPreview = () => {
+    if (hoverTimerId !== null) {
+      window.clearTimeout(hoverTimerId);
+      hoverTimerId = null;
+    }
+    setHoverPreview((prev) => (prev ? { ...prev, visible: false } : null));
+  };
+
+  const showHoverPreview = (text: string, e: MouseEvent, shouldShow: boolean, anchorEl: HTMLElement) => {
+    if (!shouldShow) return;
+    if (!text) return;
+    if (!containerRef) return;
+    if (hoverTimerId !== null) {
+      window.clearTimeout(hoverTimerId);
+      hoverTimerId = null;
+    }
+    const rect = anchorEl.getBoundingClientRect();
+    const rootRect = containerRef.getBoundingClientRect();
+    const half = HOVER_PREVIEW_MAX_WIDTH / 2;
+    const localX = e.clientX - rootRect.left;
+    const localY = rect.bottom - rootRect.top;
+    const x = Math.min(Math.max(8 + half, localX), rootRect.width - 8 - half);
+    const y = Math.min(localY, rootRect.height - 180);
+    hoverTimerId = window.setTimeout(() => {
+      setHoverPreview({ text, x, y, visible: true });
+      hoverTimerId = null;
+    }, 120);
+  };
 
   const handleResizeStart = (e: MouseEvent, colKey: string) => {
     e.preventDefault();
@@ -484,6 +520,7 @@ export function Grid(props: GridProps) {
                         const cellId = () => `${originalIndex}-${column.key}`;
                         const isEditing = () => editingCell() === cellId();
                         const value = () => row[column.key];
+                        const textValue = () => (value() !== null && value() !== undefined ? String(value()) : "");
 
                         return (
                           <div
@@ -501,6 +538,12 @@ export function Grid(props: GridProps) {
                               fallback={
                                 <div
                                   class="px-1.5 w-full whitespace-nowrap overflow-hidden text-ellipsis"
+                                  onMouseEnter={(e) => {
+                                    const el = e.currentTarget as HTMLDivElement;
+                                    const isTruncated = el.scrollWidth > el.clientWidth;
+                                    showHoverPreview(textValue(), e, isTruncated, el);
+                                  }}
+                                  onMouseLeave={hideHoverPreview}
                                   style={{
                                     color: "var(--grid-cell-text)",
                                     "font-size": "12px",
@@ -514,6 +557,7 @@ export function Grid(props: GridProps) {
                                       // Keep browser default on single/double click.
                                       // For triple-click and above, avoid line-wide selection
                                       // and clamp selection to this text only.
+                                      hideHoverPreview();
                                       if (e.detail < 3) return;
                                       e.preventDefault();
                                       const target = e.currentTarget as HTMLSpanElement;
@@ -525,7 +569,7 @@ export function Grid(props: GridProps) {
                                       sel.addRange(range);
                                     }}
                                   >
-                                    {value() !== null && value() !== undefined ? String(value()) : ""}
+                                    {textValue()}
                                   </span>
                                 </div>
                               }
@@ -559,6 +603,27 @@ export function Grid(props: GridProps) {
           </div>
         </div>
       </div>
+      <Show when={hoverPreview()?.visible}>
+        <div
+          class="absolute pointer-events-none z-[120] rounded-md border border-native-subtle px-2.5 py-2 shadow-[0_6px_22px_rgba(0,0,0,0.24)]"
+          style={{
+            left: `${hoverPreview()!.x}px`,
+            top: `${hoverPreview()!.y}px`,
+            "max-width": `${HOVER_PREVIEW_MAX_WIDTH}px`,
+            transform: "translateX(-50%)",
+            "background-color": "color-mix(in srgb, var(--bg-elevated) 94%, #000 6%)",
+          }}
+        >
+          <div
+            class="text-[12px] leading-[1.4] text-native-primary whitespace-pre-wrap break-words"
+            style={{
+              "font-family": "var(--font-sans)",
+            }}
+          >
+            {hoverPreview()!.text}
+          </div>
+        </div>
+      </Show>
     </div>
   );
 }

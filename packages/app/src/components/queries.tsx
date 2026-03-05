@@ -151,6 +151,17 @@ export const Queries = (props: QueriesProps) => {
     return memory[endpointId] || {};
   };
 
+  const updateViewMode = (mode: "table" | "json") => {
+    setViewMode(mode);
+    const ep = selectedEndpoint();
+    if (!ep) return;
+    const cached = queryStateCache.get(ep.id);
+    if (cached) {
+      cached.viewMode = mode;
+      queryStateCache.set(ep.id, cached);
+    }
+  };
+
   const updateSingleParam = (name: string, value: any) => {
     const ep = selectedEndpoint();
     if (!ep) return;
@@ -215,6 +226,7 @@ export const Queries = (props: QueriesProps) => {
         setResult(null);
         setRawResult(null);
         setError(null);
+        setViewMode("table");
         setSelectedRows([]);
       }
     });
@@ -283,8 +295,6 @@ export const Queries = (props: QueriesProps) => {
 
       setRawResult(reconcile(res));
       setResult(JSON.stringify(res, null, 2));
-
-      setViewMode("table");
 
       if (Array.isArray(res) && res.length > 0) {
         setSelectedRows([res[0]]);
@@ -614,12 +624,12 @@ export const Queries = (props: QueriesProps) => {
                 </div>
 
                 <div class="flex items-center gap-1.5">
-                  <Button variant="toolbar" size="sm" active={viewMode() === "table"} onClick={() => setViewMode("table")} class="flex items-center gap-1.5 transition-all duration-75">
+                  <Button variant="toolbar" size="sm" active={viewMode() === "table"} onClick={() => updateViewMode("table")} class="flex items-center gap-1.5 transition-all duration-75">
                     <Table size={13} class={viewMode() === "table" ? "text-accent" : "text-native-tertiary"} />
                     Table
                   </Button>
 
-                  <Button variant="toolbar" size="sm" active={viewMode() === "json"} onClick={() => setViewMode("json")} class="flex items-center gap-1.5 transition-all duration-75">
+                  <Button variant="toolbar" size="sm" active={viewMode() === "json"} onClick={() => updateViewMode("json")} class="flex items-center gap-1.5 transition-all duration-75">
                     <Braces size={13} class={viewMode() === "json" ? "text-accent" : "text-native-tertiary"} />
                     Json
                   </Button>
